@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "organvm-engine"
+version = "0.1.0"
+description = "Core governance, registry, and orchestration engine for the organvm eight-organ system"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+schema = ["jsonschema>=4.20"]
+dev = ["pytest>=8.0", "jsonschema>=4.20"]
+
+[project.scripts]
+organvm = "organvm_engine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

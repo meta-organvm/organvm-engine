@@ -1,0 +1,28 @@
+schema_version: "1.0"
+organ: I
+organ_name: Theory
+repo: recursive-engine
+org: organvm-i-theoria
+
+metadata:
+  implementation_status: ACTIVE
+  tier: flagship
+  promotion_status: PUBLIC_PROCESS
+
+agents:
+  - name: ci
+    trigger: on_push
+    workflow: .github/workflows/ci-python.yml
+    description: "CI pipeline"
+
+produces:
+  - type: theory
+    description: "Epistemological frameworks"
+    consumers: [ORGAN-II]
+
+consumes: []
+
+subscriptions:
+  - event: governance.updated
+    source: ORGAN-IV
+    action: Check compliance

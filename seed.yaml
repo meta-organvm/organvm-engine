@@ -1,0 +1,44 @@
+# seed.yaml — Automation Contract for meta-organvm/organvm-engine
+# Schema: seed/v1.0
+
+schema_version: "1.0"
+organ: Meta
+organ_name: Meta
+repo: organvm-engine
+org: meta-organvm
+
+metadata:
+  implementation_status: ACTIVE
+  tier: flagship
+  promotion_status: LOCAL
+  last_validated: "2026-02-17"
+  generated: "2026-02-17"
+  sprint: "INFRASTRUCTURE"
+  language: python
+
+agents:
+  - name: ci
+    trigger: on_push
+    workflow: .github/workflows/ci.yml
+    description: "Run tests and type checks"
+
+produces:
+  - type: governance-policy
+    description: "Registry validation, dependency checking, governance audit results"
+    consumers: [ORGAN-IV, META-ORGANVM]
+  - type: registry
+    description: "Programmatic registry access and updates"
+    consumers: [ORGAN-IV, META-ORGANVM]
+
+consumes:
+  - type: registry
+    source: META-ORGANVM
+    description: "Reads registry-v2.json as primary data source"
+  - type: schema
+    source: META-ORGANVM
+    description: "Uses JSON Schema definitions for validation"
+
+subscriptions:
+  - event: registry.updated
+    source: META-ORGANVM
+    action: Re-validate registry against governance rules

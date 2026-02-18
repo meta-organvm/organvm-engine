@@ -1,0 +1,50 @@
+"""Discover seed.yaml files across the workspace."""
+
+from pathlib import Path
+
+# Known org directories that mirror the GitHub org structure
+ORGAN_ORGS = [
+    "organvm-i-theoria",
+    "organvm-ii-poiesis",
+    "organvm-iii-ergon",
+    "organvm-iv-taxis",
+    "organvm-v-logos",
+    "organvm-vi-koinonia",
+    "organvm-vii-kerygma",
+    "meta-organvm",
+]
+
+DEFAULT_WORKSPACE = Path.home() / "Workspace"
+
+
+def discover_seeds(
+    workspace: Path | str | None = None,
+    orgs: list[str] | None = None,
+) -> list[Path]:
+    """Walk the workspace and find all seed.yaml files.
+
+    Structure: ~/Workspace/<org>/<repo>/seed.yaml
+
+    Args:
+        workspace: Root workspace directory. Defaults to ~/Workspace.
+        orgs: List of org directory names to scan. Defaults to all 8 organs.
+
+    Returns:
+        Sorted list of paths to seed.yaml files found.
+    """
+    ws = Path(workspace) if workspace else DEFAULT_WORKSPACE
+    scan_orgs = orgs or ORGAN_ORGS
+
+    seeds: list[Path] = []
+    for org_name in scan_orgs:
+        org_dir = ws / org_name
+        if not org_dir.is_dir():
+            continue
+        for repo_dir in sorted(org_dir.iterdir()):
+            if not repo_dir.is_dir():
+                continue
+            seed_file = repo_dir / "seed.yaml"
+            if seed_file.is_file():
+                seeds.append(seed_file)
+
+    return sorted(seeds)
