@@ -12,10 +12,6 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class TestCalculator:
-    @pytest.fixture
-    def registry(self):
-        return load_registry(FIXTURES / "registry-minimal.json")
-
     def test_compute_totals(self, registry):
         m = compute_metrics(registry)
         assert m["total_repos"] == 4

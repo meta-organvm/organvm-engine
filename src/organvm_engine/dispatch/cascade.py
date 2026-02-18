@@ -1,6 +1,6 @@
 """Dependency cascade execution planning."""
 
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from organvm_engine.registry.query import all_repos
 
@@ -30,11 +30,11 @@ def plan_cascade(
 
     # BFS from start_repo
     visited = set()
-    queue = [start_repo]
+    queue = deque([start_repo])
     order = []
 
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         if current in visited:
             continue
         visited.add(current)

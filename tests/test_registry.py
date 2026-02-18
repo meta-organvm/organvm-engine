@@ -10,13 +10,6 @@ from organvm_engine.registry.query import find_repo, all_repos, list_repos
 from organvm_engine.registry.validator import validate_registry
 from organvm_engine.registry.updater import update_repo
 
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
-@pytest.fixture
-def registry():
-    return load_registry(FIXTURES / "registry-minimal.json")
-
 
 class TestLoader:
     def test_load_returns_dict(self, registry):

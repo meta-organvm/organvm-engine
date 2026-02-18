@@ -89,14 +89,21 @@ def cmd_registry_validate(args: argparse.Namespace) -> int:
 def cmd_registry_update(args: argparse.Namespace) -> int:
     registry = load_registry(args.registry)
 
-    # Type coercion
+    # Type coercion — only for known boolean/integer fields
+    BOOL_FIELDS = {"public", "platinum_status", "archived"}
+    INT_FIELDS = set()  # No integer fields currently
+
     value: str | bool | int = args.value
-    if value.lower() == "true":
-        value = True
-    elif value.lower() == "false":
-        value = False
-    elif value.isdigit():
-        value = int(value)
+    if args.field in BOOL_FIELDS:
+        if value.lower() == "true":
+            value = True
+        elif value.lower() == "false":
+            value = False
+    elif args.field in INT_FIELDS:
+        try:
+            value = int(value)
+        except ValueError:
+            pass
 
     ok, msg = update_repo(registry, args.repo, args.field, value)
     print(f"  {msg}")

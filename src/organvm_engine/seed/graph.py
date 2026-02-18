@@ -75,9 +75,12 @@ def build_seed_graph(
             source = c.get("source", "")
             graph.consumes.setdefault(identity, []).append(c)
 
-            # Find matching producers
+            # Find matching producers, filtering by source when specified
             for producer in producers_by_type.get(ctype, []):
-                if producer != identity:
-                    graph.edges.append((producer, identity, ctype))
+                if producer == identity:
+                    continue
+                if source and source not in producer:
+                    continue
+                graph.edges.append((producer, identity, ctype))
 
     return graph

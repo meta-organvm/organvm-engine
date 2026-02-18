@@ -38,10 +38,6 @@ class TestStateMachine:
 
 
 class TestDependencyGraph:
-    @pytest.fixture
-    def registry(self):
-        return load_registry(FIXTURES / "registry-minimal.json")
-
     def test_valid_graph_passes(self, registry):
         result = validate_dependencies(registry)
         assert result.passed
