@@ -20,6 +20,7 @@ Usage:
     organvm git status [--organ X]
     organvm git reproduce-workspace [--organ X] [--shallow] [--manifest <path>]
     organvm git diff-pinned [--organ X]
+    organvm claudemd sync [--dry-run] [--organ X]
 """
 
 import argparse
@@ -443,6 +444,36 @@ def cmd_git_diff_pinned(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── CLAUDE.md commands ───────────────────────────────────────────────
+
+
+def cmd_claudemd_sync(args: argparse.Namespace) -> int:
+    from organvm_engine.claudemd.sync import sync_all
+
+    organs = [args.organ] if args.organ else None
+    result = sync_all(
+        workspace=args.workspace,
+        registry_path=args.registry,
+        dry_run=args.dry_run,
+        organs=organs,
+    )
+
+    print(f"CLAUDE.md Sync Results")
+    print(f"{'─' * 40}")
+    print(f"  Updated: {len(result['updated'])}")
+    print(f"  Created: {len(result['created'])}")
+    print(f"  Skipped: {len(result['skipped'])}")
+    if result["errors"]:
+        print(f"  Errors:  {len(result['errors'])}")
+        for e in result["errors"]:
+            print(f"    - {e['path']}: {e['error']}")
+
+    if result.get("dry_run"):
+        print(f"\n[DRY RUN] No files were modified.")
+
+    return 1 if result["errors"] else 0
+
+
 # ── CLI argument parsing ─────────────────────────────────────────────
 
 
@@ -543,6 +574,14 @@ def build_parser() -> argparse.ArgumentParser:
     git_diff = git_sub.add_parser("diff-pinned", help="Show detailed diff between pinned and current")
     git_diff.add_argument("--organ", default=None, help="Specific organ (default: all)")
 
+    # claudemd
+    clmd = sub.add_parser("claudemd", help="CLAUDE.md auto-generation")
+    clmd.add_argument("--workspace", default=None, help="Workspace root directory")
+    clmd_sub = clmd.add_subparsers(dest="subcommand")
+    c_sync = clmd_sub.add_parser("sync", help="Sync all CLAUDE.md files")
+    c_sync.add_argument("--dry-run", action="store_true", help="Report changes without writing")
+    c_sync.add_argument("--organ", default=None, help="Filter to specific organ")
+
     return parser
 
 
@@ -574,6 +613,7 @@ def main() -> int:
         ("git", "status"): cmd_git_status,
         ("git", "reproduce-workspace"): cmd_git_reproduce,
         ("git", "diff-pinned"): cmd_git_diff_pinned,
+        ("claudemd", "sync"): cmd_claudemd_sync,
     }
 
     handler = dispatch.get((args.command, getattr(args, "subcommand", None)))
