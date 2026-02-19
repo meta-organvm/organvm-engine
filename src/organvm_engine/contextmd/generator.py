@@ -113,19 +113,30 @@ def generate_agents_section(
                     targets = []
                     for consumer in p.get("consumers"):
                         if isinstance(consumer, dict):
-                            targets.append(consumer.get("organ") or consumer.get("repo") or "unknown")
+                            # Link to the consumer repo context if possible
+                            repo_n = consumer.get("repo")
+                            if repo_n:
+                                targets.append(f"[`{repo_n}`](../{repo_n}/CLAUDE.md)")
+                            else:
+                                targets.append(consumer.get("organ") or "unknown")
                         else:
                             targets.append(str(consumer))
                     target = ", ".join(targets)
                 target = target or "unspecified"
-                prod.append(f"- **Produce** `{art}` for `{target}`")
+                prod.append(f"- **Produce** `{art}` for {target}")
             else:
                 prod.append(f"- **Produce** `{p}`")
         for c in seed.get("consumes", []) or []:
             if isinstance(c, dict):
                 art = c.get("artifact") or c.get("type") or "unknown"
                 source = c.get("source") or "unspecified"
-                cons.append(f"- **Consume** `{art}` from `{source}`")
+                # If source is org/repo, try to link it
+                if "/" in source:
+                    org_n, repo_n = source.split("/", 1)
+                    source_link = f"[`{source}`](../../{org_n}/{repo_n}/CLAUDE.md)"
+                else:
+                    source_link = f"`{source}`"
+                cons.append(f"- **Consume** `{art}` from {source_link}")
             else:
                 cons.append(f"- **Consume** `{c}`")
             

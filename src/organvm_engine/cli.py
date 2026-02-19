@@ -20,6 +20,7 @@ Usage:
     organvm git status [--organ X]
     organvm git reproduce-workspace [--organ X] [--shallow] [--manifest <path>]
     organvm git diff-pinned [--organ X]
+    organvm git install-hooks [--organ X]
     organvm context sync [--dry-run] [--organ X]
 """
 
@@ -444,6 +445,23 @@ def cmd_git_diff_pinned(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_git_install_hooks(args: argparse.Namespace) -> int:
+    from organvm_engine.git.superproject import install_hooks
+
+    result = install_hooks(organ=args.organ, workspace=args.workspace)
+
+    if result["installed"]:
+        print(f"Hooks installed in {len(result['installed'])} superproject(s):")
+        for o in result["installed"]:
+            print(f"  - {o}")
+    if result["errors"]:
+        print(f"Errors installing hooks: {len(result['errors'])}")
+        for e in result["errors"]:
+            print(f"  - {e['organ']}: {e['error']}")
+        return 1
+    return 0
+
+
 # ── Context commands ───────────────────────────────────────────────
 
 
@@ -574,6 +592,9 @@ def build_parser() -> argparse.ArgumentParser:
     git_diff = git_sub.add_parser("diff-pinned", help="Show detailed diff between pinned and current")
     git_diff.add_argument("--organ", default=None, help="Specific organ (default: all)")
 
+    git_hooks = git_sub.add_parser("install-hooks", help="Install git context sync hooks")
+    git_hooks.add_argument("--organ", default=None, help="Specific organ (default: all)")
+
     # context
     ctx = sub.add_parser("context", help="System context file management")
     ctx.add_argument("--workspace", default=None, help="Workspace root directory")
@@ -613,6 +634,7 @@ def main() -> int:
         ("git", "status"): cmd_git_status,
         ("git", "reproduce-workspace"): cmd_git_reproduce,
         ("git", "diff-pinned"): cmd_git_diff_pinned,
+        ("git", "install-hooks"): cmd_git_install_hooks,
         ("context", "sync"): cmd_context_sync,
     }
 

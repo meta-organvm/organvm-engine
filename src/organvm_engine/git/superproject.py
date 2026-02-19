@@ -6,13 +6,14 @@ as submodules. The workspace root (~/Workspace) is NOT a git repo.
 
 import json
 import subprocess
+import yaml
 from pathlib import Path
 
 from organvm_engine.registry.loader import load_registry
 from organvm_engine.registry.query import all_repos
 from organvm_engine.seed.discover import ORGAN_ORGS, DEFAULT_WORKSPACE
 
-# Organ key → directory name mapping
+# Default mappings (fallbacks if config file missing)
 ORGAN_DIR_MAP = {
     "I": "organvm-i-theoria",
     "II": "organvm-ii-poiesis",
@@ -25,7 +26,6 @@ ORGAN_DIR_MAP = {
     "LIMINAL": "4444J99",
 }
 
-# Registry organ key → directory name mapping
 REGISTRY_KEY_MAP = {
     "ORGAN-I": "organvm-i-theoria",
     "ORGAN-II": "organvm-ii-poiesis",
@@ -37,6 +37,28 @@ REGISTRY_KEY_MAP = {
     "META-ORGANVM": "meta-organvm",
     "PERSONAL": "4444J99",
 }
+
+
+def load_governance_config(workspace: Path | None = None) -> None:
+    """Load organ mappings from governance-config.yaml if available."""
+    global ORGAN_DIR_MAP, REGISTRY_KEY_MAP
+    ws = workspace or DEFAULT_WORKSPACE
+    config_path = ws / "meta-organvm/organvm-corpvs-testamentvm/governance-config.yaml"
+    
+    if config_path.is_file():
+        try:
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+            if "organ_directory_map" in data:
+                REGISTRY_KEY_MAP.update(data["organ_directory_map"])
+            if "short_key_map" in data:
+                ORGAN_DIR_MAP.update(data["short_key_map"])
+        except Exception:
+            pass # Fall back to defaults
+
+
+# Load config immediately on import
+load_governance_config()
 
 # Superproject GitHub remote URLs
 SUPERPROJECT_REMOTES = {
@@ -378,3 +400,54 @@ def sync_organ(
     _run_git(["commit", "-m", commit_msg], organ_path)
 
     return {"organ": organ_dir, "changed": changed, "committed": True}
+
+
+def install_hooks(
+    organ: str | None = None,
+    workspace: Path | str | None = None,
+) -> dict:
+    """Install post-commit hooks in superprojects to auto-sync context.
+
+    Args:
+        organ: Optional specific organ. If None, installs in all superprojects.
+        workspace: Workspace root.
+
+    Returns:
+        Dict with success/error status.
+    """
+    ws = Path(workspace) if workspace else DEFAULT_WORKSPACE
+    target_keys = [organ.upper()] if organ else list(ORGAN_DIR_MAP.keys())
+    
+    results = {"installed": [], "errors": []}
+    
+    # Template for the hook
+    hook_content = """\
+#!/usr/bin/env bash
+# ORGANVM Auto-Sync Context Hook
+# Automatically runs 'organvm context sync' after registry/seed changes
+
+# Check if registry-v2.json or any seed.yaml was modified in the commit
+FILES_CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD)
+
+if echo "$FILES_CHANGED" | grep -qE "(registry-v2.json|seed.yaml)"; then
+    echo ":: ORGANVM post-commit :: Registry/Seed change detected. Syncing context files..."
+    organvm context sync
+fi
+"""
+
+    for key in target_keys:
+        organ_dir = ORGAN_DIR_MAP.get(key)
+        if not organ_dir: continue
+        
+        repo_path = ws / organ_dir
+        if not (repo_path / ".git").exists(): continue
+        
+        hook_path = repo_path / ".git/hooks/post-commit"
+        try:
+            hook_path.write_text(hook_content)
+            hook_path.chmod(0o755) # Executable
+            results["installed"].append(organ_dir)
+        except Exception as e:
+            results["errors"].append({"organ": organ_dir, "error": str(e)})
+            
+    return results

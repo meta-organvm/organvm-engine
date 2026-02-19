@@ -16,5 +16,5 @@
 ### Governance
 - *Standard ORGANVM governance applies*
 
-*Last synced: 2026-02-19T00:40:24Z*
+*Last synced: 2026-02-19T00:57:56Z*
 <!-- ORGANVM:AUTO:END -->

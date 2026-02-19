@@ -7,8 +7,8 @@ This repo participates in the **META-ORGANVM (Meta)** swarm.
 - Event: `registry.updated` → Action: Re-validate registry against governance rules
 
 ### Production Responsibilities
-- **Produce** `governance-policy` for `ORGAN-IV, META-ORGANVM`
-- **Produce** `registry` for `ORGAN-IV, META-ORGANVM`
+- **Produce** `governance-policy` for ORGAN-IV, META-ORGANVM
+- **Produce** `registry` for ORGAN-IV, META-ORGANVM
 
 ### External Dependencies
 - **Consume** `registry` from `META-ORGANVM`
@@ -18,5 +18,5 @@ This repo participates in the **META-ORGANVM (Meta)** swarm.
 - Adhere to unidirectional flow: I→II→III
 - Never commit secrets or credentials
 
-*Last synced: 2026-02-19T00:40:24Z*
+*Last synced: 2026-02-19T00:57:56Z*
 <!-- ORGANVM:AUTO:END -->
