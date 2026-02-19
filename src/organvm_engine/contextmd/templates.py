@@ -1,12 +1,13 @@
-"""Markdown templates for auto-generated CLAUDE.md sections.
+"""Markdown templates for auto-generated context file sections.
 
 Templates use str.format() with named placeholders. Each template
-targets a specific level: workspace, organ, or repo.
+targets a specific file type (CLAUDE.md, GEMINI.md, AGENTS.md) 
+and level (workspace, organ, or repo).
 """
 
 from __future__ import annotations
 
-# ── Repo-level template ───────────────────────────────────────────
+# ── Repo-level template (CLAUDE.md / GEMINI.md) ───────────────────
 
 REPO_SECTION = """\
 <!-- ORGANVM:AUTO:START -->
@@ -22,6 +23,29 @@ REPO_SECTION = """\
 {siblings_block}
 
 ### Governance
+{governance_block}
+
+*Last synced: {timestamp}*
+<!-- ORGANVM:AUTO:END -->"""
+
+# ── Agents-level template (AGENTS.md) ─────────────────────────────
+
+AGENTS_SECTION = """\
+<!-- ORGANVM:AUTO:START -->
+## Agent Context (auto-generated — do not edit)
+
+This repo participates in the **{organ_key} ({organ_name})** swarm.
+
+### Active Subscriptions
+{subscriptions_block}
+
+### Production Responsibilities
+{produces_block}
+
+### External Dependencies
+{consumes_block}
+
+### Governance Constraints
 {governance_block}
 
 *Last synced: {timestamp}*

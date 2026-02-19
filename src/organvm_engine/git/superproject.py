@@ -34,7 +34,7 @@ REGISTRY_KEY_MAP = {
     "ORGAN-V": "organvm-v-logos",
     "ORGAN-VI": "organvm-vi-koinonia",
     "ORGAN-VII": "organvm-vii-kerygma",
-    "ORGAN-META": "meta-organvm",
+    "META-ORGANVM": "meta-organvm",
     "PERSONAL": "4444J99",
 }
 

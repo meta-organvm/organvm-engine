@@ -20,7 +20,7 @@ Usage:
     organvm git status [--organ X]
     organvm git reproduce-workspace [--organ X] [--shallow] [--manifest <path>]
     organvm git diff-pinned [--organ X]
-    organvm claudemd sync [--dry-run] [--organ X]
+    organvm context sync [--dry-run] [--organ X]
 """
 
 import argparse
@@ -444,11 +444,11 @@ def cmd_git_diff_pinned(args: argparse.Namespace) -> int:
     return 0
 
 
-# ── CLAUDE.md commands ───────────────────────────────────────────────
+# ── Context commands ───────────────────────────────────────────────
 
 
-def cmd_claudemd_sync(args: argparse.Namespace) -> int:
-    from organvm_engine.claudemd.sync import sync_all
+def cmd_context_sync(args: argparse.Namespace) -> int:
+    from organvm_engine.contextmd.sync import sync_all
 
     organs = [args.organ] if args.organ else None
     result = sync_all(
@@ -458,7 +458,7 @@ def cmd_claudemd_sync(args: argparse.Namespace) -> int:
         organs=organs,
     )
 
-    print(f"CLAUDE.md Sync Results")
+    print(f"System Context Sync Results")
     print(f"{'─' * 40}")
     print(f"  Updated: {len(result['updated'])}")
     print(f"  Created: {len(result['created'])}")
@@ -574,11 +574,11 @@ def build_parser() -> argparse.ArgumentParser:
     git_diff = git_sub.add_parser("diff-pinned", help="Show detailed diff between pinned and current")
     git_diff.add_argument("--organ", default=None, help="Specific organ (default: all)")
 
-    # claudemd
-    clmd = sub.add_parser("claudemd", help="CLAUDE.md auto-generation")
-    clmd.add_argument("--workspace", default=None, help="Workspace root directory")
-    clmd_sub = clmd.add_subparsers(dest="subcommand")
-    c_sync = clmd_sub.add_parser("sync", help="Sync all CLAUDE.md files")
+    # context
+    ctx = sub.add_parser("context", help="System context file management")
+    ctx.add_argument("--workspace", default=None, help="Workspace root directory")
+    ctx_sub = ctx.add_subparsers(dest="subcommand")
+    c_sync = ctx_sub.add_parser("sync", help="Sync CLAUDE.md, GEMINI.md, and AGENTS.md")
     c_sync.add_argument("--dry-run", action="store_true", help="Report changes without writing")
     c_sync.add_argument("--organ", default=None, help="Filter to specific organ")
 
@@ -613,7 +613,7 @@ def main() -> int:
         ("git", "status"): cmd_git_status,
         ("git", "reproduce-workspace"): cmd_git_reproduce,
         ("git", "diff-pinned"): cmd_git_diff_pinned,
-        ("claudemd", "sync"): cmd_claudemd_sync,
+        ("context", "sync"): cmd_context_sync,
     }
 
     handler = dispatch.get((args.command, getattr(args, "subcommand", None)))

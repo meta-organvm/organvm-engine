@@ -1,10 +1,10 @@
-"""CLAUDE.md sync — walks workspace, updates auto-generated sections.
+"""System context file sync — walks workspace, updates auto-generated sections.
 
 The sync process:
 1. Load registry + seeds once
-2. Walk each organ directory looking for CLAUDE.md files
+2. Walk each organ directory looking for CLAUDE.md, GEMINI.md, and AGENTS.md files
 3. For each file, inject or replace the auto-generated section
-4. Optionally update the workspace-level CLAUDE.md
+4. Optionally update the workspace-level context files
 
 Preserves all manually-written content outside the AUTO markers.
 """
@@ -14,11 +14,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from organvm_engine.claudemd import AUTO_START, AUTO_END
-from organvm_engine.claudemd.generator import (
+from organvm_engine.contextmd import AUTO_START, AUTO_END
+from organvm_engine.contextmd.generator import (
     generate_organ_section,
     generate_repo_section,
     generate_workspace_section,
+    generate_agents_section,
 )
 
 
@@ -28,11 +29,11 @@ def sync_all(
     dry_run: bool = False,
     organs: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Sync auto-generated sections across all CLAUDE.md files."""
+    """Sync auto-generated sections across all context files."""
     from organvm_engine.registry.loader import load_registry, DEFAULT_REGISTRY_PATH
     from organvm_engine.seed.discover import discover_seeds
     from organvm_engine.seed.reader import read_seed
-    from organvm_engine.git.superproject import ORGAN_DIR_MAP
+    from organvm_engine.git.superproject import REGISTRY_KEY_MAP
     
     ws = Path(workspace) if workspace else Path.home() / "Workspace"
     reg = load_registry(registry_path or DEFAULT_REGISTRY_PATH)
@@ -54,10 +55,10 @@ def sync_all(
     skipped = []
     errors = []
     
-    target_organs = organs or list(ORGAN_DIR_MAP.keys())
+    target_organs = organs or list(REGISTRY_KEY_MAP.keys())
     
     for organ_key in target_organs:
-        organ_dir_name = ORGAN_DIR_MAP.get(organ_key)
+        organ_dir_name = REGISTRY_KEY_MAP.get(organ_key)
         if not organ_dir_name:
             continue
             
@@ -65,17 +66,18 @@ def sync_all(
         if not organ_path.is_dir():
             continue
             
-        # 2. Sync organ-level CLAUDE.md
-        try:
-            organ_section = generate_organ_section(organ_key, reg, all_seeds)
-            action = _inject_section(organ_path / "CLAUDE.md", organ_section, dry_run)
-            if action == "created": created.append(str(organ_path / "CLAUDE.md"))
-            elif action == "updated": updated.append(str(organ_path / "CLAUDE.md"))
-            else: skipped.append(str(organ_path / "CLAUDE.md"))
-        except Exception as e:
-            errors.append({"path": str(organ_path / "CLAUDE.md"), "error": str(e)})
+        # 2. Sync organ-level context files
+        for filename in ["CLAUDE.md", "GEMINI.md", "AGENTS.md"]:
+            try:
+                organ_section = generate_organ_section(organ_key, reg, all_seeds)
+                action = _inject_section(organ_path / filename, organ_section, dry_run)
+                if action == "created": created.append(str(organ_path / filename))
+                elif action == "updated": updated.append(str(organ_path / filename))
+                else: skipped.append(str(organ_path / filename))
+            except Exception as e:
+                errors.append({"path": str(organ_path / filename), "error": str(e)})
             
-        # 3. Sync repo-level CLAUDE.mds
+        # 3. Sync repo-level context files
         organ_data = reg.get("organs", {}).get(organ_key, {})
         org_name = organ_data.get("organization", "unknown")
         
@@ -85,26 +87,41 @@ def sync_all(
             if not repo_path.is_dir():
                 continue
                 
+            # Sync CLAUDE.md and GEMINI.md
+            for filename in ["CLAUDE.md", "GEMINI.md"]:
+                try:
+                    res = sync_repo(
+                        repo_path, repo_name, org_name, reg, 
+                        repo_to_seed.get(repo_name), dry_run, filename=filename
+                    )
+                    if res["action"] == "created": created.append(res["path"])
+                    elif res["action"] == "updated": updated.append(res["path"])
+                    else: skipped.append(res["path"])
+                except Exception as e:
+                    errors.append({"path": str(repo_path / filename), "error": str(e)})
+            
+            # Sync AGENTS.md
             try:
-                res = sync_repo(
-                    repo_path, repo_name, org_name, reg, 
-                    repo_to_seed.get(repo_name), dry_run
+                agents_section = generate_agents_section(
+                    repo_name, org_name, reg, repo_to_seed.get(repo_name)
                 )
-                if res["action"] == "created": created.append(res["path"])
-                elif res["action"] == "updated": updated.append(res["path"])
-                else: skipped.append(res["path"])
+                action = _inject_section(repo_path / "AGENTS.md", agents_section, dry_run)
+                if action == "created": created.append(str(repo_path / "AGENTS.md"))
+                elif action == "updated": updated.append(str(repo_path / "AGENTS.md"))
+                else: skipped.append(str(repo_path / "AGENTS.md"))
             except Exception as e:
-                errors.append({"path": str(repo_path / "CLAUDE.md"), "error": str(e)})
+                errors.append({"path": str(repo_path / "AGENTS.md"), "error": str(e)})
                 
-    # 4. Sync workspace-level CLAUDE.md
-    try:
-        ws_section = generate_workspace_section(reg, all_seeds)
-        action = _inject_section(ws / "CLAUDE.md", ws_section, dry_run)
-        if action == "created": created.append(str(ws / "CLAUDE.md"))
-        elif action == "updated": updated.append(str(ws / "CLAUDE.md"))
-        else: skipped.append(str(ws / "CLAUDE.md"))
-    except Exception as e:
-        errors.append({"path": str(ws / "CLAUDE.md"), "error": str(e)})
+    # 4. Sync workspace-level context files
+    for filename in ["CLAUDE.md", "GEMINI.md", "AGENTS.md"]:
+        try:
+            ws_section = generate_workspace_section(reg, all_seeds)
+            action = _inject_section(ws / filename, ws_section, dry_run)
+            if action == "created": created.append(str(ws / filename))
+            elif action == "updated": updated.append(str(ws / filename))
+            else: skipped.append(str(ws / filename))
+        except Exception as e:
+            errors.append({"path": str(ws / filename), "error": str(e)})
         
     return {
         "updated": updated,
@@ -122,16 +139,17 @@ def sync_repo(
     registry: dict,
     seed: dict | None = None,
     dry_run: bool = False,
+    filename: str = "CLAUDE.md",
 ) -> dict[str, Any]:
-    """Sync a single repo's CLAUDE.md."""
+    """Sync a single repo's context file."""
     section = generate_repo_section(repo_name, org, registry, seed)
-    file_path = repo_path / "CLAUDE.md"
+    file_path = repo_path / filename
     action = _inject_section(file_path, section, dry_run)
     return {"path": str(file_path), "action": action, "dry_run": dry_run}
 
 
 def _inject_section(file_path: Path, new_section: str, dry_run: bool = False) -> str:
-    """Inject or replace the auto-generated section in a CLAUDE.md file."""
+    """Inject or replace the auto-generated section in a markdown file."""
     if not file_path.exists():
         if not dry_run:
             file_path.write_text(new_section + "\n")

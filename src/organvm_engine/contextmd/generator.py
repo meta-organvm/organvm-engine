@@ -17,9 +17,11 @@ def generate_repo_section(
     registry: dict,
     seed: dict | None = None,
 ) -> str:
-    """Generate the auto-generated section for a repo-level CLAUDE.md."""
+    """Generate the auto-generated section for a repo-level CLAUDE.md / GEMINI.md."""
     from organvm_engine.registry.query import find_repo
-    from organvm_engine.claudemd.templates import REPO_SECTION, format_produces_edge, format_consumes_edge, format_no_edges
+    from organvm_engine.contextmd.templates import (
+        REPO_SECTION, format_produces_edge, format_consumes_edge, format_no_edges
+    )
     
     result = find_repo(registry, repo_name)
     if not result:
@@ -32,9 +34,15 @@ def generate_repo_section(
     edges = []
     if seed:
         for p in seed.get("produces", []) or []:
-            edges.append(format_produces_edge(p.get("target", "unknown"), p.get("artifact", "unknown"), p.get("event", "")))
+            if isinstance(p, dict):
+                edges.append(format_produces_edge(p.get("target", "unknown"), p.get("artifact", "unknown"), p.get("event", "")))
+            else:
+                edges.append(f"- **Produces** → `{p}`")
         for c in seed.get("consumes", []) or []:
-            edges.append(format_consumes_edge(c.get("source", "unknown"), c.get("artifact", "unknown"), c.get("event", "")))
+            if isinstance(c, dict):
+                edges.append(format_consumes_edge(c.get("source", "unknown"), c.get("artifact", "unknown"), c.get("event", "")))
+            else:
+                edges.append(f"- **Consumes** ← `{c}`")
             
     edges_block = "\n".join(edges) if edges else format_no_edges()
     
@@ -69,13 +77,82 @@ def generate_repo_section(
     )
 
 
+def generate_agents_section(
+    repo_name: str,
+    org: str,
+    registry: dict,
+    seed: dict | None = None,
+) -> str:
+    """Generate the auto-generated section for AGENTS.md."""
+    from organvm_engine.registry.query import find_repo
+    from organvm_engine.contextmd.templates import AGENTS_SECTION
+    
+    result = find_repo(registry, repo_name)
+    if not result:
+        return f"<!-- ERROR: Repo '{repo_name}' not found -->"
+        
+    organ_key, _ = result
+    organ_data = registry.get("organs", {}).get(organ_key, {})
+    
+    # Format subscriptions
+    subs = []
+    if seed:
+        for s in seed.get("subscriptions", []) or []:
+            subs.append(f"- Event: `{s.get('event')}` → Action: {s.get('action')}")
+    subs_block = "\n".join(subs) if subs else "- *No active event subscriptions*"
+    
+    # Format produces/consumes for agents
+    prod = []
+    cons = []
+    if seed:
+        for p in seed.get("produces", []) or []:
+            if isinstance(p, dict):
+                art = p.get("artifact") or p.get("type") or "unknown"
+                target = p.get("target")
+                if not target and p.get("consumers"):
+                    targets = []
+                    for consumer in p.get("consumers"):
+                        if isinstance(consumer, dict):
+                            targets.append(consumer.get("organ") or consumer.get("repo") or "unknown")
+                        else:
+                            targets.append(str(consumer))
+                    target = ", ".join(targets)
+                target = target or "unspecified"
+                prod.append(f"- **Produce** `{art}` for `{target}`")
+            else:
+                prod.append(f"- **Produce** `{p}`")
+        for c in seed.get("consumes", []) or []:
+            if isinstance(c, dict):
+                art = c.get("artifact") or c.get("type") or "unknown"
+                source = c.get("source") or "unspecified"
+                cons.append(f"- **Consume** `{art}` from `{source}`")
+            else:
+                cons.append(f"- **Consume** `{c}`")
+            
+    produces_block = "\n".join(prod) if prod else "- *No production responsibilities*"
+    consumes_block = "\n".join(cons) if cons else "- *No external dependencies*"
+    
+    # Simple governance for agents
+    gov = ["- Adhere to unidirectional flow: I→II→III", "- Never commit secrets or credentials"]
+
+    return AGENTS_SECTION.format(
+        organ_key=organ_key,
+        organ_name=organ_data.get("name", organ_key),
+        subscriptions_block=subs_block,
+        produces_block=produces_block,
+        consumes_block=consumes_block,
+        governance_block="\n".join(gov),
+        timestamp=_timestamp()
+    )
+
+
 def generate_organ_section(
     organ_key: str,
     registry: dict,
     seeds: list[dict] | None = None,
 ) -> str:
     """Generate the auto-generated section for an organ-level CLAUDE.md."""
-    from organvm_engine.claudemd.templates import ORGAN_SECTION
+    from organvm_engine.contextmd.templates import ORGAN_SECTION
     
     organ_data = registry.get("organs", {}).get(organ_key, {})
     if not organ_data:
@@ -117,7 +194,7 @@ def generate_workspace_section(
     seeds: list[dict] | None = None,
 ) -> str:
     """Generate the auto-generated section for the workspace-level CLAUDE.md."""
-    from organvm_engine.claudemd.templates import WORKSPACE_SECTION
+    from organvm_engine.contextmd.templates import WORKSPACE_SECTION
     
     organs = registry.get("organs", {})
     total_repos = 0
