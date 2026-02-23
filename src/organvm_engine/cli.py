@@ -12,6 +12,8 @@ Usage:
     organvm seed validate
     organvm seed graph
     organvm metrics calculate
+    organvm metrics propagate [--cross-repo] [--dry-run]
+    organvm metrics refresh [--cross-repo] [--dry-run]
     organvm dispatch validate <file>
     organvm git init-superproject --organ {I|II|III|IV|V|VI|VII|META|LIMINAL}
     organvm git add-submodule --organ X --repo <name> [--url <url>]
@@ -189,6 +191,16 @@ def cmd_governance_promote(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_governance_impact(args: argparse.Namespace) -> int:
+    from organvm_engine.governance.impact import calculate_impact
+
+    registry = load_registry(args.registry)
+    report = calculate_impact(args.repo, registry, args.workspace if hasattr(args, 'workspace') else None)
+    
+    print(report.summary())
+    return 0
+
+
 # ── Seed commands ────────────────────────────────────────────────────
 
 
@@ -259,6 +271,96 @@ def cmd_metrics_calculate(args: argparse.Namespace) -> int:
     print(f"  CI: {computed['ci_workflows']}")
     print(f"  Dependencies: {computed['dependency_edges']} edges")
     return 0
+
+
+def cmd_metrics_propagate(args: argparse.Namespace) -> int:
+    from organvm_engine.metrics.propagator import (
+        propagate_cross_repo,
+        propagate_metrics,
+        resolve_manifest_files,
+        load_manifest,
+    )
+
+    corpus_root = Path(args.registry).parent
+    metrics_path = corpus_root / "system-metrics.json"
+
+    if not metrics_path.exists():
+        print(f"ERROR: {metrics_path} not found. Run 'organvm metrics calculate' first.",
+              file=sys.stderr)
+        return 1
+
+    with open(metrics_path) as f:
+        metrics = json.load(f)
+
+    mode = "DRY RUN" if args.dry_run else "PROPAGATING"
+
+    if args.cross_repo:
+        manifest_path = Path(args.targets) if args.targets else (corpus_root / "metrics-targets.yaml")
+        if not manifest_path.exists():
+            print(f"ERROR: {manifest_path} not found.", file=sys.stderr)
+            return 1
+
+        result = propagate_cross_repo(metrics, manifest_path, corpus_root, dry_run=args.dry_run)
+        print(f"[{mode}] Cross-repo propagation complete")
+        print(f"  JSON copies: {result.json_copies}")
+        print(f"  Markdown: {result.replacements} replacement(s) across {result.files_changed} file(s)")
+    else:
+        # Corpus-only: use the built-in whitelist from the standalone script
+        whitelist_globs = [
+            "README.md", "CLAUDE.md", "applications/*.md", "applications/shared/*.md",
+            "docs/applications/*.md", "docs/applications/cover-letters/*.md",
+            "docs/essays/09-ai-conductor-methodology.md", "docs/operations/*.md",
+        ]
+        files = []
+        for pattern in whitelist_globs:
+            files.extend(sorted(corpus_root.glob(pattern)))
+        # Deduplicate
+        seen = set()
+        unique = []
+        for f in files:
+            if f not in seen:
+                seen.add(f)
+                unique.append(f)
+
+        result = propagate_metrics(metrics, unique, dry_run=args.dry_run)
+        print(f"[{mode}] Corpus-only propagation complete")
+        print(f"  {result.replacements} replacement(s) across {result.files_changed} file(s)")
+
+    if result.details:
+        for d in result.details[:20]:
+            print(f"    {d}")
+        if len(result.details) > 20:
+            print(f"    ... and {len(result.details) - 20} more")
+
+    return 0
+
+
+def cmd_metrics_refresh(args: argparse.Namespace) -> int:
+    from organvm_engine.metrics.calculator import compute_metrics, write_metrics
+
+    # Step 1: Calculate
+    registry = load_registry(args.registry)
+    computed = compute_metrics(registry)
+
+    corpus_root = Path(args.registry).parent
+    output = corpus_root / "system-metrics.json"
+
+    if not args.dry_run:
+        write_metrics(computed, output)
+
+    prefix = "[DRY RUN] " if args.dry_run else ""
+    print(f"{prefix}[1/2] Metrics calculated → {output}")
+    print(f"  Repos: {computed['total_repos']} ({computed['active_repos']} ACTIVE)")
+
+    # Step 2: Propagate
+    args_ns = argparse.Namespace(
+        registry=args.registry,
+        cross_repo=args.cross_repo,
+        targets=getattr(args, "targets", None),
+        dry_run=args.dry_run,
+    )
+    print(f"[2/2] Propagating...")
+    return cmd_metrics_propagate(args_ns)
 
 
 # ── Dispatch commands ────────────────────────────────────────────────
@@ -538,6 +640,9 @@ def build_parser() -> argparse.ArgumentParser:
     prom.add_argument("repo")
     prom.add_argument("target", help="Target promotion state")
 
+    imp = gov_sub.add_parser("impact", help="Calculate blast radius of a repo change")
+    imp.add_argument("repo", help="Repository name")
+
     # seed
     seed = sub.add_parser("seed", help="Seed.yaml operations")
     seed.add_argument("--workspace", default=None, help="Workspace root directory")
@@ -551,6 +656,22 @@ def build_parser() -> argparse.ArgumentParser:
     met_sub = met.add_subparsers(dest="subcommand")
     calc = met_sub.add_parser("calculate", help="Compute current metrics")
     calc.add_argument("--output", default=None, help="Output file path")
+
+    prop = met_sub.add_parser("propagate", help="Propagate metrics to documentation files")
+    prop.add_argument("--cross-repo", action="store_true",
+                      help="Read metrics-targets.yaml and propagate to all registered consumers")
+    prop.add_argument("--targets", default=None,
+                      help="Path to metrics-targets.yaml (default: corpus root)")
+    prop.add_argument("--dry-run", action="store_true",
+                      help="Preview changes without writing")
+
+    refresh = met_sub.add_parser("refresh", help="Calculate + propagate in one step")
+    refresh.add_argument("--cross-repo", action="store_true",
+                         help="Propagate to all registered consumers")
+    refresh.add_argument("--targets", default=None,
+                         help="Path to metrics-targets.yaml")
+    refresh.add_argument("--dry-run", action="store_true",
+                         help="Preview changes without writing")
 
     # dispatch
     dis = sub.add_parser("dispatch", help="Dispatch operations")
@@ -622,10 +743,13 @@ def main() -> int:
         ("governance", "audit"): cmd_governance_audit,
         ("governance", "check-deps"): cmd_governance_checkdeps,
         ("governance", "promote"): cmd_governance_promote,
+        ("governance", "impact"): cmd_governance_impact,
         ("seed", "discover"): cmd_seed_discover,
         ("seed", "validate"): cmd_seed_validate,
         ("seed", "graph"): cmd_seed_graph,
         ("metrics", "calculate"): cmd_metrics_calculate,
+        ("metrics", "propagate"): cmd_metrics_propagate,
+        ("metrics", "refresh"): cmd_metrics_refresh,
         ("dispatch", "validate"): cmd_dispatch_validate,
         ("git", "init-superproject"): cmd_git_init_superproject,
         ("git", "add-submodule"): cmd_git_add_submodule,

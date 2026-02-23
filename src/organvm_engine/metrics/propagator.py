@@ -1,9 +1,15 @@
-"""Propagate metrics from system-metrics.json into documentation files."""
+"""Propagate metrics from system-metrics.json into documentation files.
+
+Supports both corpus-only propagation (hardcoded whitelist) and cross-repo
+propagation via metrics-targets.yaml manifest.
+"""
 
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import yaml
 
 
 @dataclass
@@ -12,6 +18,7 @@ class PropagationResult:
 
     replacements: int = 0
     files_changed: int = 0
+    json_copies: int = 0
     details: list[str] = field(default_factory=list)
 
 
@@ -25,13 +32,16 @@ def build_patterns(metrics: dict) -> list[tuple[str, re.Pattern, str]]:
 
     total_repos = c.get("total_repos", 0)
     active_repos = c.get("active_repos", 0)
+    archived_repos = c.get("archived_repos", 0)
     essays = c.get("published_essays", 0)
     ci_workflows = c.get("ci_workflows", 0)
     dep_edges = c.get("dependency_edges", 0)
+    sprints = c.get("sprints_completed", 0)
 
     total_words_numeric = str(m.get("total_words_numeric", 404000))
     total_words_formatted = f"{int(total_words_numeric):,}"
     total_words_short = m.get("total_words_short", "404K+")
+    total_words_k = total_words_short.rstrip("K+")
 
     patterns = []
 
@@ -41,26 +51,58 @@ def build_patterns(metrics: dict) -> list[tuple[str, re.Pattern, str]]:
     # Total repos patterns
     add("total_repos", r"(\b)\d+( repositor(?:ies|y) across\b)", rf"\g<1>{total_repos}\2")
     add("total_repos", r"(coordinating )\d+( repo)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(Total repositories \| )\d+", rf"\g<1>{total_repos}")
     add("total_repos", r"(Repos-)\d+", rf"\g<1>{total_repos}")
     add("total_repos", r"(\b)\d+(-repo system\b)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(\b)\d+(-repo\b)", rf"\g<1>{total_repos}\2")
     add("total_repos", r"(across )\d+( repo)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(organize )\d+( repositor)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(validate )\d+( repositor)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(across all )\d+( repos?\b)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(\b)\d+( documented repositor)", rf"\g<1>{total_repos}\2")
+    add("total_repos", r"(\b)\d+( repository READMEs)", rf"\g<1>{total_repos}\2")
 
     # Active repos
     add("active_repos", r"(\b)\d+( ACTIVE\b)", rf"\g<1>{active_repos}\2")
+    add("active_repos", r"(Active status \| )\d+", rf"\g<1>{active_repos}")
+    add("active_repos", r"(\b)\d+( active repos?,)", rf"\g<1>{active_repos}\2")
+    add("active_repos", r"(\b)\d+( production-grade\b)", rf"\g<1>{active_repos}\2")
+    add("active_repos", r"(Production status \| )\d+", rf"\g<1>{active_repos}")
+
+    # Archived repos
+    add("archived_repos", r"(\b)\d+( ARCHIVED\b)", rf"\g<1>{archived_repos}\2")
+    add("archived_repos", r"(Archived \| )\d+", rf"\g<1>{archived_repos}")
 
     # Essays
     add("published_essays", r"(\b)\d+(\+? published essays?\b)", rf"\g<1>{essays}\2")
     add("published_essays", r"(\b)\d+(\+? meta-system essays?\b)", rf"\g<1>{essays}\2")
+    add("published_essays", r"(Published essays? \| )\d+", rf"\g<1>{essays}")
+    add("published_essays", r"(\b)\d+( essays explaining\b)", rf"\g<1>{essays}\2")
+    add("published_essays", r"(\b)\d+( essays documenting\b)", rf"\g<1>{essays}\2")
 
     # CI workflows
     add("ci_workflows", r"(\b)\d+(\+ CI/CD workflows?\b)", rf"\g<1>{ci_workflows}\2")
+    add("ci_workflows", r"(CI/CD workflows? \| )\d+\+?", rf"\g<1>{ci_workflows}+")
+    add("ci_workflows", r"(\b)\d+(\+ CI workflows?\b)", rf"\g<1>{ci_workflows}\2")
+    add("ci_workflows", r"(\b)\d+(\+ CI/CD pipelines?\b)", rf"\g<1>{ci_workflows}\2")
 
     # Dependencies
     add("dependency_edges", r"(\b)\d+( dependency edges?\b)", rf"\g<1>{dep_edges}\2")
+    add("dependency_edges", r"(\b)\d+( tracked dependency\b)", rf"\g<1>{dep_edges}\2")
+    add("dependency_edges", r"(Dependency edges? \| )\d+", rf"\g<1>{dep_edges}")
+    add("dependency_edges", r"(\b)\d+( registry dependency edges?\b)", rf"\g<1>{dep_edges}\2")
+
+    # Sprints
+    add("sprints_completed", r"(\b)\d+( sprints completed\b)", rf"\g<1>{sprints}\2")
+    add("sprints_completed", r"(Sprints completed \| )\d+", rf"\g<1>{sprints}")
 
     # Word counts
     add("total_words", r"~\d{3},\d{3}\+?( words)", rf"~{total_words_formatted}+\1")
+    add("total_words", r"(?<!~)\b\d{3},\d{3}\+?( words)", rf"{total_words_formatted}+\1")
     add("total_words", r"~?\d{3}K\+?( words)", rf"~{total_words_short}\1")
+    add("total_words", r"(Docs-)~?\d{3}K%2B(%20words)", rf"\g<1>~{total_words_k}K%2B\2")
+    add("total_words", r"(Documentation \| )~?\d{3},?\d{3}\+?( words)",
+        rf"\g<1>~{total_words_formatted}+\2")
 
     return patterns
 
@@ -77,10 +119,125 @@ SKIP_MARKERS = [
     "Gold Sprint",
     "Platinum Sprint",
     "Previous:",
+    "Pre-PRAXIS",
+    "was pre-existing",
     "**Phase",
     "**Launch",
+    "| Total documentation |",
+    "| Meta-system essays |",
+    "Per-Task TE",
+    "README REWRITE",
+    "README REVISE",
+    "README POPULATE",
+    "README EVALUATE",
+    "README ARCHIVE",
+    "Phase Budgets",
+    "5 CI/CD workflow specifications",
+    "5 governance",
+    "published essays",
     "| COMPLETED |",
 ]
+
+
+def load_manifest(manifest_path: Path) -> dict:
+    """Load metrics-targets.yaml manifest."""
+    with open(manifest_path) as f:
+        return yaml.safe_load(f)
+
+
+def resolve_manifest_files(manifest: dict, corpus_root: Path) -> list[Path]:
+    """Resolve all markdown targets from a manifest into concrete file paths."""
+    all_files: list[Path] = []
+    for target in manifest.get("markdown_targets", []):
+        raw_root = target.get("root", ".")
+        if raw_root == ".":
+            root = corpus_root
+        else:
+            root = Path(raw_root).expanduser().resolve()
+
+        for pattern in target.get("whitelist", []):
+            all_files.extend(sorted(root.glob(pattern)))
+
+    # Deduplicate
+    seen: set[Path] = set()
+    result: list[Path] = []
+    for f in all_files:
+        if f not in seen:
+            seen.add(f)
+            result.append(f)
+    return result
+
+
+def transform_for_portfolio(canonical: dict, portfolio_path: Path) -> dict:
+    """Merge canonical metrics into the portfolio's existing JSON schema.
+
+    The portfolio uses a different structure (registry.*, essays.total) than
+    the canonical computed/manual layout. This preserves portfolio-specific
+    fields (sprint_history, engagement_baseline, etc.) while updating the
+    metrics fields from canonical computed data.
+    """
+    if portfolio_path.exists():
+        with open(portfolio_path) as f:
+            portfolio = json.load(f)
+    else:
+        portfolio = {}
+
+    c = canonical["computed"]
+
+    portfolio["generated"] = canonical["generated"]
+
+    reg = portfolio.get("registry", {})
+    reg["total_repos"] = c["total_repos"]
+    reg["total_organs"] = c["total_organs"]
+    reg["operational_organs"] = c["operational_organs"]
+    reg["implementation_status"] = c["implementation_status"]
+    reg["ci_coverage"] = c["ci_workflows"]
+    reg["dependency_edges"] = c["dependency_edges"]
+
+    organs = reg.get("organs", {})
+    for organ_key, info in c.get("per_organ", {}).items():
+        if organ_key in organs:
+            organs[organ_key]["total_repos"] = info["repos"]
+        else:
+            organs[organ_key] = {
+                "name": info["name"],
+                "total_repos": info["repos"],
+            }
+    reg["organs"] = organs
+    portfolio["registry"] = reg
+
+    essays = portfolio.get("essays", {})
+    essays["total"] = c.get("published_essays", essays.get("total", 0))
+    portfolio["essays"] = essays
+
+    return portfolio
+
+
+def copy_json_targets(
+    manifest: dict,
+    metrics: dict,
+    dry_run: bool = False,
+) -> int:
+    """Process json_copies entries from manifest. Returns count of copies."""
+    copies = manifest.get("json_copies", [])
+    count = 0
+    for entry in copies:
+        dest = Path(entry["dest"]).expanduser().resolve()
+        transform = entry.get("transform")
+
+        if transform == "portfolio":
+            data = transform_for_portfolio(metrics, dest)
+        else:
+            data = metrics
+
+        if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with open(dest, "w") as f:
+                json.dump(data, f, indent=2)
+                f.write("\n")
+
+        count += 1
+    return count
 
 
 def propagate_metrics(
@@ -130,5 +287,35 @@ def propagate_metrics(
             result.files_changed += 1
             if not dry_run:
                 filepath.write_text("".join(new_lines))
+
+    return result
+
+
+def propagate_cross_repo(
+    metrics: dict,
+    manifest_path: Path,
+    corpus_root: Path,
+    dry_run: bool = False,
+) -> PropagationResult:
+    """Full cross-repo propagation: JSON copies + markdown updates.
+
+    Args:
+        metrics: Loaded system-metrics.json dict.
+        manifest_path: Path to metrics-targets.yaml.
+        corpus_root: Root of the corpus repo (for relative paths in manifest).
+        dry_run: If True, don't write changes.
+
+    Returns:
+        PropagationResult with combined results.
+    """
+    manifest = load_manifest(manifest_path)
+
+    # JSON copies
+    json_count = copy_json_targets(manifest, metrics, dry_run=dry_run)
+
+    # Markdown propagation
+    files = resolve_manifest_files(manifest, corpus_root)
+    result = propagate_metrics(metrics, files, dry_run=dry_run)
+    result.json_copies = json_count
 
     return result
