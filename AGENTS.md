@@ -1,4 +1,6 @@
 <!-- ORGANVM:AUTO:START -->
+
+Global policy: /Users/4jp/AGENTS.md applies and cannot be overridden.
 ## Agent Context (auto-generated — do not edit)
 
 This repo participates in the **META-ORGANVM (Meta)** swarm.
