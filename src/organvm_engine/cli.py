@@ -26,6 +26,8 @@ Usage:
     organvm git install-hooks [--organ X]
     organvm omega status
     organvm omega check
+    organvm pitch generate <repo> [--dry-run]
+    organvm pitch sync [--organ X] [--dry-run] [--tier X]
     organvm context sync [--dry-run] [--organ X]
 """
 
@@ -673,6 +675,65 @@ def cmd_ci_triage(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── Pitch commands ──────────────────────────────────────────────
+
+
+def cmd_pitch_generate(args: argparse.Namespace) -> int:
+    from organvm_engine.pitchdeck.sync import generate_single
+
+    result = generate_single(
+        repo_name=args.repo,
+        workspace=args.workspace if hasattr(args, "workspace") else None,
+        registry_path=args.registry,
+        dry_run=args.dry_run,
+    )
+
+    action = result.get("action", "error")
+    if action == "error":
+        print(f"  ERROR: {result.get('error', 'Unknown error')}")
+        return 1
+    elif action == "bespoke":
+        print(f"  SKIP: {args.repo} has a bespoke pitch deck at {result['path']}")
+        return 0
+    elif action == "dry_run":
+        html_content = result.get("html", "")
+        print(f"  [DRY RUN] Would write {len(html_content):,} bytes to {result['path']}")
+        return 0
+    else:
+        print(f"  Generated: {result['path']}")
+        return 0
+
+
+def cmd_pitch_sync(args: argparse.Namespace) -> int:
+    from organvm_engine.pitchdeck.sync import sync_pitchdecks
+
+    organs = [args.organ] if args.organ else None
+    result = sync_pitchdecks(
+        workspace=args.workspace if hasattr(args, "workspace") else None,
+        registry_path=args.registry,
+        dry_run=args.dry_run,
+        organs=organs,
+        tier_filter=args.tier,
+    )
+
+    prefix = "[DRY RUN] " if result["dry_run"] else ""
+    print(f"  {prefix}Pitch Deck Sync Results")
+    print(f"  {'─' * 40}")
+    print(f"  Generated: {len(result['generated'])}")
+    for g in result["generated"]:
+        print(f"    - {g['organ']}/{g['repo']} ({g['tier']})")
+    print(f"  Skipped:   {len(result['skipped'])}")
+    print(f"  Bespoke:   {len(result['bespoke'])}")
+    for b in result["bespoke"]:
+        print(f"    - {b} (preserved)")
+    if result["errors"]:
+        print(f"  Errors:    {len(result['errors'])}")
+        for e in result["errors"]:
+            print(f"    - {e['repo']}: {e['error']}")
+
+    return 1 if result["errors"] else 0
+
+
 # ── Status command ───────────────────────────────────────────────
 
 
@@ -868,6 +929,20 @@ def build_parser() -> argparse.ArgumentParser:
     om_update = om_sub.add_parser("update", help="Evaluate and write omega snapshot")
     om_update.add_argument("--dry-run", action="store_true", help="Preview without writing")
 
+    # pitch
+    pitch = sub.add_parser("pitch", help="Pitch deck generation")
+    pitch.add_argument("--workspace", default=None, help="Workspace root directory")
+    pitch_sub = pitch.add_subparsers(dest="subcommand")
+
+    pitch_gen = pitch_sub.add_parser("generate", help="Generate pitch deck for a single repo")
+    pitch_gen.add_argument("repo", help="Repository name")
+    pitch_gen.add_argument("--dry-run", action="store_true", help="Preview without writing")
+
+    pitch_sync = pitch_sub.add_parser("sync", help="Sync pitch decks across workspace")
+    pitch_sync.add_argument("--organ", default=None, help="Filter to specific organ")
+    pitch_sync.add_argument("--dry-run", action="store_true", help="Preview without writing")
+    pitch_sync.add_argument("--tier", default=None, help="Filter by tier (flagship, standard, all)")
+
     # status (top-level)
     sub.add_parser("status", help="One-command system health pulse")
 
@@ -915,6 +990,8 @@ def main() -> int:
         ("git", "diff-pinned"): cmd_git_diff_pinned,
         ("git", "install-hooks"): cmd_git_install_hooks,
         ("ci", "triage"): cmd_ci_triage,
+        ("pitch", "generate"): cmd_pitch_generate,
+        ("pitch", "sync"): cmd_pitch_sync,
         ("context", "sync"): cmd_context_sync,
         ("omega", "status"): cmd_omega_status,
         ("omega", "check"): cmd_omega_check,
