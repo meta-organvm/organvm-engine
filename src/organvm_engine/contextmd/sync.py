@@ -85,19 +85,21 @@ def sync_all(
             
         # 3. Sync repo-level context files
         organ_data = reg.get("organs", {}).get(organ_key, {})
-        org_name = organ_data.get("organization", "unknown")
-        
+
         for repo_entry in organ_data.get("repositories", []):
             repo_name = repo_entry.get("name")
             repo_path = organ_path / repo_name
             if not repo_path.is_dir():
                 continue
-                
+
+            # Use repo's own org field, fall back to organ directory name
+            org_name = repo_entry.get("org") or organ_dir_name
+
             # Sync CLAUDE.md and GEMINI.md
             for filename in ["CLAUDE.md", "GEMINI.md"]:
                 try:
                     res = sync_repo(
-                        repo_path, repo_name, org_name, reg, 
+                        repo_path, repo_name, org_name, reg,
                         repo_to_seed.get(repo_name), dry_run, filename=filename
                     )
                     if res["action"] == "created": created.append(res["path"])

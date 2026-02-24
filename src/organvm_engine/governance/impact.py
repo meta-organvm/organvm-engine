@@ -6,10 +6,9 @@ Combines explicit registry dependencies with implicit seed.yaml data flow edges.
 
 from __future__ import annotations
 
-from typing import Any
 from dataclasses import dataclass, field
 
-from organvm_engine.registry.query import all_repos, find_repo
+from organvm_engine.registry.query import all_repos
 from organvm_engine.seed.graph import build_seed_graph
 
 

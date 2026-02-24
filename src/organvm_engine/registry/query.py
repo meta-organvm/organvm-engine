@@ -2,18 +2,10 @@
 
 from typing import Iterator
 
-# Organ key aliases — maps CLI shorthand to registry keys
-ORGAN_ALIASES = {
-    "I": "ORGAN-I",
-    "II": "ORGAN-II",
-    "III": "ORGAN-III",
-    "IV": "ORGAN-IV",
-    "V": "ORGAN-V",
-    "VI": "ORGAN-VI",
-    "VII": "ORGAN-VII",
-    "META": "META-ORGANVM",
-    "LIMINAL": "PERSONAL",
-}
+from organvm_engine.organ_config import organ_aliases
+
+# Organ key aliases — derived from canonical organ_config
+ORGAN_ALIASES = organ_aliases()
 
 
 def resolve_organ_key(organ: str) -> str:

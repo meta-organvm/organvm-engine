@@ -3,18 +3,10 @@
 from pathlib import Path
 
 from organvm_engine.paths import workspace_root
+from organvm_engine.organ_config import organ_org_dirs
 
-# Known org directories that mirror the GitHub org structure
-ORGAN_ORGS = [
-    "organvm-i-theoria",
-    "organvm-ii-poiesis",
-    "organvm-iii-ergon",
-    "organvm-iv-taxis",
-    "organvm-v-logos",
-    "organvm-vi-koinonia",
-    "organvm-vii-kerygma",
-    "meta-organvm",
-]
+# Known org directories — derived from canonical organ_config
+ORGAN_ORGS = organ_org_dirs()
 
 DEFAULT_WORKSPACE = workspace_root()
 

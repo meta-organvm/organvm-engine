@@ -79,8 +79,11 @@ def build_seed_graph(
             for producer in producers_by_type.get(ctype, []):
                 if producer == identity:
                     continue
-                if source and source not in producer:
-                    continue
+                if source:
+                    # Match on org prefix or full identity
+                    producer_org = producer.split("/")[0] if "/" in producer else ""
+                    if source != producer and source != producer_org:
+                        continue
                 graph.edges.append((producer, identity, ctype))
 
     return graph

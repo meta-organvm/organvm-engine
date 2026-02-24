@@ -4,39 +4,18 @@ Each organ directory becomes a git superproject that tracks its child repos
 as submodules. The workspace root (~/Workspace) is NOT a git repo.
 """
 
-import json
 import subprocess
 import yaml
 from pathlib import Path
 
 from organvm_engine.registry.loader import load_registry
 from organvm_engine.registry.query import all_repos
-from organvm_engine.seed.discover import ORGAN_ORGS, DEFAULT_WORKSPACE
+from organvm_engine.seed.discover import DEFAULT_WORKSPACE
+from organvm_engine.organ_config import organ_dir_map, registry_key_to_dir
 
-# Default mappings (fallbacks if config file missing)
-ORGAN_DIR_MAP = {
-    "I": "organvm-i-theoria",
-    "II": "organvm-ii-poiesis",
-    "III": "organvm-iii-ergon",
-    "IV": "organvm-iv-taxis",
-    "V": "organvm-v-logos",
-    "VI": "organvm-vi-koinonia",
-    "VII": "organvm-vii-kerygma",
-    "META": "meta-organvm",
-    "LIMINAL": "4444J99",
-}
-
-REGISTRY_KEY_MAP = {
-    "ORGAN-I": "organvm-i-theoria",
-    "ORGAN-II": "organvm-ii-poiesis",
-    "ORGAN-III": "organvm-iii-ergon",
-    "ORGAN-IV": "organvm-iv-taxis",
-    "ORGAN-V": "organvm-v-logos",
-    "ORGAN-VI": "organvm-vi-koinonia",
-    "ORGAN-VII": "organvm-vii-kerygma",
-    "META-ORGANVM": "meta-organvm",
-    "PERSONAL": "4444J99",
-}
+# Derived from canonical organ_config — mutable for governance-config.yaml overlay
+ORGAN_DIR_MAP = organ_dir_map()
+REGISTRY_KEY_MAP = registry_key_to_dir()
 
 
 def load_governance_config(workspace: Path | None = None) -> None:
@@ -53,8 +32,9 @@ def load_governance_config(workspace: Path | None = None) -> None:
                 REGISTRY_KEY_MAP.update(data["organ_directory_map"])
             if "short_key_map" in data:
                 ORGAN_DIR_MAP.update(data["short_key_map"])
-        except Exception:
-            pass # Fall back to defaults
+        except Exception as e:
+            import warnings
+            warnings.warn(f"Failed to load governance-config.yaml: {e}")
 
 
 # Load config immediately on import

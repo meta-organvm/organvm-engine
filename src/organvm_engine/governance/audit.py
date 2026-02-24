@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from organvm_engine.registry.query import all_repos
 from organvm_engine.governance.rules import load_governance_rules, get_audit_thresholds, get_organ_requirements
 from organvm_engine.governance.dependency_graph import validate_dependencies
 
@@ -140,6 +139,8 @@ def run_audit(
                             f"{organ_key}/{name}: stale ({days_ago} days since validation)"
                         )
                 except ValueError:
-                    pass
+                    result.warnings.append(
+                        f"{organ_key}/{name}: malformed last_validated date '{last_validated}'"
+                    )
 
     return result

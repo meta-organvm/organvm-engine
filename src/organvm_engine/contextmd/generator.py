@@ -7,8 +7,12 @@ for auto-generated sections at each level (repo, organ, workspace).
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+
+from organvm_engine.registry.query import find_repo
+from organvm_engine.contextmd.templates import (
+    REPO_SECTION, ORGAN_SECTION, AGENTS_SECTION, WORKSPACE_SECTION,
+    format_produces_edge, format_consumes_edge, format_no_edges,
+)
 
 
 def generate_repo_section(
@@ -18,10 +22,6 @@ def generate_repo_section(
     seed: dict | None = None,
 ) -> str:
     """Generate the auto-generated section for a repo-level CLAUDE.md / GEMINI.md."""
-    from organvm_engine.registry.query import find_repo
-    from organvm_engine.contextmd.templates import (
-        REPO_SECTION, format_produces_edge, format_consumes_edge, format_no_edges
-    )
     
     result = find_repo(registry, repo_name)
     if not result:
@@ -35,12 +35,16 @@ def generate_repo_section(
     if seed:
         for p in seed.get("produces", []) or []:
             if isinstance(p, dict):
-                edges.append(format_produces_edge(p.get("target", "unknown"), p.get("artifact", "unknown"), p.get("event", "")))
+                target = p.get("target") or _format_consumers(p.get("consumers")) or "unspecified"
+                artifact = p.get("artifact") or p.get("type") or "unspecified"
+                edges.append(format_produces_edge(target, artifact, p.get("event", "")))
             else:
                 edges.append(f"- **Produces** → `{p}`")
         for c in seed.get("consumes", []) or []:
             if isinstance(c, dict):
-                edges.append(format_consumes_edge(c.get("source", "unknown"), c.get("artifact", "unknown"), c.get("event", "")))
+                source = c.get("source") or "unspecified"
+                artifact = c.get("artifact") or c.get("type") or "unspecified"
+                edges.append(format_consumes_edge(source, artifact, c.get("event", "")))
             else:
                 edges.append(f"- **Consumes** ← `{c}`")
             
@@ -84,8 +88,6 @@ def generate_agents_section(
     seed: dict | None = None,
 ) -> str:
     """Generate the auto-generated section for AGENTS.md."""
-    from organvm_engine.registry.query import find_repo
-    from organvm_engine.contextmd.templates import AGENTS_SECTION
     
     result = find_repo(registry, repo_name)
     if not result:
@@ -163,7 +165,6 @@ def generate_organ_section(
     seeds: list[dict] | None = None,
 ) -> str:
     """Generate the auto-generated section for an organ-level CLAUDE.md."""
-    from organvm_engine.contextmd.templates import ORGAN_SECTION
     
     organ_data = registry.get("organs", {}).get(organ_key, {})
     if not organ_data:
@@ -205,7 +206,6 @@ def generate_workspace_section(
     seeds: list[dict] | None = None,
 ) -> str:
     """Generate the auto-generated section for the workspace-level CLAUDE.md."""
-    from organvm_engine.contextmd.templates import WORKSPACE_SECTION
 
     organs = registry.get("organs", {})
     total_repos = 0
@@ -236,6 +236,19 @@ def generate_workspace_section(
         omega_total=omega_total,
         timestamp=_timestamp()
     )
+
+
+def _format_consumers(consumers: list | None) -> str:
+    """Format a list of consumer entries into a comma-separated string."""
+    if not consumers:
+        return ""
+    parts = []
+    for c in consumers:
+        if isinstance(c, dict):
+            parts.append(c.get("repo") or c.get("organ") or str(c))
+        else:
+            parts.append(str(c))
+    return ", ".join(parts)
 
 
 def _read_omega_counts() -> tuple[int, int]:

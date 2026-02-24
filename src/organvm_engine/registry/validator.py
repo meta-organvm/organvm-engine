@@ -1,17 +1,57 @@
 """Validate registry-v2.json against schema and governance rules."""
 
 import json
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from organvm_engine.registry.query import all_repos, find_repo
 
-# Valid enum values (kept in sync with schema-definitions)
-VALID_STATUSES = {"ACTIVE", "PROTOTYPE", "SKELETON", "DESIGN_ONLY", "ARCHIVED"}
-VALID_REVENUE_MODELS = {"subscription", "freemium", "one-time", "advertising", "marketplace", "internal", "none"}
-VALID_REVENUE_STATUSES = {"pre-launch", "beta", "live", "deprecated", "n/a"}
-VALID_PROMOTION_STATES = {"LOCAL", "CANDIDATE", "PUBLIC_PROCESS", "GRADUATED", "ARCHIVED"}
-VALID_TIERS = {"flagship", "standard", "stub", "archive", "infrastructure"}
+# Fallback enum values — used when schema-definitions is unavailable
+_FALLBACK_STATUSES = {"ACTIVE", "PROTOTYPE", "SKELETON", "DESIGN_ONLY", "ARCHIVED"}
+_FALLBACK_REVENUE_MODELS = {"subscription", "freemium", "one-time", "advertising", "marketplace", "internal", "none"}
+_FALLBACK_REVENUE_STATUSES = {"pre-launch", "beta", "live", "deprecated", "n/a"}
+_FALLBACK_PROMOTION_STATES = {"LOCAL", "CANDIDATE", "PUBLIC_PROCESS", "GRADUATED", "ARCHIVED"}
+_FALLBACK_TIERS = {"flagship", "standard", "stub", "archive", "infrastructure"}
+
+
+def _load_schema_enums() -> dict[str, set[str]]:
+    """Load enum values from registry-v2 JSON schema.
+
+    Searches for the schema file in known locations. Falls back to
+    hardcoded values with a warning if the schema is unavailable.
+    """
+    candidates = [
+        Path(__file__).resolve().parents[4] / "schema-definitions" / "schemas" / "registry-v2.schema.json",
+        Path.home() / "Workspace" / "meta-organvm" / "schema-definitions" / "schemas" / "registry-v2.schema.json",
+    ]
+
+    for schema_path in candidates:
+        if schema_path.is_file():
+            try:
+                schema = json.loads(schema_path.read_text())
+                repo_props = schema.get("$defs", {}).get("repository", {}).get("properties", {})
+                return {
+                    "statuses": set(repo_props.get("implementation_status", {}).get("enum", [])),
+                    "revenue_models": set(repo_props.get("revenue_model", {}).get("enum", [])),
+                    "revenue_statuses": set(repo_props.get("revenue_status", {}).get("enum", [])),
+                    "promotion_states": set(repo_props.get("promotion_status", {}).get("enum", [])),
+                    "tiers": set(repo_props.get("tier", {}).get("enum", [])),
+                }
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                warnings.warn(f"Failed to parse registry-v2 schema enums: {e}")
+                break
+
+    return {}
+
+
+_schema_enums = _load_schema_enums()
+
+VALID_STATUSES = _schema_enums.get("statuses") or _FALLBACK_STATUSES
+VALID_REVENUE_MODELS = _schema_enums.get("revenue_models") or _FALLBACK_REVENUE_MODELS
+VALID_REVENUE_STATUSES = _schema_enums.get("revenue_statuses") or _FALLBACK_REVENUE_STATUSES
+VALID_PROMOTION_STATES = _schema_enums.get("promotion_states") or _FALLBACK_PROMOTION_STATES
+VALID_TIERS = _schema_enums.get("tiers") or _FALLBACK_TIERS
 
 REQUIRED_FIELDS = {"name", "org", "implementation_status", "public", "description"}
 ORGAN_III_EXTRA = {"type", "revenue_model", "revenue_status"}
