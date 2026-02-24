@@ -1,10 +1,13 @@
 """Tests for the seed module."""
 
+from collections import defaultdict
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from organvm_engine.seed.reader import read_seed, get_produces, get_consumes, seed_identity
+from organvm_engine.seed.graph import build_seed_graph, SeedGraph
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -34,3 +37,102 @@ class TestReader:
     def test_read_missing_file(self):
         with pytest.raises(FileNotFoundError):
             read_seed("/nonexistent/seed.yaml")
+
+
+class TestSeedGraphStringEntries:
+    """Test that build_seed_graph handles string produces/consumes entries."""
+
+    def _build_graph_from_seeds(self, seeds_by_identity):
+        """Helper to build a graph from pre-parsed seeds without filesystem."""
+        from organvm_engine.seed.reader import get_produces, get_consumes
+
+        graph = SeedGraph()
+        producers_by_type: dict[str, list[str]] = defaultdict(list)
+
+        for identity, seed in seeds_by_identity.items():
+            graph.nodes.append(identity)
+
+        for identity, seed in seeds_by_identity.items():
+            for p in get_produces(seed):
+                if isinstance(p, str):
+                    ptype = "unknown"
+                else:
+                    ptype = p.get("type", "unknown")
+                graph.produces.setdefault(identity, []).append(p)
+                producers_by_type[ptype].append(identity)
+
+        for identity, seed in seeds_by_identity.items():
+            for c in get_consumes(seed):
+                if isinstance(c, str):
+                    ctype = "unknown"
+                    source = ""
+                else:
+                    ctype = c.get("type", "unknown")
+                    source = c.get("source", "")
+                graph.consumes.setdefault(identity, []).append(c)
+
+                for producer in producers_by_type.get(ctype, []):
+                    if producer == identity:
+                        continue
+                    if source:
+                        producer_org = producer.split("/")[0] if "/" in producer else ""
+                        if source != producer and source != producer_org:
+                            continue
+                    graph.edges.append((producer, identity, ctype))
+
+        return graph
+
+    def test_string_produces_no_crash(self):
+        """Seeds with string produces entries should not crash."""
+        seeds = {
+            "meta-organvm/corpvs": {
+                "produces": ["registry-v2.json", "governance-rules.json"],
+                "consumes": [],
+            },
+        }
+        graph = self._build_graph_from_seeds(seeds)
+        assert "meta-organvm/corpvs" in graph.nodes
+        assert len(graph.produces["meta-organvm/corpvs"]) == 2
+
+    def test_string_consumes_no_crash(self):
+        """Seeds with string consumes entries should not crash."""
+        seeds = {
+            "meta-organvm/engine": {
+                "produces": [],
+                "consumes": ["registry-v2.json"],
+            },
+        }
+        graph = self._build_graph_from_seeds(seeds)
+        assert len(graph.consumes["meta-organvm/engine"]) == 1
+
+    def test_mixed_produces_dict_and_string(self):
+        """Seeds with mixed dict and string produces entries."""
+        seeds = {
+            "org/repo-a": {
+                "produces": [
+                    {"type": "json", "description": "registry"},
+                    "some-artifact.yaml",
+                ],
+                "consumes": [],
+            },
+        }
+        graph = self._build_graph_from_seeds(seeds)
+        prods = graph.produces["org/repo-a"]
+        assert len(prods) == 2
+
+    def test_string_produces_typed_as_unknown(self):
+        """String produces entries get type 'unknown' for edge matching."""
+        seeds = {
+            "org/producer": {
+                "produces": ["artifact.json"],
+                "consumes": [],
+            },
+            "org/consumer": {
+                "produces": [],
+                "consumes": [{"type": "unknown", "source": ""}],
+            },
+        }
+        graph = self._build_graph_from_seeds(seeds)
+        # Edge should be created: producer --[unknown]--> consumer
+        assert len(graph.edges) == 1
+        assert graph.edges[0] == ("org/producer", "org/consumer", "unknown")

@@ -17,7 +17,7 @@ class ImpactReport:
     source_repo: str
     affected_repos: list[str] = field(default_factory=list)
     impact_graph: dict[str, list[str]] = field(default_factory=dict)
-    
+
     def summary(self) -> str:
         lines = [f"Impact Analysis for: {self.source_repo}"]
         if not self.affected_repos:
@@ -51,11 +51,11 @@ def calculate_impact(
     workspace_path: str | None = None
 ) -> ImpactReport:
     """Calculate the downstream impact of a change to repo_name."""
-    
+
     # 1. Build Adjacency List (A -> B means A affects B)
     # This is the reverse of "dependencies" (A depends on B means B affects A)
     adjacency: dict[str, set[str]] = {}
-    
+
     # Add Registry Dependencies (Explicit)
     # If R depends on D, then D affects R.
     # Registry has "dependencies": ["org/dep"]
@@ -67,8 +67,9 @@ def calculate_impact(
             dep_name = dep.split("/")[-1]
             if dep_name not in adjacency:
                 adjacency[dep_name] = set()
-            adjacency[dep_name].add(name)
-            
+            if name is not None:
+                adjacency[dep_name].add(name)
+
     # Add Seed Edges (Implicit Data Flow)
     # If Producer P produces Type T, and Consumer C consumes Type T from P:
     # Then P affects C.
@@ -77,30 +78,30 @@ def calculate_impact(
         # identities are "org/repo"
         p_name = producer.split("/")[-1]
         c_name = consumer.split("/")[-1]
-        
+
         if p_name not in adjacency:
             adjacency[p_name] = set()
         adjacency[p_name].add(c_name)
-        
+
     # 2. Traverse Graph (BFS)
     affected = set()
     impact_graph = {}
-    
+
     queue = [repo_name]
     visited = {repo_name}
-    
+
     while queue:
         current = queue.pop(0)
         downstream = adjacency.get(current, set())
-        
+
         impact_graph[current] = list(downstream)
-        
+
         for neighbor in downstream:
             if neighbor not in visited:
                 visited.add(neighbor)
                 affected.add(neighbor)
                 queue.append(neighbor)
-                
+
     return ImpactReport(
         source_repo=repo_name,
         affected_repos=list(affected),

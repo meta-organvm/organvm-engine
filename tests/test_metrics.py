@@ -7,6 +7,7 @@ import pytest
 
 from organvm_engine.metrics.calculator import (
     compute_metrics,
+    count_code_files,
     count_words,
     format_word_count,
     _strip_frontmatter,
@@ -248,17 +249,35 @@ class TestCountFileWords:
 
 
 class TestFormatWordCount:
-    def test_basic(self):
+    def test_exact_thousands(self):
         tw, tw_num, tw_short = format_word_count(842000)
         assert tw == "~842,000+"
         assert tw_num == 842000
         assert tw_short == "842K+"
 
-    def test_small(self):
+    def test_rounds_to_nearest_thousand(self):
+        tw, tw_num, tw_short = format_word_count(809812)
+        assert tw == "~810,000+"
+        assert tw_num == 809812  # numeric stays precise
+        assert tw_short == "810K+"
+
+    def test_rounds_down(self):
+        tw, tw_num, tw_short = format_word_count(809400)
+        assert tw == "~809,000+"
+        assert tw_num == 809400
+        assert tw_short == "809K+"
+
+    def test_small_below_threshold(self):
+        tw, tw_num, tw_short = format_word_count(300)
+        assert tw == "~300+"
+        assert tw_num == 300
+        assert tw_short == "0K+"
+
+    def test_small_above_threshold(self):
         tw, tw_num, tw_short = format_word_count(1500)
-        assert tw == "~1,500+"
+        assert tw == "~2,000+"
         assert tw_num == 1500
-        assert tw_short == "1K+"
+        assert tw_short == "2K+"
 
     def test_zero(self):
         tw, tw_num, tw_short = format_word_count(0)
@@ -330,6 +349,69 @@ class TestCountWords:
         assert wc["total"] == 0
 
 
+class TestCountCodeFiles:
+    def _make_workspace(self, tmp_path):
+        """Build a minimal workspace with code files."""
+        ws = tmp_path / "workspace"
+        organ = ws / "organvm-i-theoria"
+
+        # repo-a: 2 python files + 1 test + tests/ dir
+        repo_a = organ / "repo-a"
+        (repo_a / "src").mkdir(parents=True)
+        (repo_a / "src" / "main.py").write_text("print('hello')")
+        (repo_a / "src" / "utils.py").write_text("def helper(): pass")
+        (repo_a / "tests").mkdir()
+        (repo_a / "tests" / "test_main.py").write_text("def test_it(): pass")
+
+        # repo-b: 1 ts file, no tests dir
+        repo_b = organ / "repo-b"
+        repo_b.mkdir(parents=True)
+        (repo_b / "index.ts").write_text("export const x = 1")
+
+        # repo-c: files in node_modules should be skipped
+        repo_c = organ / "repo-c"
+        (repo_c / "node_modules" / "pkg").mkdir(parents=True)
+        (repo_c / "node_modules" / "pkg" / "index.js").write_text("module.exports = {}")
+        (repo_c / "src").mkdir(parents=True)
+        (repo_c / "src" / "app.tsx").write_text("export default function App() {}")
+
+        return ws
+
+    def test_counts_code_files(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        cf = count_code_files(ws)
+        # 2 .py + 1 test .py + 1 .ts + 1 .tsx = 5 (node_modules skipped)
+        assert cf["code_files"] == 5
+
+    def test_counts_test_files(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        cf = count_code_files(ws)
+        assert cf["test_files"] == 1  # only test_main.py
+
+    def test_counts_repos_with_tests(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        cf = count_code_files(ws)
+        assert cf["repos_with_tests"] == 1  # only repo-a has tests/
+
+    def test_skips_venv(self, tmp_path):
+        ws = tmp_path / "workspace"
+        organ = ws / "organvm-i-theoria" / "repo-a"
+        (organ / ".venv" / "lib").mkdir(parents=True)
+        (organ / ".venv" / "lib" / "site.py").write_text("x = 1")
+        (organ / "src").mkdir(parents=True)
+        (organ / "src" / "app.py").write_text("x = 1")
+        cf = count_code_files(ws)
+        assert cf["code_files"] == 1  # only src/app.py
+
+    def test_empty_workspace(self, tmp_path):
+        ws = tmp_path / "empty"
+        ws.mkdir()
+        cf = count_code_files(ws)
+        assert cf["code_files"] == 0
+        assert cf["test_files"] == 0
+        assert cf["repos_with_tests"] == 0
+
+
 class TestComputeMetricsWithWorkspace:
     def test_includes_word_counts(self, registry, tmp_path):
         ws = tmp_path / "workspace"
@@ -344,9 +426,25 @@ class TestComputeMetricsWithWorkspace:
         assert "total_words_short" in m
         assert "total_words" in m
 
+    def test_includes_code_file_counts(self, registry, tmp_path):
+        ws = tmp_path / "workspace"
+        organ = ws / "organvm-i-theoria"
+        (organ / "repo-a" / "src").mkdir(parents=True)
+        (organ / "repo-a" / "src" / "main.py").write_text("x = 1")
+        (organ / "repo-a" / "tests").mkdir()
+        (organ / "repo-a" / "tests" / "test_main.py").write_text("pass")
+        (organ / "repo-a" / "README.md").write_text("hello")
+
+        m = compute_metrics(registry, workspace=ws)
+        assert "code_files" in m
+        assert m["code_files"] == 2  # main.py + test_main.py
+        assert m["test_files"] == 1
+        assert m["repos_with_tests"] == 1
+
     def test_no_workspace_no_words(self, registry):
         m = compute_metrics(registry)
         assert "word_counts" not in m
+        assert "code_files" not in m
 
 
 class TestBuildPatternsComputedFirst:

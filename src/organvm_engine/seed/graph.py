@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from organvm_engine.seed.discover import discover_seeds
-from organvm_engine.seed.reader import read_seed, get_produces, get_consumes, seed_identity
+from organvm_engine.seed.reader import get_consumes, get_produces, read_seed, seed_identity
 
 
 @dataclass
@@ -64,15 +64,22 @@ def build_seed_graph(
     producers_by_type: dict[str, list[str]] = defaultdict(list)
     for identity, seed in seeds_by_identity.items():
         for p in get_produces(seed):
-            ptype = p.get("type", "unknown")
+            if isinstance(p, str):
+                ptype = "unknown"
+            else:
+                ptype = p.get("type", "unknown")
             graph.produces.setdefault(identity, []).append(p)
             producers_by_type[ptype].append(identity)
 
     # Build edges from consumes
     for identity, seed in seeds_by_identity.items():
         for c in get_consumes(seed):
-            ctype = c.get("type", "unknown")
-            source = c.get("source", "")
+            if isinstance(c, str):
+                ctype = "unknown"
+                source = ""
+            else:
+                ctype = c.get("type", "unknown")
+                source = c.get("source", "")
             graph.consumes.setdefault(identity, []).append(c)
 
             # Find matching producers, filtering by source when specified

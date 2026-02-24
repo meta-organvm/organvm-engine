@@ -8,11 +8,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from organvm_engine.registry.query import find_repo
 from organvm_engine.contextmd.templates import (
-    REPO_SECTION, ORGAN_SECTION, AGENTS_SECTION, WORKSPACE_SECTION,
-    format_produces_edge, format_consumes_edge, format_no_edges,
+    AGENTS_SECTION,
+    ORGAN_SECTION,
+    REPO_SECTION,
+    WORKSPACE_SECTION,
+    format_consumes_edge,
+    format_no_edges,
+    format_produces_edge,
 )
+from organvm_engine.registry.query import find_repo
 
 
 def generate_repo_section(
@@ -22,14 +27,14 @@ def generate_repo_section(
     seed: dict | None = None,
 ) -> str:
     """Generate the auto-generated section for a repo-level CLAUDE.md / GEMINI.md."""
-    
+
     result = find_repo(registry, repo_name)
     if not result:
         return f"<!-- ERROR: Repo '{repo_name}' not found -->"
-        
+
     organ_key, repo_data = result
     organ_data = registry.get("organs", {}).get(organ_key, {})
-    
+
     # Format edges
     edges = []
     if seed:
@@ -47,15 +52,16 @@ def generate_repo_section(
                 edges.append(format_consumes_edge(source, artifact, c.get("event", "")))
             else:
                 edges.append(f"- **Consumes** ← `{c}`")
-            
+
     edges_block = "\n".join(edges) if edges else format_no_edges()
-    
+
     # Format siblings
-    siblings = [r.get("name") for r in organ_data.get("repositories", []) if r.get("name") != repo_name]
+    all_repos = organ_data.get("repositories", [])
+    siblings = [r.get("name") for r in all_repos if r.get("name") != repo_name]
     siblings_block = ", ".join(f"`{s}`" for s in siblings[:15])
     if len(siblings) > 15:
         siblings_block += f" ... and {len(siblings) - 15} more"
-        
+
     # Governance notes
     gov = []
     if organ_key == "ORGAN-III":
@@ -64,7 +70,7 @@ def generate_repo_section(
         gov.append("- Consumes Theory (I) concepts, produces artifacts for Commerce (III).")
     elif organ_key == "ORGAN-I":
         gov.append("- Foundational theory layer. No upstream dependencies.")
-        
+
     governance_block = "\n".join(gov) if gov else "- *Standard ORGANVM governance applies*"
 
     return REPO_SECTION.format(
@@ -88,21 +94,21 @@ def generate_agents_section(
     seed: dict | None = None,
 ) -> str:
     """Generate the auto-generated section for AGENTS.md."""
-    
+
     result = find_repo(registry, repo_name)
     if not result:
         return f"<!-- ERROR: Repo '{repo_name}' not found -->"
-        
+
     organ_key, _ = result
     organ_data = registry.get("organs", {}).get(organ_key, {})
-    
+
     # Format subscriptions
     subs = []
     if seed:
         for s in seed.get("subscriptions", []) or []:
             subs.append(f"- Event: `{s.get('event')}` → Action: {s.get('action')}")
     subs_block = "\n".join(subs) if subs else "- *No active event subscriptions*"
-    
+
     # Format produces/consumes for agents
     prod = []
     cons = []
@@ -113,7 +119,7 @@ def generate_agents_section(
                 target = p.get("target")
                 if not target and p.get("consumers"):
                     targets = []
-                    for consumer in p.get("consumers"):
+                    for consumer in p.get("consumers") or []:
                         if isinstance(consumer, dict):
                             # Link to the consumer repo context if possible
                             repo_n = consumer.get("repo")
@@ -141,10 +147,10 @@ def generate_agents_section(
                 cons.append(f"- **Consume** `{art}` from {source_link}")
             else:
                 cons.append(f"- **Consume** `{c}`")
-            
+
     produces_block = "\n".join(prod) if prod else "- *No production responsibilities*"
     consumes_block = "\n".join(cons) if cons else "- *No external dependencies*"
-    
+
     # Simple governance for agents
     gov = ["- Adhere to unidirectional flow: I→II→III", "- Never commit secrets or credentials"]
 
@@ -165,13 +171,13 @@ def generate_organ_section(
     seeds: list[dict] | None = None,
 ) -> str:
     """Generate the auto-generated section for an organ-level CLAUDE.md."""
-    
+
     organ_data = registry.get("organs", {}).get(organ_key, {})
     if not organ_data:
         return f"<!-- ERROR: Organ '{organ_key}' not found -->"
-        
+
     repos = organ_data.get("repositories", [])
-    
+
     # Format repo list
     repo_lines = []
     for r in repos[:20]:
@@ -179,7 +185,7 @@ def generate_organ_section(
     repo_list_block = "\n".join(repo_lines)
     if len(repos) > 20:
         repo_list_block += f"\n- ... and {len(repos) - 20} more"
-        
+
     # Aggregate promotion distribution
     dist = {}
     for r in repos:
@@ -259,6 +265,7 @@ def _read_omega_counts() -> tuple[int, int]:
     Falls back to (0, 17) if the file is unreadable.
     """
     import re
+
     from organvm_engine.paths import corpus_dir
 
     evidence_path = corpus_dir() / "docs" / "evaluation" / "omega-evidence-map.md"

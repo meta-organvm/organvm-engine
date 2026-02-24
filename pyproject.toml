@@ -14,13 +14,28 @@ dependencies = [
 
 [project.optional-dependencies]
 schema = ["jsonschema>=4.20"]
-dev = ["pytest>=8.0", "jsonschema>=4.20"]
+dev = ["pytest>=8.0", "jsonschema>=4.20", "ruff>=0.4", "pyright>=1.1"]
 
 [project.scripts]
 organvm = "organvm_engine.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["organvm_engine"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+include = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
