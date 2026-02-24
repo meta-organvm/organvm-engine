@@ -190,6 +190,7 @@ class OmegaScorecard:
 
 # Criteria that are known to be MET from the roadmap (with evidence)
 _KNOWN_MET = {
+    5: ("≥1 application submitted", "Doris Duke / Mozilla AMT, submitted 2026-02-24"),
     6: ("AI-conductor essay published", "public-process essay #9, 2026-02-12"),
 }
 
@@ -259,8 +260,9 @@ def evaluate(
             horizon="H2",
             measurement="Application tracker",
             auto=False,
-            status="NOT_MET",
-            value="Submissions staged, awaiting execution",
+            status="MET",
+            value="1 submitted (Doris Duke / Mozilla AMT)",
+            evidence="Doris Duke / Mozilla AMT, submitted 2026-02-24",
         ),
         OmegaCriterion(
             id=6,

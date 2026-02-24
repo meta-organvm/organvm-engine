@@ -61,7 +61,7 @@ It belongs to **ORGAN Meta (Meta)** under the `meta-organvm` GitHub organization
 <!-- ORGANVM:AUTO:START -->
 ## System Context (auto-generated — do not edit)
 
-**Organ:** META-ORGANVM (Meta) | **Tier:** flagship | **Status:** LOCAL
+**Organ:** META-ORGANVM (Meta) | **Tier:** flagship | **Status:** CANDIDATE
 **Org:** `unknown` | **Repo:** `organvm-engine`
 
 ### Edges
@@ -76,5 +76,5 @@ It belongs to **ORGAN Meta (Meta)** under the `meta-organvm` GitHub organization
 ### Governance
 - *Standard ORGANVM governance applies*
 
-*Last synced: 2026-02-24T01:01:15Z*
+*Last synced: 2026-02-24T12:41:28Z*
 <!-- ORGANVM:AUTO:END -->
