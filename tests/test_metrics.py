@@ -14,9 +14,9 @@ FIXTURES = Path(__file__).parent / "fixtures"
 class TestCalculator:
     def test_compute_totals(self, registry):
         m = compute_metrics(registry)
-        assert m["total_repos"] == 4
-        assert m["active_repos"] == 4
-        assert m["total_organs"] == 3
+        assert m["total_repos"] == 6
+        assert m["active_repos"] == 6
+        assert m["total_organs"] == 4
 
     def test_per_organ_counts(self, registry):
         m = compute_metrics(registry)

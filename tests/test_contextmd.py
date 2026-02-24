@@ -116,7 +116,7 @@ class TestGenerateWorkspaceSection:
 
     def test_seed_coverage_reflects_count(self, registry):
         section = generate_workspace_section(registry, seeds=[{}, {}])
-        assert "2/4" in section  # 2 seeds, 4 repos in fixture
+        assert "2/6" in section  # 2 seeds, 6 repos in fixture
 
 
 class TestReadOmegaCounts:

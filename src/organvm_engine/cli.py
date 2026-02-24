@@ -1,6 +1,7 @@
 """Unified CLI for the organvm system.
 
 Usage:
+    organvm status
     organvm registry show <repo>
     organvm registry list [--organ X] [--status X] [--tier X]
     organvm registry validate
@@ -23,6 +24,8 @@ Usage:
     organvm git reproduce-workspace [--organ X] [--shallow] [--manifest <path>]
     organvm git diff-pinned [--organ X]
     organvm git install-hooks [--organ X]
+    organvm omega status
+    organvm omega check
     organvm context sync [--dry-run] [--organ X]
 """
 
@@ -594,6 +597,136 @@ def cmd_context_sync(args: argparse.Namespace) -> int:
     return 1 if result["errors"] else 0
 
 
+# ── Omega commands ────────────────────────────────────────────────
+
+
+def cmd_omega_status(args: argparse.Namespace) -> int:
+    from organvm_engine.omega.scorecard import evaluate
+
+    registry = load_registry(args.registry)
+    scorecard = evaluate(registry=registry)
+    print(f"\n{scorecard.summary()}\n")
+    return 0
+
+
+def cmd_omega_check(args: argparse.Namespace) -> int:
+    from organvm_engine.omega.scorecard import evaluate
+
+    registry = load_registry(args.registry)
+    scorecard = evaluate(registry=registry)
+    print(json.dumps(scorecard.to_dict(), indent=2))
+    return 0
+
+
+def cmd_omega_update(args: argparse.Namespace) -> int:
+    from organvm_engine.omega.scorecard import evaluate, write_snapshot, diff_snapshots
+
+    registry = load_registry(args.registry)
+    scorecard = evaluate(registry=registry)
+
+    # Show what changed
+    changes = diff_snapshots(scorecard)
+    print(f"\n  Omega Update — {scorecard.met_count}/{scorecard.total} MET")
+    print(f"  {'─' * 50}")
+    for change in changes:
+        print(f"  {change}")
+
+    if args.dry_run:
+        print(f"\n  [DRY RUN] Would write snapshot to data/omega/")
+    else:
+        path = write_snapshot(scorecard)
+        print(f"\n  Snapshot written: {path}")
+
+    return 0
+
+
+# ── Deadline commands ────────────────────────────────────────────
+
+
+def cmd_deadlines(args: argparse.Namespace) -> int:
+    from organvm_engine.deadlines.parser import parse_deadlines, filter_upcoming, format_deadlines
+
+    deadlines = parse_deadlines()
+
+    if args.all:
+        filtered = deadlines
+    else:
+        filtered = filter_upcoming(deadlines, days=args.days)
+
+    print(f"\n  Upcoming Deadlines (next {args.days} days)")
+    print(f"  {'═' * 60}")
+    print(format_deadlines(filtered))
+    print(f"\n  {len(filtered)} deadline(s) shown ({len(deadlines)} total)\n")
+    return 0
+
+
+# ── CI commands ──────────────────────────────────────────────────
+
+
+def cmd_ci_triage(args: argparse.Namespace) -> int:
+    from organvm_engine.ci.triage import triage
+
+    report = triage()
+    print(f"\n{report.summary()}\n")
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    return 0
+
+
+# ── Status command ───────────────────────────────────────────────
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    from organvm_engine.omega.scorecard import evaluate, analyze_soak_streak
+    from organvm_engine.metrics.calculator import compute_metrics
+
+    registry = load_registry(args.registry)
+    metrics = compute_metrics(registry)
+    scorecard = evaluate(registry=registry)
+    soak = scorecard.soak
+
+    print(f"\n  ORGANVM System Pulse")
+    print(f"  {'═' * 50}")
+
+    # Repo counts by organ
+    print(f"\n  Organs ({metrics['operational_organs']}/{metrics['total_organs']} operational)")
+    print(f"  {'─' * 50}")
+    for organ_key, organ_data in metrics["per_organ"].items():
+        print(f"    {organ_key:<18} {organ_data['repos']:>3} repos  ({organ_data['name']})")
+    print(f"    {'─' * 40}")
+    print(f"    {'Total':<18} {metrics['total_repos']:>3} repos  ({metrics['active_repos']} active)")
+
+    # Soak test
+    print(f"\n  Soak Test (VIGILIA)")
+    print(f"  {'─' * 50}")
+    if soak.total_snapshots > 0:
+        pct = min(100, int(soak.streak_days / soak.target_days * 100))
+        bar_len = 30
+        filled = int(bar_len * pct / 100)
+        bar = "█" * filled + "░" * (bar_len - filled)
+        print(f"    Streak:    {soak.streak_days}/{soak.target_days} days [{bar}] {pct}%")
+        print(f"    Remaining: {soak.days_remaining} days")
+        if soak.critical_incidents > 0:
+            print(f"    Incidents: {soak.critical_incidents}")
+    else:
+        print(f"    No soak data found.")
+
+    # Omega score
+    print(f"\n  Omega Score")
+    print(f"  {'─' * 50}")
+    pct = int(scorecard.met_count / scorecard.total * 100) if scorecard.total else 0
+    print(f"    {scorecard.met_count}/{scorecard.total} MET ({pct}%), {scorecard.in_progress_count} in progress")
+
+    # CI
+    print(f"\n  Infrastructure")
+    print(f"  {'─' * 50}")
+    print(f"    CI workflows:  {metrics['ci_workflows']}")
+    print(f"    Dep edges:     {metrics['dependency_edges']}")
+
+    print()
+    return 0
+
+
 # ── CLI argument parsing ─────────────────────────────────────────────
 
 
@@ -716,6 +849,28 @@ def build_parser() -> argparse.ArgumentParser:
     git_hooks = git_sub.add_parser("install-hooks", help="Install git context sync hooks")
     git_hooks.add_argument("--organ", default=None, help="Specific organ (default: all)")
 
+    # deadlines
+    dl = sub.add_parser("deadlines", help="Show upcoming deadlines from rolling-todo")
+    dl.add_argument("--days", type=int, default=30, help="Show deadlines within N days (default 30)")
+    dl.add_argument("--all", action="store_true", help="Show all deadlines regardless of date")
+
+    # ci
+    ci = sub.add_parser("ci", help="CI health operations")
+    ci_sub = ci.add_subparsers(dest="subcommand")
+    ci_triage = ci_sub.add_parser("triage", help="Categorize CI failures from soak data")
+    ci_triage.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # omega
+    om = sub.add_parser("omega", help="Omega scorecard operations")
+    om_sub = om.add_subparsers(dest="subcommand")
+    om_sub.add_parser("status", help="Display omega scorecard summary")
+    om_sub.add_parser("check", help="Machine-readable omega status (JSON)")
+    om_update = om_sub.add_parser("update", help="Evaluate and write omega snapshot")
+    om_update.add_argument("--dry-run", action="store_true", help="Preview without writing")
+
+    # status (top-level)
+    sub.add_parser("status", help="One-command system health pulse")
+
     # context
     ctx = sub.add_parser("context", help="System context file management")
     ctx.add_argument("--workspace", default=None, help="Workspace root directory")
@@ -759,8 +914,18 @@ def main() -> int:
         ("git", "reproduce-workspace"): cmd_git_reproduce,
         ("git", "diff-pinned"): cmd_git_diff_pinned,
         ("git", "install-hooks"): cmd_git_install_hooks,
+        ("ci", "triage"): cmd_ci_triage,
         ("context", "sync"): cmd_context_sync,
+        ("omega", "status"): cmd_omega_status,
+        ("omega", "check"): cmd_omega_check,
+        ("omega", "update"): cmd_omega_update,
     }
+
+    # Handle top-level commands (no subcommand)
+    if args.command == "status":
+        return cmd_status(args)
+    if args.command == "deadlines":
+        return cmd_deadlines(args)
 
     handler = dispatch.get((args.command, getattr(args, "subcommand", None)))
     if handler:

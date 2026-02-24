@@ -2,6 +2,29 @@
 
 from typing import Iterator
 
+# Organ key aliases — maps CLI shorthand to registry keys
+ORGAN_ALIASES = {
+    "I": "ORGAN-I",
+    "II": "ORGAN-II",
+    "III": "ORGAN-III",
+    "IV": "ORGAN-IV",
+    "V": "ORGAN-V",
+    "VI": "ORGAN-VI",
+    "VII": "ORGAN-VII",
+    "META": "META-ORGANVM",
+    "LIMINAL": "PERSONAL",
+}
+
+
+def resolve_organ_key(organ: str) -> str:
+    """Resolve an organ alias to its registry key.
+
+    Accepts CLI shorthand (e.g., "META", "I") and returns the
+    registry key (e.g., "META-ORGANVM", "ORGAN-I"). If the input
+    is already a valid registry key, it passes through unchanged.
+    """
+    return ORGAN_ALIASES.get(organ, organ)
+
 
 def all_repos(registry: dict) -> Iterator[tuple[str, dict]]:
     """Yield (organ_key, repo_dict) for every repo in the registry."""
@@ -48,8 +71,9 @@ def list_repos(
         List of (organ_key, repo_dict) tuples matching filters.
     """
     results = []
+    resolved_organ = resolve_organ_key(organ) if organ else None
     for organ_key, repo in all_repos(registry):
-        if organ and organ_key != organ:
+        if resolved_organ and organ_key != resolved_organ:
             continue
         if status and repo.get("implementation_status") != status:
             continue

@@ -75,6 +75,33 @@
           "revenue_status": "pre-launch"
         }
       ]
+    },
+    "META-ORGANVM": {
+      "name": "Meta",
+      "launch_status": "OPERATIONAL",
+      "repository_count": 2,
+      "repositories": [
+        {
+          "name": "organvm-engine",
+          "org": "meta-organvm",
+          "implementation_status": "ACTIVE",
+          "public": true,
+          "description": "Core governance engine",
+          "dependencies": [],
+          "promotion_status": "LOCAL",
+          "tier": "flagship"
+        },
+        {
+          "name": "organvm-corpvs-testamentvm",
+          "org": "meta-organvm",
+          "implementation_status": "ACTIVE",
+          "public": true,
+          "description": "Planning and governance corpus",
+          "dependencies": [],
+          "promotion_status": "PUBLIC_PROCESS",
+          "tier": "flagship"
+        }
+      ]
     }
   }
 }

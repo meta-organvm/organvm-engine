@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from organvm_engine.registry.loader import load_registry
-from organvm_engine.registry.query import find_repo, all_repos, list_repos
+from organvm_engine.registry.query import find_repo, all_repos, list_repos, resolve_organ_key
 from organvm_engine.registry.validator import validate_registry
 from organvm_engine.registry.updater import update_repo
 
@@ -34,37 +34,70 @@ class TestQuery:
 
     def test_all_repos_yields_all(self, registry):
         repos = list(all_repos(registry))
-        assert len(repos) == 4
+        assert len(repos) == 6
 
     def test_list_repos_by_organ(self, registry):
         results = list_repos(registry, organ="ORGAN-I")
         assert len(results) == 2
         assert all(ok == "ORGAN-I" for ok, _ in results)
 
+    def test_list_repos_by_organ_meta(self, registry):
+        """META alias resolves to META-ORGANVM registry key."""
+        results = list_repos(registry, organ="META")
+        assert len(results) == 2
+        assert all(ok == "META-ORGANVM" for ok, _ in results)
+
+    def test_list_repos_by_organ_meta_full_key(self, registry):
+        """Full registry key META-ORGANVM also works."""
+        results = list_repos(registry, organ="META-ORGANVM")
+        assert len(results) == 2
+
+    def test_list_repos_by_organ_shorthand(self, registry):
+        """Shorthand 'I' resolves to 'ORGAN-I'."""
+        results = list_repos(registry, organ="I")
+        assert len(results) == 2
+        assert all(ok == "ORGAN-I" for ok, _ in results)
+
     def test_list_repos_by_tier(self, registry):
         flagships = list_repos(registry, tier="flagship")
-        assert len(flagships) == 2
+        assert len(flagships) == 4
 
     def test_list_repos_public_only(self, registry):
         public = list_repos(registry, public_only=True)
-        assert len(public) == 4  # all are public in fixture
+        assert len(public) == 6  # all are public in fixture
 
     def test_list_repos_by_promotion_status(self, registry):
         public_process = list_repos(registry, promotion_status="PUBLIC_PROCESS")
-        assert len(public_process) == 2
+        assert len(public_process) == 3
         assert all(r.get("promotion_status") == "PUBLIC_PROCESS" for _, r in public_process)
 
     def test_list_repos_by_promotion_status_local(self, registry):
         local = list_repos(registry, promotion_status="LOCAL")
-        assert len(local) == 2
+        assert len(local) == 3
         assert all(r.get("promotion_status") == "LOCAL" for _, r in local)
+
+
+class TestResolveOrganKey:
+    def test_shorthand_to_full(self):
+        assert resolve_organ_key("I") == "ORGAN-I"
+        assert resolve_organ_key("VII") == "ORGAN-VII"
+
+    def test_meta_alias(self):
+        assert resolve_organ_key("META") == "META-ORGANVM"
+
+    def test_passthrough_full_key(self):
+        assert resolve_organ_key("ORGAN-I") == "ORGAN-I"
+        assert resolve_organ_key("META-ORGANVM") == "META-ORGANVM"
+
+    def test_unknown_passthrough(self):
+        assert resolve_organ_key("UNKNOWN") == "UNKNOWN"
 
 
 class TestValidator:
     def test_valid_registry_passes(self, registry):
         result = validate_registry(registry)
         assert result.passed
-        assert result.total_repos == 4
+        assert result.total_repos == 6
 
     def test_missing_field_is_error(self):
         bad = {
