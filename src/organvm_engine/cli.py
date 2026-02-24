@@ -13,6 +13,7 @@ Usage:
     organvm seed validate
     organvm seed graph
     organvm metrics calculate
+    organvm metrics count-words [--workspace <path>]
     organvm metrics propagate [--cross-repo] [--dry-run]
     organvm metrics refresh [--cross-repo] [--dry-run]
     organvm dispatch validate <file>
@@ -259,11 +260,25 @@ def cmd_seed_graph(args: argparse.Namespace) -> int:
 # ── Metrics commands ─────────────────────────────────────────────────
 
 
+def _resolve_workspace(args: argparse.Namespace) -> Path | None:
+    """Resolve workspace path from args or environment."""
+    import os
+    raw = getattr(args, "workspace", None)
+    if raw:
+        return Path(raw).expanduser().resolve()
+    env = os.environ.get("ORGANVM_WORKSPACE_DIR")
+    if env:
+        return Path(env).expanduser().resolve()
+    default = Path.home() / "Workspace"
+    return default if default.is_dir() else None
+
+
 def cmd_metrics_calculate(args: argparse.Namespace) -> int:
     from organvm_engine.metrics.calculator import compute_metrics, write_metrics
 
     registry = load_registry(args.registry)
-    computed = compute_metrics(registry)
+    workspace = _resolve_workspace(args)
+    computed = compute_metrics(registry, workspace=workspace)
 
     output = Path(args.output) if args.output else (
         Path(args.registry).parent / "system-metrics.json"
@@ -275,6 +290,11 @@ def cmd_metrics_calculate(args: argparse.Namespace) -> int:
     print(f"  Organs: {computed['operational_organs']}/{computed['total_organs']} operational")
     print(f"  CI: {computed['ci_workflows']}")
     print(f"  Dependencies: {computed['dependency_edges']} edges")
+    if "word_counts" in computed:
+        wc = computed["word_counts"]
+        print(f"  Words: {computed['total_words_short']} "
+              f"(readmes={wc['readmes']:,}, essays={wc['essays']:,}, "
+              f"corpus={wc['corpus']:,}, profiles={wc['org_profiles']:,})")
     return 0
 
 
@@ -346,12 +366,37 @@ def cmd_metrics_propagate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_metrics_count_words(args: argparse.Namespace) -> int:
+    from organvm_engine.metrics.calculator import count_words, format_word_count
+
+    workspace = _resolve_workspace(args)
+    if workspace is None:
+        print("ERROR: Could not determine workspace. Use --workspace or set ORGANVM_WORKSPACE_DIR.",
+              file=sys.stderr)
+        return 1
+
+    wc = count_words(workspace)
+    tw, tw_num, tw_short = format_word_count(wc["total"])
+
+    print(f"\n  Word Count Breakdown")
+    print(f"  {'─' * 40}")
+    print(f"    READMEs:      {wc['readmes']:>10,}")
+    print(f"    Essays:       {wc['essays']:>10,}")
+    print(f"    Corpus docs:  {wc['corpus']:>10,}")
+    print(f"    Org profiles: {wc['org_profiles']:>10,}")
+    print(f"    {'─' * 30}")
+    print(f"    Total:        {wc['total']:>10,}  ({tw_short})")
+    print()
+    return 0
+
+
 def cmd_metrics_refresh(args: argparse.Namespace) -> int:
     from organvm_engine.metrics.calculator import compute_metrics, write_metrics
 
     # Step 1: Calculate
     registry = load_registry(args.registry)
-    computed = compute_metrics(registry)
+    workspace = _resolve_workspace(args)
+    computed = compute_metrics(registry, workspace=workspace)
 
     corpus_root = Path(args.registry).parent
     output = corpus_root / "system-metrics.json"
@@ -853,9 +898,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # metrics
     met = sub.add_parser("metrics", help="Metrics operations")
+    met.add_argument("--workspace", default=None, help="Workspace root directory")
     met_sub = met.add_subparsers(dest="subcommand")
     calc = met_sub.add_parser("calculate", help="Compute current metrics")
     calc.add_argument("--output", default=None, help="Output file path")
+
+    met_sub.add_parser("count-words", help="Count words across the workspace")
 
     prop = met_sub.add_parser("propagate", help="Propagate metrics to documentation files")
     prop.add_argument("--cross-repo", action="store_true",
@@ -984,6 +1032,7 @@ def main() -> int:
         ("seed", "validate"): cmd_seed_validate,
         ("seed", "graph"): cmd_seed_graph,
         ("metrics", "calculate"): cmd_metrics_calculate,
+        ("metrics", "count-words"): cmd_metrics_count_words,
         ("metrics", "propagate"): cmd_metrics_propagate,
         ("metrics", "refresh"): cmd_metrics_refresh,
         ("dispatch", "validate"): cmd_dispatch_validate,

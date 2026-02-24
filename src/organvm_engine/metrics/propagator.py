@@ -39,9 +39,12 @@ def build_patterns(metrics: dict) -> list[tuple[str, re.Pattern, str]]:
     dep_edges = c.get("dependency_edges", 0)
     sprints = c.get("sprints_completed", 0)
 
-    total_words_numeric = str(m.get("total_words_numeric", 404000))
+    # Try computed first (auto-counted), fall back to manual (legacy)
+    total_words_numeric = str(
+        c.get("total_words_numeric") or m.get("total_words_numeric", 404000)
+    )
     total_words_formatted = f"{int(total_words_numeric):,}"
-    total_words_short = m.get("total_words_short", "404K+")
+    total_words_short = c.get("total_words_short") or m.get("total_words_short", "404K+")
     total_words_k = total_words_short.rstrip("K+")
 
     patterns = []
@@ -245,7 +248,8 @@ def compute_vitals(metrics: dict) -> dict:
         },
         "logos": {
             "essays": c.get("published_essays", 0),
-            "words": m.get("total_words_numeric", 0),
+            "words": c.get("total_words_numeric") or m.get("total_words_numeric", 0),
+            **({"word_breakdown": c["word_counts"]} if "word_counts" in c else {}),
         },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }

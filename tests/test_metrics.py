@@ -5,8 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from organvm_engine.metrics.calculator import compute_metrics
+from organvm_engine.metrics.calculator import (
+    compute_metrics,
+    count_words,
+    format_word_count,
+    _strip_frontmatter,
+    _count_file_words,
+)
 from organvm_engine.metrics.propagator import (
+    build_patterns,
     compute_vitals,
     compute_landing,
     copy_json_targets,
@@ -203,3 +210,205 @@ class TestCopyJsonTargets:
         assert count == 1
         data = json.loads(dest.read_text())
         assert data["registry"]["total_repos"] == 6
+
+
+class TestStripFrontmatter:
+    def test_strips_yaml_frontmatter(self):
+        text = "---\ntitle: Test\ndate: 2026-01-01\n---\nHello world"
+        assert _strip_frontmatter(text) == "\nHello world"
+
+    def test_no_frontmatter(self):
+        text = "Hello world"
+        assert _strip_frontmatter(text) == "Hello world"
+
+    def test_incomplete_frontmatter(self):
+        text = "---\ntitle: Test\nHello world"
+        assert _strip_frontmatter(text) == "---\ntitle: Test\nHello world"
+
+
+class TestCountFileWords:
+    def test_plain_text(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("hello world foo bar baz")
+        assert _count_file_words(f) == 5
+
+    def test_with_frontmatter(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("---\ntitle: Test\n---\nhello world foo")
+        assert _count_file_words(f) == 3
+
+    def test_strips_html_tags(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("<div>hello</div> <p>world</p>")
+        assert _count_file_words(f) == 2
+
+    def test_nonexistent_file(self, tmp_path):
+        f = tmp_path / "nope.md"
+        assert _count_file_words(f) == 0
+
+
+class TestFormatWordCount:
+    def test_basic(self):
+        tw, tw_num, tw_short = format_word_count(842000)
+        assert tw == "~842,000+"
+        assert tw_num == 842000
+        assert tw_short == "842K+"
+
+    def test_small(self):
+        tw, tw_num, tw_short = format_word_count(1500)
+        assert tw == "~1,500+"
+        assert tw_num == 1500
+        assert tw_short == "1K+"
+
+    def test_zero(self):
+        tw, tw_num, tw_short = format_word_count(0)
+        assert tw == "~0+"
+        assert tw_num == 0
+        assert tw_short == "0K+"
+
+
+class TestCountWords:
+    def _make_workspace(self, tmp_path):
+        """Build a minimal workspace structure for word counting."""
+        ws = tmp_path / "workspace"
+
+        # Create an organ dir with two repos
+        organ = ws / "organvm-i-theoria"
+        (organ / "repo-a").mkdir(parents=True)
+        (organ / "repo-a" / "README.md").write_text("one two three four five")
+        (organ / "repo-b").mkdir(parents=True)
+        (organ / "repo-b" / "README.md").write_text("alpha beta gamma")
+
+        # Essays
+        essays = ws / "organvm-v-logos" / "public-process" / "_posts"
+        essays.mkdir(parents=True)
+        (essays / "2026-01-01-test.md").write_text(
+            "---\ntitle: Test\n---\nword1 word2 word3 word4"
+        )
+
+        # Corpus docs
+        corpus = ws / "meta-organvm" / "organvm-corpvs-testamentvm" / "docs"
+        corpus.mkdir(parents=True)
+        (corpus / "test.md").write_text("a b c d e f g h i j")
+
+        # Org profile
+        profile = ws / "organvm-i-theoria" / ".github" / "profile"
+        profile.mkdir(parents=True)
+        (profile / "README.md").write_text("profile words here")
+
+        return ws
+
+    def test_counts_readmes(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        wc = count_words(ws)
+        assert wc["readmes"] == 8  # 5 + 3
+
+    def test_counts_essays_without_frontmatter(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        wc = count_words(ws)
+        assert wc["essays"] == 4
+
+    def test_counts_corpus(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        wc = count_words(ws)
+        assert wc["corpus"] == 10
+
+    def test_counts_org_profiles(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        wc = count_words(ws)
+        assert wc["org_profiles"] == 3
+
+    def test_total_is_sum(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        wc = count_words(ws)
+        assert wc["total"] == wc["readmes"] + wc["essays"] + wc["corpus"] + wc["org_profiles"]
+
+    def test_empty_workspace(self, tmp_path):
+        ws = tmp_path / "empty"
+        ws.mkdir()
+        wc = count_words(ws)
+        assert wc["total"] == 0
+
+
+class TestComputeMetricsWithWorkspace:
+    def test_includes_word_counts(self, registry, tmp_path):
+        ws = tmp_path / "workspace"
+        organ = ws / "organvm-i-theoria"
+        (organ / "repo-a").mkdir(parents=True)
+        (organ / "repo-a" / "README.md").write_text("hello world")
+
+        m = compute_metrics(registry, workspace=ws)
+        assert "word_counts" in m
+        assert m["word_counts"]["readmes"] == 2
+        assert "total_words_numeric" in m
+        assert "total_words_short" in m
+        assert "total_words" in m
+
+    def test_no_workspace_no_words(self, registry):
+        m = compute_metrics(registry)
+        assert "word_counts" not in m
+
+
+class TestBuildPatternsComputedFirst:
+    def test_uses_computed_word_count(self):
+        metrics = {
+            "computed": {
+                "total_repos": 100,
+                "active_repos": 90,
+                "archived_repos": 5,
+                "published_essays": 42,
+                "ci_workflows": 80,
+                "dependency_edges": 40,
+                "sprints_completed": 10,
+                "total_words_numeric": 842000,
+                "total_words_short": "842K+",
+            },
+            "manual": {
+                "total_words_numeric": 404000,
+                "total_words_short": "404K+",
+            },
+        }
+        patterns = build_patterns(metrics)
+        # Find a total_words pattern and check the replacement uses 842K
+        word_patterns = [(n, p, r) for n, p, r in patterns if n == "total_words"]
+        assert any("842" in r for _, _, r in word_patterns)
+        assert not any("404" in r for _, _, r in word_patterns)
+
+    def test_falls_back_to_manual(self):
+        metrics = {
+            "computed": {
+                "total_repos": 100,
+                "active_repos": 90,
+                "archived_repos": 5,
+                "published_essays": 42,
+                "ci_workflows": 80,
+                "dependency_edges": 40,
+                "sprints_completed": 10,
+            },
+            "manual": {
+                "total_words_numeric": 404000,
+                "total_words_short": "404K+",
+            },
+        }
+        patterns = build_patterns(metrics)
+        word_patterns = [(n, p, r) for n, p, r in patterns if n == "total_words"]
+        assert any("404" in r for _, _, r in word_patterns)
+
+
+class TestComputeVitalsComputedFirst:
+    def test_uses_computed_words(self, registry):
+        canonical = _make_canonical(registry)
+        canonical["computed"]["total_words_numeric"] = 842000
+        canonical["computed"]["word_counts"] = {
+            "readmes": 273000, "essays": 137000,
+            "corpus": 426000, "org_profiles": 6000, "total": 842000,
+        }
+        vitals = compute_vitals(canonical)
+        assert vitals["logos"]["words"] == 842000
+        assert vitals["logos"]["word_breakdown"]["readmes"] == 273000
+
+    def test_falls_back_to_manual_words(self, registry):
+        canonical = _make_canonical(registry)
+        vitals = compute_vitals(canonical)
+        assert vitals["logos"]["words"] == 404000
+        assert "word_breakdown" not in vitals["logos"]
