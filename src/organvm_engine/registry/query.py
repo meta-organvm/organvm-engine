@@ -32,6 +32,7 @@ def list_repos(
     status: str | None = None,
     tier: str | None = None,
     public_only: bool = False,
+    promotion_status: str | None = None,
 ) -> list[tuple[str, dict]]:
     """List repos with optional filters.
 
@@ -41,6 +42,7 @@ def list_repos(
         status: Filter by implementation_status.
         tier: Filter by tier.
         public_only: Only include public repos.
+        promotion_status: Filter by promotion_status (e.g., "LOCAL", "GRADUATED").
 
     Returns:
         List of (organ_key, repo_dict) tuples matching filters.
@@ -54,6 +56,8 @@ def list_repos(
         if tier and repo.get("tier") != tier:
             continue
         if public_only and not repo.get("public"):
+            continue
+        if promotion_status and repo.get("promotion_status") != promotion_status:
             continue
         results.append((organ_key, repo))
     return results

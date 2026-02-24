@@ -49,6 +49,16 @@ class TestQuery:
         public = list_repos(registry, public_only=True)
         assert len(public) == 4  # all are public in fixture
 
+    def test_list_repos_by_promotion_status(self, registry):
+        public_process = list_repos(registry, promotion_status="PUBLIC_PROCESS")
+        assert len(public_process) == 2
+        assert all(r.get("promotion_status") == "PUBLIC_PROCESS" for _, r in public_process)
+
+    def test_list_repos_by_promotion_status_local(self, registry):
+        local = list_repos(registry, promotion_status="LOCAL")
+        assert len(local) == 2
+        assert all(r.get("promotion_status") == "LOCAL" for _, r in local)
+
 
 class TestValidator:
     def test_valid_registry_passes(self, registry):

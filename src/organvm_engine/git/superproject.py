@@ -74,13 +74,14 @@ SUPERPROJECT_REMOTES = {
 }
 
 
-def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+def _run_git(args: list[str], cwd: Path, timeout: int = 30) -> subprocess.CompletedProcess:
     """Run a git command and return the result."""
     return subprocess.run(
         ["git"] + args,
         cwd=cwd,
         capture_output=True,
         text=True,
+        timeout=timeout,
     )
 
 

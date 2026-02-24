@@ -206,11 +206,11 @@ def generate_workspace_section(
 ) -> str:
     """Generate the auto-generated section for the workspace-level CLAUDE.md."""
     from organvm_engine.contextmd.templates import WORKSPACE_SECTION
-    
+
     organs = registry.get("organs", {})
     total_repos = 0
     rows = []
-    
+
     for key, data in organs.items():
         repos = data.get("repositories", [])
         total_repos += len(repos)
@@ -221,19 +221,48 @@ def generate_workspace_section(
             s = r.get("promotion_status", "LOCAL")
             s_dist[s] = s_dist.get(s, 0) + 1
         status_str = f"{s_dist.get('GRADUATED', 0)}G, {s_dist.get('PUBLIC_PROCESS', 0)}P"
-        
+
         rows.append(f"| {key} | {len(repos)} | {flagship} | {status_str} |")
-        
+
+    omega_met, omega_total = _read_omega_counts()
+
     return WORKSPACE_SECTION.format(
         total_repos=total_repos,
         organ_count=len(organs),
         organ_table_rows="\n".join(rows),
         seed_coverage=f"{len(seeds) if seeds else 0}/{total_repos}",
         ci_count="TBD",
-        omega_met=8,
-        omega_total=17,
+        omega_met=omega_met,
+        omega_total=omega_total,
         timestamp=_timestamp()
     )
+
+
+def _read_omega_counts() -> tuple[int, int]:
+    """Read omega criteria met/total from the evidence map.
+
+    Parses the summary table in omega-evidence-map.md looking for
+    '| MET | N |', '| IN PROGRESS | N |', '| NOT STARTED | N |' rows.
+    Falls back to (0, 17) if the file is unreadable.
+    """
+    import re
+    from organvm_engine.paths import corpus_dir
+
+    evidence_path = corpus_dir() / "docs" / "evaluation" / "omega-evidence-map.md"
+    try:
+        text = evidence_path.read_text()
+    except (FileNotFoundError, OSError):
+        return 0, 17
+
+    counts = {}
+    for line in text.splitlines():
+        m = re.match(r"\|\s*(MET|IN PROGRESS|NOT STARTED)\s*\|\s*(\d+)\s*\|", line)
+        if m:
+            counts[m.group(1)] = int(m.group(2))
+
+    met = counts.get("MET", 0)
+    total = met + counts.get("IN PROGRESS", 0) + counts.get("NOT STARTED", 0)
+    return met, total if total > 0 else 17
 
 
 def _timestamp() -> str:

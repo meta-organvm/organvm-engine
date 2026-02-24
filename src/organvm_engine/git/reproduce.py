@@ -74,6 +74,7 @@ def reproduce_workspace(
             ["git"] + clone_args,
             capture_output=True,
             text=True,
+            timeout=300,
         )
 
         if result.returncode != 0:
@@ -85,7 +86,7 @@ def reproduce_workspace(
         if shallow:
             sub_args += ["--depth", "1"]
 
-        sub_result = _run_git(sub_args, organ_target)
+        sub_result = _run_git(sub_args, organ_target, timeout=300)
         if sub_result.returncode != 0:
             errors.append(f"{organ_dir}: submodule init failed — {sub_result.stderr.strip()}")
 
@@ -135,6 +136,7 @@ def clone_organ(
         ["git"] + clone_args,
         capture_output=True,
         text=True,
+        timeout=300,
     )
 
     if result.returncode != 0:

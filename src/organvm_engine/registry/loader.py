@@ -1,15 +1,11 @@
 """Load and save registry-v2.json."""
 
 import json
-import os
 from pathlib import Path
 
-# Default registry location — inside the corpus repo
-_CORPUS_DIR = Path(os.environ.get(
-    "ORGANVM_CORPUS_DIR",
-    str(Path.home() / "Workspace" / "meta-organvm" / "organvm-corpvs-testamentvm"),
-))
-DEFAULT_REGISTRY_PATH = _CORPUS_DIR / "registry-v2.json"
+from organvm_engine.paths import registry_path as _default_registry_path
+
+DEFAULT_REGISTRY_PATH = _default_registry_path()
 
 
 def load_registry(path: Path | str | None = None) -> dict:

@@ -1,7 +1,8 @@
 """Discover seed.yaml files across the workspace."""
 
-import os
 from pathlib import Path
+
+from organvm_engine.paths import workspace_root
 
 # Known org directories that mirror the GitHub org structure
 ORGAN_ORGS = [
@@ -15,10 +16,7 @@ ORGAN_ORGS = [
     "meta-organvm",
 ]
 
-DEFAULT_WORKSPACE = Path(os.environ.get(
-    "ORGANVM_WORKSPACE_DIR",
-    str(Path.home() / "Workspace"),
-))
+DEFAULT_WORKSPACE = workspace_root()
 
 
 def discover_seeds(

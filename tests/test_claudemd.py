@@ -1,17 +1,21 @@
-"""Tests for CLAUDE.md generator and sync."""
+"""Tests for CLAUDE.md generator and sync (legacy module name).
+
+These tests originally targeted organvm_engine.claudemd — now renamed to
+organvm_engine.contextmd. See test_contextmd.py for comprehensive coverage.
+"""
 
 from __future__ import annotations
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from organvm_engine.claudemd.generator import (
+from organvm_engine.contextmd.generator import (
     generate_repo_section,
     generate_organ_section,
     generate_workspace_section,
 )
-from organvm_engine.claudemd.sync import sync_all, sync_repo
+from organvm_engine.contextmd.sync import sync_repo
 
 
 @pytest.fixture
@@ -53,7 +57,7 @@ class TestGenerator:
 
 
 class TestSync:
-    @patch("organvm_engine.claudemd.sync._inject_section")
+    @patch("organvm_engine.contextmd.sync._inject_section")
     def test_sync_repo(self, mock_inject, mock_registry):
         mock_inject.return_value = "updated"
         res = sync_repo(Path("/tmp"), "repo-a", "org", mock_registry)

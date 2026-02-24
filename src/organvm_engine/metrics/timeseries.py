@@ -1,14 +1,11 @@
 """Time-series analysis from soak-test snapshots."""
 
 import json
-import os
 from pathlib import Path
 
-_CORPUS_DIR = Path(os.environ.get(
-    "ORGANVM_CORPUS_DIR",
-    str(Path.home() / "Workspace" / "meta-organvm" / "organvm-corpvs-testamentvm"),
-))
-DEFAULT_SOAK_DIR = _CORPUS_DIR / "data" / "soak-test"
+from organvm_engine.paths import soak_dir as _default_soak_dir
+
+DEFAULT_SOAK_DIR = _default_soak_dir()
 
 
 def load_snapshots(soak_dir: Path | str | None = None) -> list[dict]:

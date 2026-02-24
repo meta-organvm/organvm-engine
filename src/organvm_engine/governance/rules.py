@@ -1,14 +1,11 @@
 """Load and query governance-rules.json."""
 
 import json
-import os
 from pathlib import Path
 
-_CORPUS_DIR = Path(os.environ.get(
-    "ORGANVM_CORPUS_DIR",
-    str(Path.home() / "Workspace" / "meta-organvm" / "organvm-corpvs-testamentvm"),
-))
-DEFAULT_RULES_PATH = _CORPUS_DIR / "governance-rules.json"
+from organvm_engine.paths import governance_rules_path as _default_rules_path
+
+DEFAULT_RULES_PATH = _default_rules_path()
 
 
 def load_governance_rules(path: Path | str | None = None) -> dict:

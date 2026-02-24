@@ -23,15 +23,13 @@ class ImpactReport:
         lines = [f"Impact Analysis for: {self.source_repo}"]
         if not self.affected_repos:
             lines.append("  No downstream dependencies found.")
-            return "
-".join(lines)
-            
+            return "\n".join(lines)
+
         lines.append(f"  {len(self.affected_repos)} repositories affected:")
         for repo in sorted(self.affected_repos):
             lines.append(f"    - {repo}")
-            
-        lines.append("
-  Propagation Path:")
+
+        lines.append("\n  Propagation Path:")
         # Simple BFS print
         queue = [(self.source_repo, 0)]
         visited = {self.source_repo}
@@ -39,14 +37,13 @@ class ImpactReport:
             current, depth = queue.pop(0)
             if depth > 0:
                 lines.append(f"    {'  ' * depth}↳ {current}")
-            
+
             for child in self.affected_repos:
                 if child in self.impact_graph.get(current, []) and child not in visited:
                     visited.add(child)
                     queue.append((child, depth + 1))
-                    
-        return "
-".join(lines)
+
+        return "\n".join(lines)
 
 
 def calculate_impact(
