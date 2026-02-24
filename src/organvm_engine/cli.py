@@ -305,7 +305,13 @@ def cmd_metrics_propagate(args: argparse.Namespace) -> int:
             print(f"ERROR: {manifest_path} not found.", file=sys.stderr)
             return 1
 
-        result = propagate_cross_repo(metrics, manifest_path, corpus_root, dry_run=args.dry_run)
+        # Load registry for landing.json transform
+        registry = load_registry(args.registry)
+
+        result = propagate_cross_repo(
+            metrics, manifest_path, corpus_root,
+            dry_run=args.dry_run, registry=registry,
+        )
         print(f"[{mode}] Cross-repo propagation complete")
         print(f"  JSON copies: {result.json_copies}")
         print(f"  Markdown: {result.replacements} replacement(s) across {result.files_changed} file(s)")
