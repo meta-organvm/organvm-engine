@@ -192,6 +192,8 @@ class OmegaScorecard:
 _KNOWN_MET = {
     5: ("≥1 application submitted", "Doris Duke / Mozilla AMT, submitted 2026-02-24"),
     6: ("AI-conductor essay published", "public-process essay #9, 2026-02-12"),
+    8: ("≥1 ORGAN-III product live", "12 products live across Netlify/Render, 2026-02-28"),
+    13: ("≥1 organic inbound link", "LobeHub organic indexing of ORGAN-IV skills, 2026-02-28"),
 }
 
 
@@ -289,8 +291,9 @@ def evaluate(
             horizon="H3",
             measurement="Product URL + user count",
             auto=False,
-            status="NOT_MET",
-            value="Staged, awaiting deployment",
+            status="MET",
+            value="12 products live across Netlify/Render",
+            evidence=_KNOWN_MET[8][1],
         ),
         OmegaCriterion(
             id=9,
@@ -334,8 +337,9 @@ def evaluate(
             horizon="H4",
             measurement="Analytics",
             auto=False,
-            status="NOT_MET",
-            value="Broadcast active, no inbound yet",
+            status="MET",
+            value="LobeHub organic indexing of ORGAN-IV skills",
+            evidence=_KNOWN_MET[13][1],
         ),
         OmegaCriterion(
             id=14,
