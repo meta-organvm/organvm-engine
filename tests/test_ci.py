@@ -1,11 +1,10 @@
 """Tests for the CI triage module."""
 
 import json
-from pathlib import Path
 
 import pytest
 
-from organvm_engine.ci.triage import triage, CITriageReport
+from organvm_engine.ci.triage import triage
 
 
 @pytest.fixture

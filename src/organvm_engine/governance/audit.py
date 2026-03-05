@@ -3,8 +3,12 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from organvm_engine.governance.rules import load_governance_rules, get_audit_thresholds, get_organ_requirements
 from organvm_engine.governance.dependency_graph import validate_dependencies
+from organvm_engine.governance.rules import (
+    get_audit_thresholds,
+    get_organ_requirements,
+    load_governance_rules,
+)
 
 
 @dataclass
@@ -75,17 +79,13 @@ def run_audit(
     result.dependency_result = dep_result
 
     if dep_result.cycles:
-        result.critical.append(
-            f"Circular dependencies detected: {len(dep_result.cycles)} cycle(s)"
-        )
+        result.critical.append(f"Circular dependencies detected: {len(dep_result.cycles)} cycle(s)")
     if dep_result.back_edges:
-        result.critical.append(
-            f"Back-edge violations: {len(dep_result.back_edges)} back-edge(s)"
-        )
+        result.critical.append(f"Back-edge violations: {len(dep_result.back_edges)} back-edge(s)")
 
     result.info.append(
         f"Dependency graph: {dep_result.total_edges} edges, "
-        f"{len(dep_result.cross_organ)} cross-organ directions"
+        f"{len(dep_result.cross_organ)} cross-organ directions",
     )
 
     # Per-organ checks
@@ -106,7 +106,7 @@ def run_audit(
         min_repos = reqs.get("min_repos", 0)
         if len(active) < min_repos:
             result.warnings.append(
-                f"{organ_key}: has {len(active)} active repos, requires {min_repos}"
+                f"{organ_key}: has {len(active)} active repos, requires {min_repos}",
             )
 
         for repo in active:
@@ -114,9 +114,8 @@ def run_audit(
 
             # Missing README check
             doc_status = repo.get("documentation_status", "")
-            if not doc_status or doc_status == "EMPTY":
-                if critical_config.get("missing_readme"):
-                    result.critical.append(f"{organ_key}/{name}: missing README")
+            if (not doc_status or doc_status == "EMPTY") and critical_config.get("missing_readme"):
+                result.critical.append(f"{organ_key}/{name}: missing README")
 
             # Missing CI
             if not repo.get("ci_workflow") and warning_config.get("missing_ci_workflow"):
@@ -136,11 +135,11 @@ def run_audit(
                     days_ago = (now - lv).days
                     if days_ago > stale_days:
                         result.warnings.append(
-                            f"{organ_key}/{name}: stale ({days_ago} days since validation)"
+                            f"{organ_key}/{name}: stale ({days_ago} days since validation)",
                         )
                 except ValueError:
                     result.warnings.append(
-                        f"{organ_key}/{name}: malformed last_validated date '{last_validated}'"
+                        f"{organ_key}/{name}: malformed last_validated date '{last_validated}'",
                     )
 
     return result

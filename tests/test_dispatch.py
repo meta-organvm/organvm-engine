@@ -1,12 +1,11 @@
 """Tests for the dispatch module."""
 
-import pytest
+from pathlib import Path
 
+from organvm_engine.dispatch.cascade import plan_cascade
 from organvm_engine.dispatch.payload import create_payload, validate_payload
 from organvm_engine.dispatch.router import route_event
-from organvm_engine.dispatch.cascade import plan_cascade
 from organvm_engine.registry.loader import load_registry
-from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -35,21 +34,25 @@ class TestPayload:
         assert errors == []
 
     def test_validate_missing_event(self):
-        ok, errors = validate_payload({
-            "source": {"organ": "ORGAN-I"},
-            "target": {"organ": "ORGAN-II"},
-            "payload": {},
-        })
+        ok, errors = validate_payload(
+            {
+                "source": {"organ": "ORGAN-I"},
+                "target": {"organ": "ORGAN-II"},
+                "payload": {},
+            },
+        )
         assert not ok
         assert any("event" in e for e in errors)
 
     def test_validate_bad_event_format(self):
-        ok, errors = validate_payload({
-            "event": "nodotshere",
-            "source": {"organ": "ORGAN-I"},
-            "target": {"organ": "ORGAN-II"},
-            "payload": {},
-        })
+        ok, errors = validate_payload(
+            {
+                "event": "nodotshere",
+                "source": {"organ": "ORGAN-I"},
+                "target": {"organ": "ORGAN-II"},
+                "payload": {},
+            },
+        )
         assert not ok
 
 
@@ -59,12 +62,12 @@ class TestRouter:
             "organvm-ii-poiesis/art-repo": {
                 "subscriptions": [
                     {"event": "theory.published", "source": "ORGAN-I", "action": "Create art"},
-                ]
+                ],
             },
             "organvm-iii-ergon/product": {
                 "subscriptions": [
                     {"event": "other.event", "source": "ORGAN-II", "action": "Build product"},
-                ]
+                ],
             },
         }
         matches = route_event("theory.published", "ORGAN-I", seeds)
@@ -76,7 +79,7 @@ class TestRouter:
             "organvm-ii-poiesis/art-repo": {
                 "subscriptions": [
                     {"event": "other.event", "source": "ORGAN-IV", "action": "Do nothing"},
-                ]
+                ],
             },
         }
         matches = route_event("theory.published", "ORGAN-I", seeds)

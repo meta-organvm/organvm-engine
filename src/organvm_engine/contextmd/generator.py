@@ -83,7 +83,7 @@ def generate_repo_section(
         edges_block=edges_block,
         siblings_block=siblings_block,
         governance_block=governance_block,
-        timestamp=_timestamp()
+        timestamp=_timestamp(),
     )
 
 
@@ -161,7 +161,7 @@ def generate_agents_section(
         produces_block=produces_block,
         consumes_block=consumes_block,
         governance_block="\n".join(gov),
-        timestamp=_timestamp()
+        timestamp=_timestamp(),
     )
 
 
@@ -203,7 +203,7 @@ def generate_organ_section(
         organ_edges_block="- *Edges computed from system-wide seed graph*",
         repo_list_block=repo_list_block,
         promotion_block=promotion_block,
-        timestamp=_timestamp()
+        timestamp=_timestamp(),
     )
 
 
@@ -240,7 +240,7 @@ def generate_workspace_section(
         ci_count="TBD",
         omega_met=omega_met,
         omega_total=omega_total,
-        timestamp=_timestamp()
+        timestamp=_timestamp(),
     )
 
 

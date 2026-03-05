@@ -1,14 +1,10 @@
 """Tests for the governance module."""
 
-import json
 from pathlib import Path
 
-import pytest
-
-from organvm_engine.governance.state_machine import check_transition, get_valid_transitions
 from organvm_engine.governance.dependency_graph import validate_dependencies
 from organvm_engine.governance.rules import load_governance_rules
-from organvm_engine.registry.loader import load_registry
+from organvm_engine.governance.state_machine import check_transition, get_valid_transitions
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -47,13 +43,15 @@ class TestDependencyGraph:
         registry = {
             "organs": {
                 "ORGAN-I": {
-                    "repositories": [{
-                        "name": "self-ref",
-                        "org": "organvm-i-theoria",
-                        "dependencies": ["organvm-i-theoria/self-ref"],
-                    }]
-                }
-            }
+                    "repositories": [
+                        {
+                            "name": "self-ref",
+                            "org": "organvm-i-theoria",
+                            "dependencies": ["organvm-i-theoria/self-ref"],
+                        },
+                    ],
+                },
+            },
         }
         result = validate_dependencies(registry)
         assert len(result.self_deps) == 1
@@ -62,20 +60,24 @@ class TestDependencyGraph:
         registry = {
             "organs": {
                 "ORGAN-I": {
-                    "repositories": [{
-                        "name": "theory",
-                        "org": "organvm-i-theoria",
-                        "dependencies": ["organvm-ii-poiesis/art"],
-                    }]
+                    "repositories": [
+                        {
+                            "name": "theory",
+                            "org": "organvm-i-theoria",
+                            "dependencies": ["organvm-ii-poiesis/art"],
+                        },
+                    ],
                 },
                 "ORGAN-II": {
-                    "repositories": [{
-                        "name": "art",
-                        "org": "organvm-ii-poiesis",
-                        "dependencies": [],
-                    }]
+                    "repositories": [
+                        {
+                            "name": "art",
+                            "org": "organvm-ii-poiesis",
+                            "dependencies": [],
+                        },
+                    ],
                 },
-            }
+            },
         }
         result = validate_dependencies(registry)
         assert len(result.back_edges) == 1
@@ -95,9 +97,9 @@ class TestDependencyGraph:
                             "org": "organvm-iv-taxis",
                             "dependencies": ["organvm-iv-taxis/a"],
                         },
-                    ]
-                }
-            }
+                    ],
+                },
+            },
         }
         result = validate_dependencies(registry)
         assert len(result.cycles) > 0

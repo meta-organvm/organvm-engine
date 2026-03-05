@@ -14,6 +14,7 @@ def cmd_governance_audit(args: argparse.Namespace) -> int:
 
     if rules_path:
         from organvm_engine.governance.rules import load_governance_rules
+
         rules = load_governance_rules(rules_path)
     else:
         rules = None

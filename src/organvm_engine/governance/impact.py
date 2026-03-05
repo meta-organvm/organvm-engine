@@ -46,9 +46,7 @@ class ImpactReport:
 
 
 def calculate_impact(
-    repo_name: str,
-    registry: dict,
-    workspace_path: str | None = None
+    repo_name: str, registry: dict, workspace_path: str | None = None,
 ) -> ImpactReport:
     """Calculate the downstream impact of a change to repo_name."""
 
@@ -59,7 +57,7 @@ def calculate_impact(
     # Add Registry Dependencies (Explicit)
     # If R depends on D, then D affects R.
     # Registry has "dependencies": ["org/dep"]
-    for organ_key, repo in all_repos(registry):
+    for _organ_key, repo in all_repos(registry):
         name = repo.get("name")
         deps = repo.get("dependencies", []) or []
         for dep in deps:
@@ -74,7 +72,7 @@ def calculate_impact(
     # If Producer P produces Type T, and Consumer C consumes Type T from P:
     # Then P affects C.
     seed_graph = build_seed_graph(workspace_path)
-    for producer, consumer, artifact_type in seed_graph.edges:
+    for producer, consumer, _artifact_type in seed_graph.edges:
         # identities are "org/repo"
         p_name = producer.split("/")[-1]
         c_name = consumer.split("/")[-1]
@@ -103,7 +101,5 @@ def calculate_impact(
                 queue.append(neighbor)
 
     return ImpactReport(
-        source_repo=repo_name,
-        affected_repos=list(affected),
-        impact_graph=impact_graph
+        source_repo=repo_name, affected_repos=list(affected), impact_graph=impact_graph,
     )

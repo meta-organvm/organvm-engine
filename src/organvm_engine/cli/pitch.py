@@ -17,19 +17,15 @@ def cmd_pitch_generate(args: argparse.Namespace) -> int:
     if action == "error":
         print(f"  ERROR: {result.get('error', 'Unknown error')}")
         return 1
-    elif action == "bespoke":
+    if action == "bespoke":
         print(f"  SKIP: {args.repo} has a bespoke pitch deck at {result['path']}")
         return 0
-    elif action == "dry_run":
+    if action == "dry_run":
         html_content = result.get("html", "")
-        print(
-            f"  [DRY RUN] Would write {len(html_content):,} bytes "
-            f"to {result['path']}"
-        )
+        print(f"  [DRY RUN] Would write {len(html_content):,} bytes to {result['path']}")
         return 0
-    else:
-        print(f"  Generated: {result['path']}")
-        return 0
+    print(f"  Generated: {result['path']}")
+    return 0
 
 
 def cmd_pitch_sync(args: argparse.Namespace) -> int:

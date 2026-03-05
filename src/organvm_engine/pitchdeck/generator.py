@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from organvm_engine.pitchdeck import PITCH_MARKER, PITCH_VERSION
 from organvm_engine.pitchdeck.animations import generate_hero_canvas
 from organvm_engine.pitchdeck.data import PitchDeckData
-from organvm_engine.pitchdeck.templates import STANDARD_TEMPLATE, MARKET_SECTION_TEMPLATE
+from organvm_engine.pitchdeck.templates import MARKET_SECTION_TEMPLATE, STANDARD_TEMPLATE
 from organvm_engine.pitchdeck.themes import PitchTheme
 
 
@@ -83,7 +83,10 @@ def generate_pitch_deck(
 def _render_problem_cards(cards: list[dict[str, str]]) -> str:
     """Render problem cards as HTML."""
     if not cards:
-        return '      <div class="card visible"><h3>Under Construction</h3><p>Problem statement coming soon.</p></div>'
+        return (
+            '      <div class="card visible"><h3>Under Construction</h3>'
+            "<p>Problem statement coming soon.</p></div>"
+        )
 
     lines = []
     for card in cards[:3]:
@@ -96,7 +99,10 @@ def _render_problem_cards(cards: list[dict[str, str]]) -> str:
 def _render_features(features: list[dict[str, str]]) -> str:
     """Render feature cards as HTML."""
     if not features:
-        return '      <div class="feature-card visible"><h3>In Development</h3><p>Feature list coming soon.</p></div>'
+        return (
+            '      <div class="feature-card visible"><h3>In Development</h3>'
+            "<p>Feature list coming soon.</p></div>"
+        )
 
     lines = []
     for feat in features[:6]:
@@ -122,14 +128,17 @@ def _render_edges(produces: list[str], consumes: list[str]) -> str:
     lines = []
     for p in produces[:4]:
         lines.append(
-            f'      <div class="edge-item"><span class="edge-dir">produces</span>{_esc(p)}</div>'
+            f'      <div class="edge-item"><span class="edge-dir">produces</span>{_esc(p)}</div>',
         )
     for c in consumes[:4]:
         lines.append(
-            f'      <div class="edge-item"><span class="edge-dir">consumes</span>{_esc(c)}</div>'
+            f'      <div class="edge-item"><span class="edge-dir">consumes</span>{_esc(c)}</div>',
         )
     if not lines:
-        lines.append('      <div class="edge-item"><span class="edge-dir">standalone</span>No declared edges</div>')
+        lines.append(
+            '      <div class="edge-item"><span class="edge-dir">standalone</span>'
+            "No declared edges</div>",
+        )
     return "\n".join(lines)
 
 
@@ -147,11 +156,20 @@ def _render_cta_links(data: PitchDeckData) -> str:
     """Render CTA action buttons."""
     links = []
     if data.github_url:
-        links.append(f'      <a href="{_attr_esc(data.github_url)}" class="cta-btn" target="_blank" rel="noopener">View on GitHub</a>')
+        links.append(
+            f'      <a href="{_attr_esc(data.github_url)}" class="cta-btn" '
+            'target="_blank" rel="noopener">View on GitHub</a>',
+        )
     if data.docs_url:
-        links.append(f'      <a href="{_attr_esc(data.docs_url)}" class="cta-btn" target="_blank" rel="noopener">Documentation</a>')
+        links.append(
+            f'      <a href="{_attr_esc(data.docs_url)}" class="cta-btn" '
+            'target="_blank" rel="noopener">Documentation</a>',
+        )
     if data.demo_url:
-        links.append(f'      <a href="{_attr_esc(data.demo_url)}" class="cta-btn" target="_blank" rel="noopener">Live Demo</a>')
+        links.append(
+            f'      <a href="{_attr_esc(data.demo_url)}" class="cta-btn" '
+            'target="_blank" rel="noopener">Live Demo</a>',
+        )
     if not links:
         links.append('      <a href="#hero" class="cta-btn">Back to Top</a>')
     return "\n".join(links)

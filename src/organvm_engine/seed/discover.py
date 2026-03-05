@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from organvm_engine.paths import workspace_root
 from organvm_engine.organ_config import organ_org_dirs
+from organvm_engine.paths import workspace_root
 
 # Known org directories — derived from canonical organ_config
 ORGAN_ORGS = organ_org_dirs()

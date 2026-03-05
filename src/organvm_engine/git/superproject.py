@@ -4,14 +4,16 @@ Each organ directory becomes a git superproject that tracks its child repos
 as submodules. The workspace root (~/Workspace) is NOT a git repo.
 """
 
+import contextlib
 import subprocess
-import yaml
 from pathlib import Path
 
+import yaml
+
+from organvm_engine.organ_config import organ_dir_map, registry_key_to_dir
 from organvm_engine.registry.loader import load_registry
 from organvm_engine.registry.query import all_repos
 from organvm_engine.seed.discover import DEFAULT_WORKSPACE
-from organvm_engine.organ_config import organ_dir_map, registry_key_to_dir
 
 # Derived from canonical organ_config — mutable for governance-config.yaml overlay
 ORGAN_DIR_MAP = organ_dir_map()
@@ -23,10 +25,10 @@ def load_governance_config(workspace: Path | None = None) -> None:
     global ORGAN_DIR_MAP, REGISTRY_KEY_MAP
     ws = workspace or DEFAULT_WORKSPACE
     config_path = ws / "meta-organvm/organvm-corpvs-testamentvm/governance-config.yaml"
-    
+
     if config_path.is_file():
         try:
-            with open(config_path) as f:
+            with config_path.open() as f:
                 data = yaml.safe_load(f)
             if "organ_directory_map" in data:
                 REGISTRY_KEY_MAP.update(data["organ_directory_map"])
@@ -34,7 +36,8 @@ def load_governance_config(workspace: Path | None = None) -> None:
                 ORGAN_DIR_MAP.update(data["short_key_map"])
         except Exception as e:
             import warnings
-            warnings.warn(f"Failed to load governance-config.yaml: {e}")
+
+            warnings.warn(f"Failed to load governance-config.yaml: {e}", stacklevel=2)
 
 
 # Load config immediately on import
@@ -47,8 +50,12 @@ SUPERPROJECT_REMOTES = {
     "organvm-iii-ergon": "git@github.com:organvm-iii-ergon/organvm-iii-ergon--superproject.git",
     "organvm-iv-taxis": "git@github.com:organvm-iv-taxis/organvm-iv-taxis--superproject.git",
     "organvm-v-logos": "git@github.com:organvm-v-logos/organvm-v-logos--superproject.git",
-    "organvm-vi-koinonia": "git@github.com:organvm-vi-koinonia/organvm-vi-koinonia--superproject.git",
-    "organvm-vii-kerygma": "git@github.com:organvm-vii-kerygma/organvm-vii-kerygma--superproject.git",
+    "organvm-vi-koinonia": (
+        "git@github.com:organvm-vi-koinonia/organvm-vi-koinonia--superproject.git"
+    ),
+    "organvm-vii-kerygma": (
+        "git@github.com:organvm-vii-kerygma/organvm-vii-kerygma--superproject.git"
+    ),
     "meta-organvm": "git@github.com:meta-organvm/meta-organvm--superproject.git",
     "4444J99": "git@github.com:4444J99/workspace--superproject.git",
 }
@@ -60,9 +67,23 @@ def _run_git(args: list[str], cwd: Path, timeout: int = 30) -> subprocess.Comple
         ["git"] + args,
         cwd=cwd,
         capture_output=True,
+        check=False,
         text=True,
         timeout=timeout,
     )
+
+
+def _run_git_checked(args: list[str], cwd: Path, timeout: int = 30) -> subprocess.CompletedProcess:
+    """Run a git command and raise RuntimeError on failure."""
+    result = _run_git(args, cwd, timeout=timeout)
+    if result.returncode == 0:
+        return result
+
+    cmd = "git " + " ".join(args)
+    stderr = (result.stderr or "").strip()
+    stdout = (result.stdout or "").strip()
+    details = stderr or stdout or "unknown git error"
+    raise RuntimeError(f"{cmd} failed in {cwd}: {details}")
 
 
 def _get_repos_for_organ(
@@ -87,21 +108,25 @@ def _get_repos_for_organ(
             if dir_name == organ_dir:
                 repo_name = repo["name"]
                 org = repo.get("org", organ_dir)
-                repos.append({
-                    "name": repo_name,
-                    "org": org,
-                    "url": f"git@github.com:{org}/{repo_name}.git",
-                })
+                repos.append(
+                    {
+                        "name": repo_name,
+                        "org": org,
+                        "url": f"git@github.com:{org}/{repo_name}.git",
+                    },
+                )
 
     # Also discover local repos not yet in registry
     registry_names = {r["name"] for r in repos}
     for child in sorted(organ_path.iterdir()):
         if child.is_dir() and (child / ".git").exists() and child.name not in registry_names:
-            repos.append({
-                "name": child.name,
-                "org": organ_dir,
-                "url": _get_remote_url(child) or f"git@github.com:{organ_dir}/{child.name}.git",
-            })
+            repos.append(
+                {
+                    "name": child.name,
+                    "org": organ_dir,
+                    "url": _get_remote_url(child) or f"git@github.com:{organ_dir}/{child.name}.git",
+                },
+            )
 
     return repos
 
@@ -150,10 +175,8 @@ def init_superproject(
     if registry_path:
         registry = load_registry(registry_path)
     else:
-        try:
+        with contextlib.suppress(FileNotFoundError):
             registry = load_registry()
-        except FileNotFoundError:
-            pass
 
     repos = _get_repos_for_organ(organ_dir, ws, registry)
 
@@ -170,7 +193,7 @@ def init_superproject(
 
     # Initialize git if needed
     if not already_init:
-        _run_git(["init", "-b", "main"], organ_path)
+        _run_git_checked(["init", "-b", "main"], organ_path)
 
     # Write .gitignore — ignore everything except superproject files
     gitignore_content = (
@@ -207,34 +230,34 @@ def init_superproject(
             continue
 
         gitmodules_lines.append(f'[submodule "{repo["name"]}"]')
-        gitmodules_lines.append(f'\tpath = {repo["name"]}')
-        gitmodules_lines.append(f'\turl = {repo["url"]}')
+        gitmodules_lines.append(f"\tpath = {repo['name']}")
+        gitmodules_lines.append(f"\turl = {repo['url']}")
         gitmodules_lines.append("")
 
         # Register in .git/config
-        _run_git(
-            ["config", "--file", ".git/config",
-             f"submodule.{repo['name']}.url", repo["url"]],
+        _run_git_checked(
+            ["config", "--file", ".git/config", f"submodule.{repo['name']}.url", repo["url"]],
             organ_path,
         )
-        _run_git(
-            ["config", "--file", ".git/config",
-             f"submodule.{repo['name']}.active", "true"],
+        _run_git_checked(
+            ["config", "--file", ".git/config", f"submodule.{repo['name']}.active", "true"],
             organ_path,
         )
 
         # Stage the gitlink (mode 160000) — force needed because .gitignore has *
-        _run_git(["add", "-f", repo["name"]], organ_path)
+        _run_git_checked(["add", "-f", repo["name"]], organ_path)
 
-    (organ_path / ".gitmodules").write_text("\n".join(gitmodules_lines) + "\n" if gitmodules_lines else "")
+    (organ_path / ".gitmodules").write_text(
+        "\n".join(gitmodules_lines) + "\n" if gitmodules_lines else "",
+    )
 
     # Stage superproject files
-    _run_git(["add", ".gitmodules", ".gitignore", "README-superproject.md"], organ_path)
+    _run_git_checked(["add", ".gitmodules", ".gitignore", "README-superproject.md"], organ_path)
     if (organ_path / "CLAUDE.md").exists():
-        _run_git(["add", "CLAUDE.md"], organ_path)
+        _run_git_checked(["add", "CLAUDE.md"], organ_path)
 
     # Commit
-    _run_git(
+    _run_git_checked(
         ["commit", "-m", f"feat: initialize {organ_dir} superproject with {len(repos)} submodules"],
         organ_path,
     )
@@ -244,9 +267,9 @@ def init_superproject(
     if remote_url:
         existing = _run_git(["remote", "get-url", "origin"], organ_path)
         if existing.returncode != 0:
-            _run_git(["remote", "add", "origin", remote_url], organ_path)
+            _run_git_checked(["remote", "add", "origin", remote_url], organ_path)
         elif existing.stdout.strip() != remote_url:
-            _run_git(["remote", "set-url", "origin", remote_url], organ_path)
+            _run_git_checked(["remote", "set-url", "origin", remote_url], organ_path)
 
     return result
 
@@ -287,33 +310,29 @@ def add_submodule(
         return {"error": f"{repo_path} is not a git repo"}
 
     # Add to .gitmodules
-    _run_git(
-        ["config", "--file", ".gitmodules",
-         f"submodule.{repo_name}.path", repo_name],
+    _run_git_checked(
+        ["config", "--file", ".gitmodules", f"submodule.{repo_name}.path", repo_name],
         organ_path,
     )
-    _run_git(
-        ["config", "--file", ".gitmodules",
-         f"submodule.{repo_name}.url", url],
+    _run_git_checked(
+        ["config", "--file", ".gitmodules", f"submodule.{repo_name}.url", url],
         organ_path,
     )
 
     # Register in .git/config
-    _run_git(
-        ["config", "--file", ".git/config",
-         f"submodule.{repo_name}.url", url],
+    _run_git_checked(
+        ["config", "--file", ".git/config", f"submodule.{repo_name}.url", url],
         organ_path,
     )
-    _run_git(
-        ["config", "--file", ".git/config",
-         f"submodule.{repo_name}.active", "true"],
+    _run_git_checked(
+        ["config", "--file", ".git/config", f"submodule.{repo_name}.active", "true"],
         organ_path,
     )
 
     # Stage gitlink and .gitmodules — force needed because .gitignore has *
-    _run_git(["add", "-f", repo_name], organ_path)
-    _run_git(["add", ".gitmodules"], organ_path)
-    _run_git(
+    _run_git_checked(["add", "-f", repo_name], organ_path)
+    _run_git_checked(["add", ".gitmodules"], organ_path)
+    _run_git_checked(
         ["commit", "-m", f"feat: add submodule {repo_name}"],
         organ_path,
     )
@@ -362,9 +381,7 @@ def sync_organ(
         # Submodule changes show as 'M'/'m' (modified gitlink) or '??' (untracked
         # gitlink — happens when .gitignore has '*' and the submodule wasn't staged
         # with -f during init).
-        if status in ("M", "m"):
-            changed.append(path)
-        elif status == "??" and (organ_path / path / ".git").exists():
+        if status in ("M", "m") or status == "??" and (organ_path / path / ".git").exists():
             changed.append(path)
 
     if not changed:
@@ -375,10 +392,10 @@ def sync_organ(
 
     # Stage all changes (-f needed because .gitignore has '*')
     for path in changed:
-        _run_git(["add", "-f", path], organ_path)
+        _run_git_checked(["add", "-f", path], organ_path)
 
     commit_msg = message or f"chore: sync {organ_dir} submodule pointers ({len(changed)} updated)"
-    _run_git(["commit", "-m", commit_msg], organ_path)
+    _run_git_checked(["commit", "-m", commit_msg], organ_path)
 
     return {"organ": organ_dir, "changed": changed, "committed": True}
 
@@ -398,9 +415,9 @@ def install_hooks(
     """
     ws = Path(workspace) if workspace else DEFAULT_WORKSPACE
     target_keys = [organ.upper()] if organ else list(ORGAN_DIR_MAP.keys())
-    
+
     results = {"installed": [], "errors": []}
-    
+
     # Template for the hook
     hook_content = """\
 #!/usr/bin/env bash
@@ -418,17 +435,19 @@ fi
 
     for key in target_keys:
         organ_dir = ORGAN_DIR_MAP.get(key)
-        if not organ_dir: continue
-        
+        if not organ_dir:
+            continue
+
         repo_path = ws / organ_dir
-        if not (repo_path / ".git").exists(): continue
-        
+        if not (repo_path / ".git").exists():
+            continue
+
         hook_path = repo_path / ".git/hooks/post-commit"
         try:
             hook_path.write_text(hook_content)
-            hook_path.chmod(0o755) # Executable
+            hook_path.chmod(0o755)  # Executable
             results["installed"].append(organ_dir)
         except Exception as e:
             results["errors"].append({"organ": organ_dir, "error": str(e)})
-            
+
     return results

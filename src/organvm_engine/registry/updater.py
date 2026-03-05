@@ -1,12 +1,11 @@
 """Programmatic registry updates with validation gates."""
 
-from organvm_engine.registry.loader import load_registry, save_registry
 from organvm_engine.registry.query import find_repo
 from organvm_engine.registry.validator import (
-    VALID_STATUSES,
+    VALID_PROMOTION_STATES,
     VALID_REVENUE_MODELS,
     VALID_REVENUE_STATUSES,
-    VALID_PROMOTION_STATES,
+    VALID_STATUSES,
     VALID_TIERS,
 )
 

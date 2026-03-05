@@ -73,6 +73,7 @@ def reproduce_workspace(
         result = subprocess.run(
             ["git"] + clone_args,
             capture_output=True,
+            check=False,
             text=True,
             timeout=300,
         )
@@ -135,6 +136,7 @@ def clone_organ(
     result = subprocess.run(
         ["git"] + clone_args,
         capture_output=True,
+        check=False,
         text=True,
         timeout=300,
     )
@@ -144,9 +146,11 @@ def clone_organ(
 
     # Count submodules
     sub_result = _run_git(["submodule", "status"], target_path)
-    submodule_count = len([
-        line for line in sub_result.stdout.strip().split("\n") if line.strip()
-    ]) if sub_result.returncode == 0 else 0
+    submodule_count = (
+        len([line for line in sub_result.stdout.strip().split("\n") if line.strip()])
+        if sub_result.returncode == 0
+        else 0
+    )
 
     return {
         "organ": organ_dir,

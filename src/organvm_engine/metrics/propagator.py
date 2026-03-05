@@ -40,9 +40,7 @@ def build_patterns(metrics: dict) -> list[tuple[str, re.Pattern, str]]:
     sprints = c.get("sprints_completed", 0)
 
     # Try computed first (auto-counted), fall back to manual (legacy)
-    total_words_numeric = str(
-        c.get("total_words_numeric") or m.get("total_words_numeric", 404000)
-    )
+    total_words_numeric = str(c.get("total_words_numeric") or m.get("total_words_numeric", 404000))
     total_words_formatted = f"{int(total_words_numeric):,}"
     total_words_short = c.get("total_words_short") or m.get("total_words_short", "404K+")
     total_words_k = total_words_short.rstrip("K+")
@@ -105,8 +103,11 @@ def build_patterns(metrics: dict) -> list[tuple[str, re.Pattern, str]]:
     add("total_words", r"(?<!~)\b\d{3},\d{3}\+?( words)", rf"{total_words_formatted}+\1")
     add("total_words", r"~?\d{3}K\+?( words)", rf"~{total_words_short}\1")
     add("total_words", r"(Docs-)~?\d{3}K%2B(%20words)", rf"\g<1>~{total_words_k}K%2B\2")
-    add("total_words", r"(Documentation \| )~?\d{3},?\d{3}\+?( words)",
-        rf"\g<1>~{total_words_formatted}+\2")
+    add(
+        "total_words",
+        r"(Documentation \| )~?\d{3},?\d{3}\+?( words)",
+        rf"\g<1>~{total_words_formatted}+\2",
+    )
 
     return patterns
 
@@ -145,7 +146,7 @@ SKIP_MARKERS = [
 
 def load_manifest(manifest_path: Path) -> dict:
     """Load metrics-targets.yaml manifest."""
-    with open(manifest_path) as f:
+    with manifest_path.open() as f:
         return yaml.safe_load(f)
 
 
@@ -154,10 +155,7 @@ def resolve_manifest_files(manifest: dict, corpus_root: Path) -> list[Path]:
     all_files: list[Path] = []
     for target in manifest.get("markdown_targets", []):
         raw_root = target.get("root", ".")
-        if raw_root == ".":
-            root = corpus_root
-        else:
-            root = Path(raw_root).expanduser().resolve()
+        root = corpus_root if raw_root == "." else Path(raw_root).expanduser().resolve()
 
         for pattern in target.get("whitelist", []):
             all_files.extend(sorted(root.glob(pattern)))
@@ -181,7 +179,7 @@ def transform_for_portfolio(canonical: dict, portfolio_path: Path) -> dict:
     metrics fields from canonical computed data.
     """
     if portfolio_path.exists():
-        with open(portfolio_path) as f:
+        with portfolio_path.open() as f:
             portfolio = json.load(f)
     else:
         portfolio = {}
@@ -296,15 +294,17 @@ def compute_landing(metrics: dict, registry: dict, dest: Path) -> dict:
     organs_list = []
     for organ_key, organ_data in registry.get("organs", {}).items():
         greek, nice_name = organ_meta.get(organ_key, (organ_key, organ_key))
-        organs_list.append({
-            "key": organ_key,
-            "name": nice_name,
-            "greek": greek,
-            "org": organ_orgs.get(organ_key, ""),
-            "repo_count": len(organ_data.get("repositories", [])),
-            "status": organ_data.get("launch_status", "OPERATIONAL"),
-            "description": organ_data.get("description", ""),
-        })
+        organs_list.append(
+            {
+                "key": organ_key,
+                "name": nice_name,
+                "greek": greek,
+                "org": organ_orgs.get(organ_key, ""),
+                "repo_count": len(organ_data.get("repositories", [])),
+                "status": organ_data.get("launch_status", "OPERATIONAL"),
+                "description": organ_data.get("description", ""),
+            },
+        )
 
     landing_metrics = {
         "total_repos": c["total_repos"],
@@ -320,13 +320,16 @@ def compute_landing(metrics: dict, registry: dict, dest: Path) -> dict:
     sprint_history = []
     sm_path = dest.parent / "system-metrics.json"
     if sm_path.exists():
-        with open(sm_path) as f:
+        with sm_path.open() as f:
             existing = json.load(f)
         sprint_history = existing.get("sprint_history", [])
 
     return {
         "title": "ORGANVM \u2014 Eight-Organ Creative-Institutional System",
-        "tagline": "A living system of 8 organs coordinating theory, art, commerce, orchestration, public process, community, marketing, and governance.",
+        "tagline": (
+            "A living system of 8 organs coordinating theory, art, commerce, "
+            "orchestration, public process, community, marketing, and governance."
+        ),
         "metrics": landing_metrics,
         "organs": organs_list,
         "sprint_history": sprint_history,
@@ -360,7 +363,7 @@ def copy_json_targets(
 
         if not dry_run:
             dest.parent.mkdir(parents=True, exist_ok=True)
-            with open(dest, "w") as f:
+            with dest.open("w") as f:
                 json.dump(data, f, indent=2)
                 f.write("\n")
 

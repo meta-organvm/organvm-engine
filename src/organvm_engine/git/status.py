@@ -1,6 +1,5 @@
 """Git status reporting for organ superprojects."""
 
-import subprocess
 from pathlib import Path
 
 from organvm_engine.git.superproject import ORGAN_DIR_MAP, _run_git
@@ -37,7 +36,7 @@ def show_drift(
 
     drift_reports = []
 
-    for organ_key, organ_dir in organs_to_check.items():
+    for _organ_key, organ_dir in organs_to_check.items():
         organ_path = ws / organ_dir
         if not (organ_path / ".git").exists():
             continue
@@ -63,13 +62,15 @@ def show_drift(
             repo_path = organ_path / repo_name
 
             if not (repo_path / ".git").exists():
-                drift_reports.append({
-                    "organ": organ_dir,
-                    "repo": repo_name,
-                    "pinned_sha": pinned_sha[:8],
-                    "current_sha": "NOT_INIT",
-                    "status": "not-initialized",
-                })
+                drift_reports.append(
+                    {
+                        "organ": organ_dir,
+                        "repo": repo_name,
+                        "pinned_sha": pinned_sha[:8],
+                        "current_sha": "NOT_INIT",
+                        "status": "not-initialized",
+                    },
+                )
                 continue
 
             # Get current HEAD of the local repo
@@ -95,15 +96,17 @@ def show_drift(
             ahead = int(ahead_result.stdout.strip()) if ahead_result.returncode == 0 else 0
             behind = int(behind_result.stdout.strip()) if behind_result.returncode == 0 else 0
 
-            drift_reports.append({
-                "organ": organ_dir,
-                "repo": repo_name,
-                "pinned_sha": pinned_sha[:8],
-                "current_sha": current_sha[:8],
-                "ahead": ahead,
-                "behind": behind,
-                "status": "modified" if prefix == "+" else "diverged",
-            })
+            drift_reports.append(
+                {
+                    "organ": organ_dir,
+                    "repo": repo_name,
+                    "pinned_sha": pinned_sha[:8],
+                    "current_sha": current_sha[:8],
+                    "ahead": ahead,
+                    "behind": behind,
+                    "status": "modified" if prefix == "+" else "diverged",
+                },
+            )
 
     return drift_reports
 
@@ -136,7 +139,7 @@ def diff_pinned(
 
     diffs = []
 
-    for organ_key, organ_dir in organs_to_check.items():
+    for _organ_key, organ_dir in organs_to_check.items():
         organ_path = ws / organ_dir
         if not (organ_path / ".git").exists():
             continue
@@ -173,17 +176,17 @@ def diff_pinned(
             commits = []
             if log_result.returncode == 0:
                 commits = [
-                    line.strip()
-                    for line in log_result.stdout.strip().split("\n")
-                    if line.strip()
+                    line.strip() for line in log_result.stdout.strip().split("\n") if line.strip()
                 ]
 
-            diffs.append({
-                "organ": organ_dir,
-                "repo": repo_name,
-                "pinned_sha": pinned_sha[:8],
-                "current_sha": current_sha[:8],
-                "commit_log": commits,
-            })
+            diffs.append(
+                {
+                    "organ": organ_dir,
+                    "repo": repo_name,
+                    "pinned_sha": pinned_sha[:8],
+                    "current_sha": current_sha[:8],
+                    "commit_log": commits,
+                },
+            )
 
     return diffs

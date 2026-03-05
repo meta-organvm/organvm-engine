@@ -4,6 +4,9 @@ Usage:
     organvm status
     organvm registry show <repo>
     organvm registry list [--organ X] [--status X] [--tier X]
+    organvm registry search <query> [--field X] [--exact]
+    organvm registry deps <repo> [--reverse] [--transitive]
+    organvm registry stats [--json]
     organvm registry validate
     organvm registry update <repo> <field> <value>
     organvm governance audit
@@ -66,8 +69,11 @@ from organvm_engine.cli.metrics import (
 from organvm_engine.cli.omega import cmd_omega_check, cmd_omega_status, cmd_omega_update
 from organvm_engine.cli.pitch import cmd_pitch_generate, cmd_pitch_sync
 from organvm_engine.cli.registry import (
+    cmd_registry_deps,
     cmd_registry_list,
+    cmd_registry_search,
     cmd_registry_show,
+    cmd_registry_stats,
     cmd_registry_update,
     cmd_registry_validate,
 )
@@ -94,7 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Unified CLI for the organvm eight-organ system",
     )
     parser.add_argument(
-        "--registry", default=str(DEFAULT_REGISTRY_PATH),
+        "--registry",
+        default=str(DEFAULT_REGISTRY_PATH),
         help="Path to registry-v2.json",
     )
     sub = parser.add_subparsers(dest="command")
@@ -110,7 +117,56 @@ def build_parser() -> argparse.ArgumentParser:
     ls.add_argument("--organ", default=None)
     ls.add_argument("--status", default=None)
     ls.add_argument("--tier", default=None)
+    ls.add_argument("--promotion-status", default=None)
     ls.add_argument("--public", action="store_true")
+    ls.add_argument("--platinum", action="store_true")
+    ls.add_argument("--name-contains", default=None)
+    ls.add_argument("--depends-on", default=None, help="Filter repos that depend on this repo")
+    ls.add_argument(
+        "--dependency-of",
+        default=None,
+        help="Filter repos that are dependencies of this repo",
+    )
+    ls.add_argument(
+        "--sort-by",
+        default="name",
+        help="Sort field (name, organ, status, tier, promotion_status, ...)",
+    )
+    ls.add_argument("--desc", action="store_true", help="Sort descending")
+    ls_archived = ls.add_mutually_exclusive_group()
+    ls_archived.add_argument("--archived", action="store_true")
+    ls_archived.add_argument("--unarchived", action="store_true")
+
+    search = reg_sub.add_parser("search", help="Search repos by text query")
+    search.add_argument("query")
+    search.add_argument(
+        "--field",
+        action="append",
+        default=None,
+        help="Field(s) to search (repeatable). Defaults to standard text fields.",
+    )
+    search.add_argument("--exact", action="store_true")
+    search.add_argument("--case-sensitive", action="store_true")
+    search.add_argument("--limit", type=int, default=None)
+    search.add_argument("--organ", default=None)
+    search.add_argument("--status", default=None)
+    search.add_argument("--tier", default=None)
+    search.add_argument("--promotion-status", default=None)
+    search.add_argument("--public", action="store_true")
+    search.add_argument("--sort-by", default="name")
+    search.add_argument("--desc", action="store_true")
+    search.add_argument("--json", action="store_true")
+
+    deps = reg_sub.add_parser("deps", help="Show repo dependencies/dependents")
+    deps.add_argument("repo")
+    deps.add_argument("--reverse", action="store_true", help="Show dependents")
+    deps.add_argument("--both", action="store_true", help="Show dependencies and dependents")
+    deps.add_argument("--transitive", action="store_true", help="Include transitive graph")
+    deps.add_argument("--max-depth", type=int, default=None)
+    deps.add_argument("--json", action="store_true")
+
+    stats = reg_sub.add_parser("stats", help="Show registry summary statistics")
+    stats.add_argument("--json", action="store_true")
 
     reg_sub.add_parser("validate", help="Validate registry")
 
@@ -124,7 +180,8 @@ def build_parser() -> argparse.ArgumentParser:
     gov_sub = gov.add_subparsers(dest="subcommand")
     aud = gov_sub.add_parser("audit", help="Full governance audit")
     aud.add_argument(
-        "--rules", default=None,
+        "--rules",
+        default=None,
         help="Path to governance-rules.json",
     )
 
@@ -135,14 +192,16 @@ def build_parser() -> argparse.ArgumentParser:
     prom.add_argument("target", help="Target promotion state")
 
     imp = gov_sub.add_parser(
-        "impact", help="Calculate blast radius of a repo change",
+        "impact",
+        help="Calculate blast radius of a repo change",
     )
     imp.add_argument("repo", help="Repository name")
 
     # seed
     seed = sub.add_parser("seed", help="Seed.yaml operations")
     seed.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root directory",
     )
     seed_sub = seed.add_subparsers(dest="subcommand")
@@ -153,7 +212,8 @@ def build_parser() -> argparse.ArgumentParser:
     # metrics
     met = sub.add_parser("metrics", help="Metrics operations")
     met.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root directory",
     )
     met_sub = met.add_subparsers(dest="subcommand")
@@ -161,38 +221,47 @@ def build_parser() -> argparse.ArgumentParser:
     calc.add_argument("--output", default=None, help="Output file path")
 
     met_sub.add_parser(
-        "count-words", help="Count words across the workspace",
+        "count-words",
+        help="Count words across the workspace",
     )
 
     prop = met_sub.add_parser(
-        "propagate", help="Propagate metrics to documentation files",
+        "propagate",
+        help="Propagate metrics to documentation files",
     )
     prop.add_argument(
-        "--cross-repo", action="store_true",
+        "--cross-repo",
+        action="store_true",
         help="Read metrics-targets.yaml and propagate to all consumers",
     )
     prop.add_argument(
-        "--targets", default=None,
+        "--targets",
+        default=None,
         help="Path to metrics-targets.yaml (default: corpus root)",
     )
     prop.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Preview changes without writing",
     )
 
     refresh = met_sub.add_parser(
-        "refresh", help="Calculate + propagate in one step",
+        "refresh",
+        help="Calculate + propagate in one step",
     )
     refresh.add_argument(
-        "--cross-repo", action="store_true",
+        "--cross-repo",
+        action="store_true",
         help="Propagate to all registered consumers",
     )
     refresh.add_argument(
-        "--targets", default=None,
+        "--targets",
+        default=None,
         help="Path to metrics-targets.yaml",
     )
     refresh.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Preview changes without writing",
     )
 
@@ -204,57 +273,69 @@ def build_parser() -> argparse.ArgumentParser:
 
     # git
     git = sub.add_parser(
-        "git", help="Hierarchical superproject management",
+        "git",
+        help="Hierarchical superproject management",
     )
     git.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root directory",
     )
     git_sub = git.add_subparsers(dest="subcommand")
 
     git_init = git_sub.add_parser(
-        "init-superproject", help="Initialize organ superproject",
+        "init-superproject",
+        help="Initialize organ superproject",
     )
     git_init.add_argument(
-        "--organ", required=True,
+        "--organ",
+        required=True,
         help="Organ key (I, II, ..., META, LIMINAL)",
     )
     git_init.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Report without making changes",
     )
 
     git_add = git_sub.add_parser(
-        "add-submodule", help="Add submodule to organ superproject",
+        "add-submodule",
+        help="Add submodule to organ superproject",
     )
     git_add.add_argument("--organ", required=True, help="Organ key")
     git_add.add_argument("--repo", required=True, help="Repository name")
     git_add.add_argument(
-        "--url", default=None,
+        "--url",
+        default=None,
         help="Git URL (auto-derived if omitted)",
     )
 
     git_sync = git_sub.add_parser(
-        "sync-organ", help="Sync submodule pointers",
+        "sync-organ",
+        help="Sync submodule pointers",
     )
     git_sync.add_argument("--organ", required=True, help="Organ key")
     git_sync.add_argument("--message", default=None, help="Commit message")
     git_sync.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Report without committing",
     )
 
     git_sync_all = git_sub.add_parser(
-        "sync-all", help="Sync all organ superprojects",
+        "sync-all",
+        help="Sync all organ superprojects",
     )
     git_sync_all.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Report without committing",
     )
 
     git_status = git_sub.add_parser("status", help="Show submodule drift")
     git_status.add_argument(
-        "--organ", default=None,
+        "--organ",
+        default=None,
         help="Specific organ (default: all)",
     )
 
@@ -263,16 +344,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Clone workspace from superprojects",
     )
     git_reproduce.add_argument(
-        "--target", required=True, help="Target directory",
+        "--target",
+        required=True,
+        help="Target directory",
     )
     git_reproduce.add_argument(
-        "--organ", default=None, help="Single organ to clone",
+        "--organ",
+        default=None,
+        help="Single organ to clone",
     )
     git_reproduce.add_argument(
-        "--shallow", action="store_true", help="Shallow clone",
+        "--shallow",
+        action="store_true",
+        help="Shallow clone",
     )
     git_reproduce.add_argument(
-        "--manifest", default=None,
+        "--manifest",
+        default=None,
         help="Path to workspace-manifest.json",
     )
 
@@ -281,28 +369,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show detailed diff between pinned and current",
     )
     git_diff.add_argument(
-        "--organ", default=None,
+        "--organ",
+        default=None,
         help="Specific organ (default: all)",
     )
 
     git_hooks = git_sub.add_parser(
-        "install-hooks", help="Install git context sync hooks",
+        "install-hooks",
+        help="Install git context sync hooks",
     )
     git_hooks.add_argument(
-        "--organ", default=None,
+        "--organ",
+        default=None,
         help="Specific organ (default: all)",
     )
 
     # deadlines
     dl = sub.add_parser(
-        "deadlines", help="Show upcoming deadlines from rolling-todo",
+        "deadlines",
+        help="Show upcoming deadlines from rolling-todo",
     )
     dl.add_argument(
-        "--days", type=int, default=30,
+        "--days",
+        type=int,
+        default=30,
         help="Show deadlines within N days (default 30)",
     )
     dl.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Show all deadlines regardless of date",
     )
 
@@ -310,10 +405,12 @@ def build_parser() -> argparse.ArgumentParser:
     ci = sub.add_parser("ci", help="CI health operations")
     ci_sub = ci.add_subparsers(dest="subcommand")
     ci_triage = ci_sub.add_parser(
-        "triage", help="Categorize CI failures from soak data",
+        "triage",
+        help="Categorize CI failures from soak data",
     )
     ci_triage.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Output machine-readable JSON",
     )
 
@@ -323,47 +420,58 @@ def build_parser() -> argparse.ArgumentParser:
     om_sub.add_parser("status", help="Display omega scorecard summary")
     om_sub.add_parser("check", help="Machine-readable omega status (JSON)")
     om_update = om_sub.add_parser(
-        "update", help="Evaluate and write omega snapshot",
+        "update",
+        help="Evaluate and write omega snapshot",
     )
     om_update.add_argument(
-        "--dry-run", action="store_true", default=True,
+        "--dry-run",
+        action="store_true",
+        default=True,
         help="Preview without writing (default)",
     )
     om_update.add_argument(
-        "--write", action="store_true",
+        "--write",
+        action="store_true",
         help="Actually write snapshot (overrides --dry-run)",
     )
 
     # pitch
     pitch = sub.add_parser("pitch", help="Pitch deck generation")
     pitch.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root directory",
     )
     pitch_sub = pitch.add_subparsers(dest="subcommand")
 
     pitch_gen = pitch_sub.add_parser(
-        "generate", help="Generate pitch deck for a single repo",
+        "generate",
+        help="Generate pitch deck for a single repo",
     )
     pitch_gen.add_argument("repo", help="Repository name")
     pitch_gen.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Preview without writing",
     )
 
     pitch_sync = pitch_sub.add_parser(
-        "sync", help="Sync pitch decks across workspace",
+        "sync",
+        help="Sync pitch decks across workspace",
     )
     pitch_sync.add_argument(
-        "--organ", default=None,
+        "--organ",
+        default=None,
         help="Filter to specific organ",
     )
     pitch_sync.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Preview without writing",
     )
     pitch_sync.add_argument(
-        "--tier", default=None,
+        "--tier",
+        default=None,
         help="Filter by tier (flagship, standard, all)",
     )
 
@@ -372,26 +480,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     # context
     ctx = sub.add_parser(
-        "context", help="System context file management",
+        "context",
+        help="System context file management",
     )
     ctx.add_argument(
-        "--workspace", default=None,
+        "--workspace",
+        default=None,
         help="Workspace root directory",
     )
     ctx_sub = ctx.add_subparsers(dest="subcommand")
     c_sync = ctx_sub.add_parser(
-        "sync", help="Sync CLAUDE.md, GEMINI.md, and AGENTS.md",
+        "sync",
+        help="Sync CLAUDE.md, GEMINI.md, and AGENTS.md",
     )
     c_sync.add_argument(
-        "--dry-run", action="store_true", default=True,
+        "--dry-run",
+        action="store_true",
+        default=True,
         help="Report changes without writing (default)",
     )
     c_sync.add_argument(
-        "--write", action="store_true",
+        "--write",
+        action="store_true",
         help="Actually write changes (overrides --dry-run)",
     )
     c_sync.add_argument(
-        "--organ", default=None,
+        "--organ",
+        default=None,
         help="Filter to specific organ",
     )
 
@@ -409,6 +524,9 @@ def main() -> int:
     dispatch = {
         ("registry", "show"): cmd_registry_show,
         ("registry", "list"): cmd_registry_list,
+        ("registry", "search"): cmd_registry_search,
+        ("registry", "deps"): cmd_registry_deps,
+        ("registry", "stats"): cmd_registry_stats,
         ("registry", "validate"): cmd_registry_validate,
         ("registry", "update"): cmd_registry_update,
         ("governance", "audit"): cmd_governance_audit,

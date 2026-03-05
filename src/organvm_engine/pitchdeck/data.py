@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from organvm_engine.pitchdeck.readme_parser import parse_readme, extract_first_paragraph
+from organvm_engine.pitchdeck.readme_parser import extract_first_paragraph, parse_readme
 
 
 @dataclass
@@ -91,7 +91,7 @@ def _load_pitch_yaml(repo_path: Path) -> dict[str, Any]:
     if not pitch_path.exists():
         return {}
     try:
-        with open(pitch_path) as f:
+        with pitch_path.open() as f:
             return yaml.safe_load(f) or {}
     except (yaml.YAMLError, OSError):
         return {}
@@ -103,7 +103,7 @@ def _load_seed_yaml(repo_path: Path) -> dict[str, Any]:
     if not seed_path.exists():
         return {}
     try:
-        with open(seed_path) as f:
+        with seed_path.open() as f:
             return yaml.safe_load(f) or {}
     except (yaml.YAMLError, OSError):
         return {}
@@ -217,8 +217,7 @@ def assemble(
                 cards = pitch["problem"]
                 if isinstance(cards, list):
                     data.problem_cards = [
-                        {"title": c.get("title", ""), "text": c.get("text", "")}
-                        for c in cards
+                        {"title": c.get("title", ""), "text": c.get("text", "")} for c in cards
                     ]
             if pitch.get("solution"):
                 data.solution_text = pitch["solution"]
@@ -227,7 +226,8 @@ def assemble(
                 if isinstance(feats, list):
                     data.features = [
                         {"title": f.get("title", ""), "text": f.get("text", "")}
-                        if isinstance(f, dict) else {"title": str(f), "text": ""}
+                        if isinstance(f, dict)
+                        else {"title": str(f), "text": ""}
                         for f in feats
                     ]
             if pitch.get("architecture"):
@@ -262,6 +262,7 @@ def assemble(
 def _strip_bullet(line: str) -> str:
     """Strip markdown bullet prefix without consuming bold markers."""
     import re
+
     return re.sub(r"^[-*]\s+|^\d+\.\s+", "", line.strip())
 
 
@@ -273,8 +274,8 @@ def _extract_cards_from_text(text: str, max_cards: int = 3) -> list[dict[str, st
     bold_pattern = re.compile(r"\*\*(.+?)\*\*\s*[\u2014\u2013:\-]*\s*(.*)")
 
     # Try bullet points first
-    for line in text.splitlines():
-        line = line.strip()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
         if line.startswith(("- ", "* ", "1. ", "2. ", "3. ")):
             content = _strip_bullet(line)
             m = bold_pattern.match(content)
@@ -301,8 +302,8 @@ def _extract_list_items(text: str, max_items: int = 6) -> list[dict[str, str]]:
 
     bold_pattern = re.compile(r"\*\*(.+?)\*\*\s*[\u2014\u2013:\-]*\s*(.*)")
     items: list[dict[str, str]] = []
-    for line in text.splitlines():
-        line = line.strip()
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
         if not line.startswith(("- ", "* ", "1.", "2.", "3.", "4.", "5.", "6.")):
             continue
         content = _strip_bullet(line)

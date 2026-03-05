@@ -9,8 +9,6 @@ Covers:
 """
 
 import argparse
-import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -52,20 +50,23 @@ class TestParserConstruction:
 class TestHelpOutput:
     """Verify --help works for every command group."""
 
-    @pytest.mark.parametrize("cmd", [
-        ["--help"],
-        ["registry", "--help"],
-        ["governance", "--help"],
-        ["seed", "--help"],
-        ["metrics", "--help"],
-        ["dispatch", "--help"],
-        ["git", "--help"],
-        ["omega", "--help"],
-        ["pitch", "--help"],
-        ["context", "--help"],
-        ["deadlines", "--help"],
-        ["ci", "--help"],
-    ])
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            ["--help"],
+            ["registry", "--help"],
+            ["governance", "--help"],
+            ["seed", "--help"],
+            ["metrics", "--help"],
+            ["dispatch", "--help"],
+            ["git", "--help"],
+            ["omega", "--help"],
+            ["pitch", "--help"],
+            ["context", "--help"],
+            ["deadlines", "--help"],
+            ["ci", "--help"],
+        ],
+    )
     def test_help_exits_zero(self, cmd):
         parser = build_parser()
         with pytest.raises(SystemExit) as exc_info:
@@ -80,10 +81,17 @@ class TestDispatchTable:
     """Verify all command/subcommand pairs are present in the dispatch table."""
 
     def test_all_registry_subcommands_dispatch(self):
-        from organvm_engine.cli import main
         # These should parse without error
         parser = build_parser()
-        for sub in ["show recursive-engine", "list", "validate", "update repo field val"]:
+        for sub in [
+            "show recursive-engine",
+            "list",
+            "search engine",
+            "deps recursive-engine",
+            "stats",
+            "validate",
+            "update repo field val",
+        ]:
             args = parser.parse_args(["--registry", MOCK_REGISTRY, "registry"] + sub.split())
             assert args.command == "registry"
 
@@ -132,7 +140,10 @@ class TestRegistryCommands:
     """Test registry commands with the minimal fixture registry."""
 
     def test_registry_show_existing_repo(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "show", "recursive-engine"]):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "show", "recursive-engine"],
+        ):
             rc = main()
         assert rc == 0
         out = capsys.readouterr().out
@@ -140,7 +151,10 @@ class TestRegistryCommands:
         assert "ORGAN-I" in out
 
     def test_registry_show_missing_repo(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "show", "nonexistent-repo"]):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "show", "nonexistent-repo"],
+        ):
             rc = main()
         assert rc == 1
         out = capsys.readouterr().out
@@ -155,7 +169,10 @@ class TestRegistryCommands:
         assert "product-app" in out
 
     def test_registry_list_by_organ(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--organ", "I"]):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--organ", "I"],
+        ):
             rc = main()
         assert rc == 0
         out = capsys.readouterr().out
@@ -164,12 +181,54 @@ class TestRegistryCommands:
         assert "product-app" not in out
 
     def test_registry_list_by_tier(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--tier", "flagship"]):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--tier", "flagship"],
+        ):
             rc = main()
         assert rc == 0
         out = capsys.readouterr().out
         assert "recursive-engine" in out
         assert "product-app" not in out  # product-app is "standard"
+
+    def test_registry_list_by_promotion_status(self, capsys):
+        with patch(
+            "sys.argv",
+            [
+                "organvm",
+                "--registry",
+                MOCK_REGISTRY,
+                "registry",
+                "list",
+                "--promotion-status",
+                "PUBLIC_PROCESS",
+            ],
+        ):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "recursive-engine" in out
+        assert "ontological-framework" not in out
+
+    def test_registry_list_depends_on_filter(self, capsys):
+        with patch(
+            "sys.argv",
+            [
+                "organvm",
+                "--registry",
+                MOCK_REGISTRY,
+                "registry",
+                "list",
+                "--depends-on",
+                "recursive-engine",
+            ],
+        ):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "ontological-framework" in out
+        assert "metasystem-master" in out
+        assert "product-app" not in out
 
     def test_registry_validate_passes(self, capsys):
         with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "validate"]):
@@ -179,45 +238,141 @@ class TestRegistryCommands:
         assert "6 repos checked" in out
 
     def test_registry_list_empty_filter(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--organ", "VII"]):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--organ", "VII"],
+        ):
             rc = main()
         assert rc == 0
         out = capsys.readouterr().out
         assert "No repos" in out
+
+    def test_registry_search(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "search", "governance engine"],
+        ):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "organvm-engine" in out
+
+    def test_registry_search_json(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "search", "framework", "--json"],
+        ):
+            rc = main()
+        assert rc == 0
+        import json
+
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data[0]["repo"]["name"] == "ontological-framework"
+
+    def test_registry_stats(self, capsys):
+        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "stats"]):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Registry Stats" in out
+        assert "Total repos:" in out
+
+    def test_registry_deps(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "deps", "ontological-framework"],
+        ):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "recursive-engine" in out
+
+    def test_registry_deps_reverse(self, capsys):
+        with patch(
+            "sys.argv",
+            [
+                "organvm",
+                "--registry",
+                MOCK_REGISTRY,
+                "registry",
+                "deps",
+                "recursive-engine",
+                "--reverse",
+            ],
+        ):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "ontological-framework" in out
 
 
 # ── Governance commands ──────────────────────────────────────────
 
 
 class TestGovernanceCommands:
-
     def test_governance_audit(self, capsys):
         with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "audit"]):
-            rc = main()
+            main()
         out = capsys.readouterr().out
         assert "Governance Audit" in out
 
     def test_governance_check_deps(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "check-deps"]):
+        with patch(
+            "sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "check-deps"],
+        ):
             rc = main()
         assert rc == 0
         out = capsys.readouterr().out
         assert "Total edges" in out
 
     def test_governance_promote_valid(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "promote", "recursive-engine", "GRADUATED"]):
+        with patch(
+            "sys.argv",
+            [
+                "organvm",
+                "--registry",
+                MOCK_REGISTRY,
+                "governance",
+                "promote",
+                "recursive-engine",
+                "GRADUATED",
+            ],
+        ):
             rc = main()
         assert rc == 0
         out = capsys.readouterr().out
         assert "valid" in out.lower() or "Transition" in out
 
     def test_governance_promote_invalid(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "promote", "ontological-framework", "GRADUATED"]):
+        with patch(
+            "sys.argv",
+            [
+                "organvm",
+                "--registry",
+                MOCK_REGISTRY,
+                "governance",
+                "promote",
+                "ontological-framework",
+                "GRADUATED",
+            ],
+        ):
             rc = main()
         assert rc == 1  # LOCAL → GRADUATED is invalid
 
     def test_governance_promote_missing_repo(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "promote", "nonexistent", "CANDIDATE"]):
+        with patch(
+            "sys.argv",
+            [
+                "organvm",
+                "--registry",
+                MOCK_REGISTRY,
+                "governance",
+                "promote",
+                "nonexistent",
+                "CANDIDATE",
+            ],
+        ):
             rc = main()
         assert rc == 1
         out = capsys.readouterr().out
@@ -225,10 +380,15 @@ class TestGovernanceCommands:
 
     def test_governance_impact(self, capsys):
         from organvm_engine.seed.graph import SeedGraph
+
         mock_graph = SeedGraph(nodes=[], produces={}, consumes={}, edges=[], errors=[])
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "impact", "recursive-engine"]):
-            with patch("organvm_engine.governance.impact.build_seed_graph", return_value=mock_graph):
-                rc = main()
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "governance", "impact", "recursive-engine"],
+        ), patch(
+            "organvm_engine.governance.impact.build_seed_graph", return_value=mock_graph,
+        ):
+            rc = main()
         assert rc == 0
         out = capsys.readouterr().out
         assert "Impact Analysis" in out
@@ -238,7 +398,6 @@ class TestGovernanceCommands:
 
 
 class TestOmegaCommands:
-
     def test_omega_status(self, capsys):
         with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "omega", "status"]):
             rc = main()
@@ -251,6 +410,7 @@ class TestOmegaCommands:
             rc = main()
         assert rc == 0
         import json
+
         out = capsys.readouterr().out
         data = json.loads(out)
         assert "met_count" in data or "criteria" in data
@@ -302,11 +462,11 @@ class TestDryRunFlags:
 
 
 class TestErrorHandling:
-
     def test_invalid_registry_path(self):
-        with patch("sys.argv", ["organvm", "--registry", "/nonexistent/path.json", "registry", "validate"]):
-            with pytest.raises((FileNotFoundError, SystemExit)):
-                main()
+        with patch(
+            "sys.argv", ["organvm", "--registry", "/nonexistent/path.json", "registry", "validate"],
+        ), pytest.raises((FileNotFoundError, SystemExit)):
+            main()
 
     def test_missing_subcommand_shows_help(self, capsys):
         """Command without subcommand should show help."""

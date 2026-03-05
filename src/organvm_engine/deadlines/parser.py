@@ -20,18 +20,29 @@ from organvm_engine.paths import corpus_dir as _default_corpus_dir
 
 # Month name → number
 _MONTHS = {
-    "jan": 1, "january": 1,
-    "feb": 2, "february": 2,
-    "mar": 3, "march": 3,
-    "apr": 4, "april": 4,
+    "jan": 1,
+    "january": 1,
+    "feb": 2,
+    "february": 2,
+    "mar": 3,
+    "march": 3,
+    "apr": 4,
+    "april": 4,
     "may": 5,
-    "jun": 6, "june": 6,
-    "jul": 7, "july": 7,
-    "aug": 8, "august": 8,
-    "sep": 9, "september": 9,
-    "oct": 10, "october": 10,
-    "nov": 11, "november": 11,
-    "dec": 12, "december": 12,
+    "jun": 6,
+    "june": 6,
+    "jul": 7,
+    "july": 7,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "september": 9,
+    "oct": 10,
+    "october": 10,
+    "nov": 11,
+    "november": 11,
+    "dec": 12,
+    "december": 12,
 }
 
 # Patterns to extract dates from bold markers
@@ -66,6 +77,7 @@ _ITEM_ID_RE = re.compile(r"\*\*([A-Z]\d+(?:-II)?)\.\*\*")
 @dataclass
 class Deadline:
     """A parsed deadline entry."""
+
     item_id: str
     description: str
     deadline_date: date
@@ -215,13 +227,15 @@ def parse_deadlines(
                 approximate = True
 
         if parsed_date:
-            deadlines.append(Deadline(
-                item_id=item_id,
-                description=desc,
-                deadline_date=parsed_date,
-                approximate=approximate,
-                source_line=line.strip()[:120],
-            ))
+            deadlines.append(
+                Deadline(
+                    item_id=item_id,
+                    description=desc,
+                    deadline_date=parsed_date,
+                    approximate=approximate,
+                    source_line=line.strip()[:120],
+                ),
+            )
 
     deadlines.sort(key=lambda d: d.deadline_date)
     return deadlines
@@ -250,7 +264,7 @@ def format_deadlines(deadlines: list[Deadline]) -> str:
         days_str = f"{d.days_remaining:>4}d"
         lines.append(
             f"  {d.item_id:<10} {approx}{d.deadline_date.isoformat():<13} "
-            f"{days_str:<8} {d.urgency:<12} {d.description[:45]}"
+            f"{days_str:<8} {d.urgency:<12} {d.description[:45]}",
         )
 
     return "\n".join(lines)

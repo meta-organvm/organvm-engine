@@ -5,18 +5,17 @@ from pathlib import Path
 import pytest
 
 from organvm_engine.pitchdeck import PITCH_MARKER, PITCH_VERSION
+from organvm_engine.pitchdeck.animations import generate_hero_canvas
 from organvm_engine.pitchdeck.data import (
     PitchDeckData,
-    assemble,
-    _humanize_name,
     _extract_cards_from_text,
     _extract_list_items,
+    _humanize_name,
+    assemble,
 )
-from organvm_engine.pitchdeck.themes import PitchTheme, resolve_theme, ORGAN_PALETTES
 from organvm_engine.pitchdeck.generator import generate_pitch_deck
-from organvm_engine.pitchdeck.readme_parser import parse_readme, extract_first_paragraph
-from organvm_engine.pitchdeck.animations import generate_hero_canvas
-
+from organvm_engine.pitchdeck.readme_parser import extract_first_paragraph, parse_readme
+from organvm_engine.pitchdeck.themes import ORGAN_PALETTES, PitchTheme, resolve_theme
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -64,7 +63,7 @@ class TestReadmeParser:
         readme.write_text(
             "# Title\n\nIntro text\n\n"
             "## Problem\n\nThis is the problem.\n\n"
-            "## Features\n\n- Feature A\n- Feature B\n"
+            "## Features\n\n- Feature A\n- Feature B\n",
         )
         sections = parse_readme(readme)
         assert "problem" in sections
@@ -145,8 +144,16 @@ class TestThemes:
         assert theme.accent == "#e94560"
 
     def test_all_organs_have_palettes(self):
-        for key in ("ORGAN-I", "ORGAN-II", "ORGAN-III", "ORGAN-IV",
-                     "ORGAN-V", "ORGAN-VI", "ORGAN-VII", "META-ORGANVM"):
+        for key in (
+            "ORGAN-I",
+            "ORGAN-II",
+            "ORGAN-III",
+            "ORGAN-IV",
+            "ORGAN-V",
+            "ORGAN-VI",
+            "ORGAN-VII",
+            "META-ORGANVM",
+        ):
             assert key in ORGAN_PALETTES
 
     def test_css_vars_output(self):
@@ -204,7 +211,7 @@ class TestDataAssembly:
             "# Test Repo\n\n"
             "## Problem\n\n- **Complexity** — Too complex\n- **Speed** — Too slow\n\n"
             "## Features\n\n- **Fast** — Very fast\n- **Simple** — Very simple\n\n"
-            "## Architecture\n\nMicroservices-based architecture.\n"
+            "## Architecture\n\nMicroservices-based architecture.\n",
         )
         repo_entry = {"name": "test-repo", "org": "org", "tier": "standard"}
         data = assemble("test-repo", "ORGAN-I", repo_entry, repo_path=repo_dir)
@@ -258,7 +265,7 @@ class TestDataAssembly:
             "display_name: Custom Name\n"
             "tagline: Custom tagline here.\n"
             "description: Custom description.\n"
-            "tech_stack:\n  - Python\n  - FastAPI\n"
+            "tech_stack:\n  - Python\n  - FastAPI\n",
         )
         repo_entry = {"name": "test-repo", "org": "org", "tier": "standard"}
         data = assemble("test-repo", "ORGAN-I", repo_entry, repo_path=repo_dir)
@@ -272,10 +279,19 @@ class TestDataAssembly:
 
 
 class TestAnimations:
-    @pytest.mark.parametrize("organ", [
-        "ORGAN-I", "ORGAN-II", "ORGAN-III", "ORGAN-IV",
-        "ORGAN-V", "ORGAN-VI", "ORGAN-VII", "META-ORGANVM",
-    ])
+    @pytest.mark.parametrize(
+        "organ",
+        [
+            "ORGAN-I",
+            "ORGAN-II",
+            "ORGAN-III",
+            "ORGAN-IV",
+            "ORGAN-V",
+            "ORGAN-VI",
+            "ORGAN-VII",
+            "META-ORGANVM",
+        ],
+    )
     def test_each_organ_has_animation(self, organ):
         js = generate_hero_canvas(organ)
         assert "requestAnimationFrame" in js
@@ -326,7 +342,15 @@ class TestGenerator:
         data = self._make_data()
         theme = resolve_theme("ORGAN-I")
         html = generate_pitch_deck(data, theme)
-        for section_id in ("hero", "problem", "solution", "features", "architecture", "positioning", "cta"):
+        for section_id in (
+            "hero",
+            "problem",
+            "solution",
+            "features",
+            "architecture",
+            "positioning",
+            "cta",
+        ):
             assert f'id="{section_id}"' in html
 
     def test_organ_theming(self):
@@ -337,8 +361,10 @@ class TestGenerator:
 
     def test_organ_iii_has_market_section(self):
         data = self._make_data(
-            organ_key="ORGAN-III", organ_name="Ergon",
-            market_text="B2B SaaS.", revenue_model="subscription",
+            organ_key="ORGAN-III",
+            organ_name="Ergon",
+            market_text="B2B SaaS.",
+            revenue_model="subscription",
         )
         theme = resolve_theme("ORGAN-III")
         html = generate_pitch_deck(data, theme)
@@ -388,7 +414,7 @@ class TestGenerator:
             problem_cards=[
                 {"title": "Complexity", "text": "Too complex to use."},
                 {"title": "Speed", "text": "Too slow for production."},
-            ]
+            ],
         )
         theme = resolve_theme("ORGAN-I")
         html = generate_pitch_deck(data, theme)
@@ -400,7 +426,7 @@ class TestGenerator:
             features=[
                 {"title": "Fast", "text": "Very fast."},
                 {"title": "Reliable", "text": "Never fails."},
-            ]
+            ],
         )
         theme = resolve_theme("ORGAN-I")
         html = generate_pitch_deck(data, theme)
@@ -428,16 +454,19 @@ class TestGenerator:
 class TestBespokeDetection:
     def test_no_file_not_bespoke(self, tmp_path):
         from organvm_engine.pitchdeck.sync import _is_bespoke
+
         assert _is_bespoke(tmp_path / "nonexistent.html") is False
 
     def test_file_with_marker_not_bespoke(self, tmp_path):
         from organvm_engine.pitchdeck.sync import _is_bespoke
+
         f = tmp_path / "index.html"
         f.write_text(f"<html>{PITCH_MARKER} v1.0 generated 2026-01-01 --></html>")
         assert _is_bespoke(f) is False
 
     def test_file_without_marker_is_bespoke(self, tmp_path):
         from organvm_engine.pitchdeck.sync import _is_bespoke
+
         f = tmp_path / "index.html"
         f.write_text("<html><body>Hand-crafted deck</body></html>")
         assert _is_bespoke(f) is True

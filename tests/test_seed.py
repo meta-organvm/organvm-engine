@@ -2,12 +2,11 @@
 
 from collections import defaultdict
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from organvm_engine.seed.reader import read_seed, get_produces, get_consumes, seed_identity
-from organvm_engine.seed.graph import build_seed_graph, SeedGraph
+from organvm_engine.seed.graph import SeedGraph
+from organvm_engine.seed.reader import get_consumes, get_produces, read_seed, seed_identity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -44,20 +43,17 @@ class TestSeedGraphStringEntries:
 
     def _build_graph_from_seeds(self, seeds_by_identity):
         """Helper to build a graph from pre-parsed seeds without filesystem."""
-        from organvm_engine.seed.reader import get_produces, get_consumes
+        from organvm_engine.seed.reader import get_consumes, get_produces
 
         graph = SeedGraph()
         producers_by_type: dict[str, list[str]] = defaultdict(list)
 
-        for identity, seed in seeds_by_identity.items():
+        for identity, _seed in seeds_by_identity.items():
             graph.nodes.append(identity)
 
         for identity, seed in seeds_by_identity.items():
             for p in get_produces(seed):
-                if isinstance(p, str):
-                    ptype = "unknown"
-                else:
-                    ptype = p.get("type", "unknown")
+                ptype = "unknown" if isinstance(p, str) else p.get("type", "unknown")
                 graph.produces.setdefault(identity, []).append(p)
                 producers_by_type[ptype].append(identity)
 
@@ -76,7 +72,7 @@ class TestSeedGraphStringEntries:
                         continue
                     if source:
                         producer_org = producer.split("/")[0] if "/" in producer else ""
-                        if source != producer and source != producer_org:
+                        if source not in (producer, producer_org):
                             continue
                     graph.edges.append((producer, identity, ctype))
 

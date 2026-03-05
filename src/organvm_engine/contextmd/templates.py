@@ -1,11 +1,13 @@
 """Markdown templates for auto-generated context file sections.
 
 Templates use str.format() with named placeholders. Each template
-targets a specific file type (CLAUDE.md, GEMINI.md, AGENTS.md) 
+targets a specific file type (CLAUDE.md, GEMINI.md, AGENTS.md)
 and level (workspace, organ, or repo).
 """
 
 from __future__ import annotations
+
+# ruff: noqa: E501
 
 # ── Repo-level template (CLAUDE.md / GEMINI.md) ───────────────────
 
@@ -93,6 +95,7 @@ WORKSPACE_SECTION = """\
 
 
 # ── Edge formatting helpers ───────────────────────────────────────
+
 
 def format_produces_edge(target: str, artifact: str, event: str = "") -> str:
     """Format a single produces edge as a markdown line."""

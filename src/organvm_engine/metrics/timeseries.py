@@ -23,7 +23,7 @@ def load_snapshots(soak_dir: Path | str | None = None) -> list[dict]:
 
     snapshots = []
     for path in sorted(d.glob("daily-*.json")):
-        with open(path) as f:
+        with path.open() as f:
             snapshots.append(json.load(f))
 
     return snapshots
@@ -42,13 +42,15 @@ def ci_trend(snapshots: list[dict]) -> list[dict]:
         passing = ci.get("passing", 0)
         failing = ci.get("failing", 0)
         rate = passing / total if total > 0 else 0.0
-        trend.append({
-            "date": snap.get("date", "?"),
-            "passing": passing,
-            "failing": failing,
-            "total": total,
-            "rate": round(rate, 3),
-        })
+        trend.append(
+            {
+                "date": snap.get("date", "?"),
+                "passing": passing,
+                "failing": failing,
+                "total": total,
+                "rate": round(rate, 3),
+            },
+        )
     return trend
 
 
@@ -61,9 +63,11 @@ def engagement_trend(snapshots: list[dict]) -> list[dict]:
     trend = []
     for snap in snapshots:
         eng = snap.get("engagement", {})
-        trend.append({
-            "date": snap.get("date", "?"),
-            "stars": eng.get("total_stars", 0),
-            "forks": eng.get("total_forks", 0),
-        })
+        trend.append(
+            {
+                "date": snap.get("date", "?"),
+                "stars": eng.get("total_stars", 0),
+                "forks": eng.get("total_forks", 0),
+            },
+        )
     return trend

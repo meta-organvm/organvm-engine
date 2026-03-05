@@ -1,15 +1,25 @@
 """Tests for the registry module."""
 
 import json
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from organvm_engine.registry.loader import load_registry, save_registry
-from organvm_engine.registry.query import find_repo, all_repos, list_repos, resolve_organ_key
-from organvm_engine.registry.validator import validate_registry
+from organvm_engine.registry.query import (
+    all_repos,
+    build_dependency_maps,
+    find_missing_dependency_targets,
+    find_repo,
+    get_repo_dependencies,
+    get_repo_dependents,
+    list_repos,
+    resolve_organ_key,
+    search_repos,
+    sort_repo_results,
+    summarize_registry,
+)
 from organvm_engine.registry.updater import update_repo
+from organvm_engine.registry.validator import validate_registry
 
 
 class TestLoader:
@@ -29,13 +39,19 @@ class TestLoader:
 
     def test_save_refuses_small_registry_to_production_path(self):
         """Guard against test fixture data overwriting production registry."""
-        tiny = {"version": "2.0", "organs": {"ORGAN-I": {"name": "Theory", "repositories": [{"name": "repo-a"}]}}}
+        tiny = {
+            "version": "2.0",
+            "organs": {"ORGAN-I": {"name": "Theory", "repositories": [{"name": "repo-a"}]}},
+        }
         with pytest.raises(ValueError, match="Refusing to write registry with only 1 repos"):
             save_registry(tiny)
 
     def test_save_allows_small_registry_to_explicit_path(self, tmp_path):
         """Small registries are fine when writing to an explicit non-production path."""
-        tiny = {"version": "2.0", "organs": {"ORGAN-I": {"name": "Theory", "repositories": [{"name": "repo-a"}]}}}
+        tiny = {
+            "version": "2.0",
+            "organs": {"ORGAN-I": {"name": "Theory", "repositories": [{"name": "repo-a"}]}},
+        }
         out = tmp_path / "test-registry.json"
         save_registry(tiny, out)
         assert out.exists()
@@ -96,6 +112,128 @@ class TestQuery:
         assert len(local) == 3
         assert all(r.get("promotion_status") == "LOCAL" for _, r in local)
 
+    def test_list_repos_name_contains(self, registry):
+        results = list_repos(registry, name_contains="framework")
+        assert len(results) == 1
+        assert results[0][1]["name"] == "ontological-framework"
+
+    def test_list_repos_depends_on(self, registry):
+        results = list_repos(registry, depends_on="recursive-engine")
+        names = sorted(repo["name"] for _, repo in results)
+        assert names == ["metasystem-master", "ontological-framework"]
+
+    def test_list_repos_dependency_of(self, registry):
+        results = list_repos(registry, dependency_of="ontological-framework")
+        assert len(results) == 1
+        assert results[0][1]["name"] == "recursive-engine"
+
+    def test_list_repos_platinum_only(self, registry):
+        results = list_repos(registry, platinum_only=True)
+        assert len(results) == 1
+        assert results[0][1]["name"] == "recursive-engine"
+
+    def test_list_repos_archived_true(self, registry):
+        data = json.loads(json.dumps(registry))
+        data["organs"]["META-ORGANVM"]["repositories"][0]["archived"] = True
+        archived = list_repos(data, archived=True)
+        assert len(archived) == 1
+        assert archived[0][1]["name"] == "organvm-engine"
+
+    def test_list_repos_archived_false(self, registry):
+        data = json.loads(json.dumps(registry))
+        data["organs"]["META-ORGANVM"]["repositories"][0]["archived"] = True
+        active = list_repos(data, archived=False)
+        assert len(active) == 5
+        assert all(not r.get("archived", False) for _, r in active)
+
+    def test_search_repos_tokenized_query(self, registry):
+        results = search_repos(registry, "governance engine")
+        assert len(results) == 1
+        assert results[0][1]["name"] == "organvm-engine"
+
+    def test_search_repos_exact_with_field(self, registry):
+        results = search_repos(registry, "organvm-i-theoria", fields=["org"], exact=True)
+        names = sorted(repo["name"] for _, repo in results)
+        assert names == ["ontological-framework", "recursive-engine"]
+
+    def test_search_repos_limit(self, registry):
+        results = search_repos(registry, "engine", limit=1)
+        assert len(results) == 1
+
+    def test_sort_repo_results(self, registry):
+        results = list_repos(registry)
+        sorted_results = sort_repo_results(results, field="organ", descending=True)
+        assert sorted_results[0][0] == "ORGAN-III"
+        assert sorted_results[-1][0] == "META-ORGANVM"
+
+
+class TestDependencyQueries:
+    def test_build_dependency_maps(self, registry):
+        outbound, inbound = build_dependency_maps(registry)
+        assert outbound["ontological-framework"] == {"recursive-engine"}
+        assert outbound["metasystem-master"] == {"recursive-engine"}
+        assert inbound["recursive-engine"] == {"ontological-framework", "metasystem-master"}
+
+    def test_get_repo_dependencies_direct(self, registry):
+        deps = get_repo_dependencies(registry, "ontological-framework")
+        assert deps == ["recursive-engine"]
+
+    def test_get_repo_dependencies_transitive(self, registry):
+        data = json.loads(json.dumps(registry))
+        data["organs"]["ORGAN-III"]["repositories"][0]["dependencies"] = [
+            "organvm-ii-poiesis/metasystem-master",
+        ]
+        deps = get_repo_dependencies(data, "product-app", transitive=True)
+        assert deps == ["metasystem-master", "recursive-engine"]
+
+    def test_get_repo_dependents_direct(self, registry):
+        dependents = get_repo_dependents(registry, "recursive-engine")
+        assert dependents == ["metasystem-master", "ontological-framework"]
+
+    def test_get_repo_dependents_transitive(self, registry):
+        data = json.loads(json.dumps(registry))
+        data["organs"]["ORGAN-III"]["repositories"][0]["dependencies"] = [
+            "organvm-ii-poiesis/metasystem-master",
+        ]
+        dependents = get_repo_dependents(data, "recursive-engine", transitive=True)
+        assert dependents == ["metasystem-master", "ontological-framework", "product-app"]
+
+    def test_get_repo_dependencies_missing_repo(self, registry):
+        assert get_repo_dependencies(registry, "does-not-exist") == []
+
+    def test_find_missing_dependency_targets(self, registry):
+        data = json.loads(json.dumps(registry))
+        data["organs"]["ORGAN-II"]["repositories"][0]["dependencies"] = [
+            "organvm-i-theoria/recursive-engine",
+            "organvm-vii-kerygma/nonexistent",
+        ]
+        missing = find_missing_dependency_targets(data)
+        assert missing == {"metasystem-master": ["nonexistent"]}
+
+
+class TestRegistrySummary:
+    def test_summarize_registry_baseline(self, registry):
+        summary = summarize_registry(registry)
+        assert summary.total_repos == 6
+        assert summary.organ_count == 4
+        assert summary.public_repos == 6
+        assert summary.private_repos == 0
+        assert summary.platinum_repos == 1
+        assert summary.archived_repos == 0
+        assert summary.repos_with_dependencies == 2
+        assert summary.dependency_edges == 2
+        assert summary.by_tier == {"flagship": 4, "standard": 2}
+        assert summary.by_promotion_status == {"LOCAL": 3, "PUBLIC_PROCESS": 3}
+
+    def test_summarize_registry_private_and_archived(self, registry):
+        data = json.loads(json.dumps(registry))
+        data["organs"]["META-ORGANVM"]["repositories"][0]["public"] = False
+        data["organs"]["META-ORGANVM"]["repositories"][0]["archived"] = True
+        summary = summarize_registry(data)
+        assert summary.public_repos == 5
+        assert summary.private_repos == 1
+        assert summary.archived_repos == 1
+
 
 class TestResolveOrganKey:
     def test_shorthand_to_full(self):
@@ -120,13 +258,7 @@ class TestValidator:
         assert result.total_repos == 6
 
     def test_missing_field_is_error(self):
-        bad = {
-            "organs": {
-                "ORGAN-I": {
-                    "repositories": [{"name": "test"}]
-                }
-            }
-        }
+        bad = {"organs": {"ORGAN-I": {"repositories": [{"name": "test"}]}}}
         result = validate_registry(bad)
         assert not result.passed
         assert any("missing required" in e for e in result.errors)
@@ -135,15 +267,17 @@ class TestValidator:
         bad = {
             "organs": {
                 "ORGAN-I": {
-                    "repositories": [{
-                        "name": "test",
-                        "org": "organvm-i-theoria",
-                        "implementation_status": "BOGUS",
-                        "public": True,
-                        "description": "Test repo",
-                    }]
-                }
-            }
+                    "repositories": [
+                        {
+                            "name": "test",
+                            "org": "organvm-i-theoria",
+                            "implementation_status": "BOGUS",
+                            "public": True,
+                            "description": "Test repo",
+                        },
+                    ],
+                },
+            },
         }
         result = validate_registry(bad)
         assert not result.passed
@@ -153,26 +287,30 @@ class TestValidator:
         bad = {
             "organs": {
                 "ORGAN-I": {
-                    "repositories": [{
-                        "name": "theory-repo",
-                        "org": "organvm-i-theoria",
-                        "implementation_status": "ACTIVE",
-                        "public": True,
-                        "description": "Theory",
-                        "dependencies": ["organvm-ii-poiesis/art-repo"],
-                    }]
+                    "repositories": [
+                        {
+                            "name": "theory-repo",
+                            "org": "organvm-i-theoria",
+                            "implementation_status": "ACTIVE",
+                            "public": True,
+                            "description": "Theory",
+                            "dependencies": ["organvm-ii-poiesis/art-repo"],
+                        },
+                    ],
                 },
                 "ORGAN-II": {
-                    "repositories": [{
-                        "name": "art-repo",
-                        "org": "organvm-ii-poiesis",
-                        "implementation_status": "ACTIVE",
-                        "public": True,
-                        "description": "Art",
-                        "dependencies": [],
-                    }]
+                    "repositories": [
+                        {
+                            "name": "art-repo",
+                            "org": "organvm-ii-poiesis",
+                            "implementation_status": "ACTIVE",
+                            "public": True,
+                            "description": "Art",
+                            "dependencies": [],
+                        },
+                    ],
                 },
-            }
+            },
         }
         result = validate_registry(bad)
         assert any("back-edge" in e for e in result.errors)

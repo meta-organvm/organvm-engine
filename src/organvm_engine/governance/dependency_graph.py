@@ -75,7 +75,7 @@ def validate_dependencies(registry: dict) -> DependencyResult:
     repo_map: dict[str, dict] = {}
     edges: list[tuple[str, str]] = []
 
-    for organ_key, repo in all_repos(registry):
+    for _organ_key, repo in all_repos(registry):
         key = f"{repo['org']}/{repo['name']}"
         repo_map[key] = repo
         for dep in repo.get("dependencies", []):
@@ -102,9 +102,12 @@ def validate_dependencies(registry: dict) -> DependencyResult:
         if from_level is None or to_level is None:
             continue
 
-        if from_level in RESTRICTED_LEVELS and to_level in RESTRICTED_LEVELS:
-            if from_level < to_level:
-                result.back_edges.append((from_key, to_key, from_org, to_org))
+        if (
+            from_level in RESTRICTED_LEVELS
+            and to_level in RESTRICTED_LEVELS
+            and from_level < to_level
+        ):
+            result.back_edges.append((from_key, to_key, from_org, to_org))
 
     # Check 4: Cycle detection (DFS with coloring)
     adj: dict[str, list[str]] = defaultdict(list)

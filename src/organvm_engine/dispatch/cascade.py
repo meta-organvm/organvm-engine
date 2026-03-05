@@ -23,7 +23,7 @@ def plan_cascade(
     """
     # Build reverse adjacency (who depends on whom)
     reverse_deps: dict[str, list[str]] = defaultdict(list)
-    for organ_key, repo in all_repos(registry):
+    for _organ_key, repo in all_repos(registry):
         key = f"{repo['org']}/{repo['name']}"
         for dep in repo.get("dependencies", []):
             reverse_deps[dep].append(key)

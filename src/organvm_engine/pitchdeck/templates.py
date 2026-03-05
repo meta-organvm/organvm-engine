@@ -7,6 +7,8 @@ contained HTML document with inline CSS and JS.
 
 from __future__ import annotations
 
+# ruff: noqa: E501
+
 # ── Standard template (vanilla JS, ~60-80KB output) ─────────────────
 
 STANDARD_TEMPLATE = """\

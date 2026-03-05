@@ -3,24 +3,20 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.metrics.calculator import (
+    _count_file_words,
+    _strip_frontmatter,
     compute_metrics,
     count_code_files,
     count_words,
     format_word_count,
-    _strip_frontmatter,
-    _count_file_words,
 )
 from organvm_engine.metrics.propagator import (
     build_patterns,
-    compute_vitals,
     compute_landing,
+    compute_vitals,
     copy_json_targets,
-    transform_for_portfolio,
 )
-from organvm_engine.registry.loader import load_registry
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -301,9 +297,7 @@ class TestCountWords:
         # Essays
         essays = ws / "organvm-v-logos" / "public-process" / "_posts"
         essays.mkdir(parents=True)
-        (essays / "2026-01-01-test.md").write_text(
-            "---\ntitle: Test\n---\nword1 word2 word3 word4"
-        )
+        (essays / "2026-01-01-test.md").write_text("---\ntitle: Test\n---\nword1 word2 word3 word4")
 
         # Corpus docs
         corpus = ws / "meta-organvm" / "organvm-corpvs-testamentvm" / "docs"
@@ -498,8 +492,11 @@ class TestComputeVitalsComputedFirst:
         canonical = _make_canonical(registry)
         canonical["computed"]["total_words_numeric"] = 842000
         canonical["computed"]["word_counts"] = {
-            "readmes": 273000, "essays": 137000,
-            "corpus": 426000, "org_profiles": 6000, "total": 842000,
+            "readmes": 273000,
+            "essays": 137000,
+            "corpus": 426000,
+            "org_profiles": 6000,
+            "total": 842000,
         }
         vitals = compute_vitals(canonical)
         assert vitals["logos"]["words"] == 842000

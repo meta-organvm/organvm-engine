@@ -1,6 +1,6 @@
 """Route events to target organs based on seed.yaml subscriptions."""
 
-from organvm_engine.seed.reader import get_subscriptions, seed_identity
+from organvm_engine.seed.reader import get_subscriptions
 
 
 def route_event(
@@ -22,9 +22,11 @@ def route_event(
     for identity, seed in all_seeds.items():
         for sub in get_subscriptions(seed):
             if sub.get("event") == event_type and sub.get("source") == source_organ:
-                matches.append({
-                    "repo": identity,
-                    "action": sub.get("action", ""),
-                    "event": event_type,
-                })
+                matches.append(
+                    {
+                        "repo": identity,
+                        "action": sub.get("action", ""),
+                        "event": event_type,
+                    },
+                )
     return matches

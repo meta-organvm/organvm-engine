@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from organvm_engine.contextmd import AUTO_START, AUTO_END
-from organvm_engine.contextmd.sync import _inject_section, sync_repo
+from organvm_engine.contextmd import AUTO_END, AUTO_START
 from organvm_engine.contextmd.generator import (
-    generate_repo_section,
-    generate_organ_section,
-    generate_workspace_section,
     _read_omega_counts,
+    generate_organ_section,
+    generate_repo_section,
+    generate_workspace_section,
 )
+from organvm_engine.contextmd.sync import _inject_section, sync_repo
 from organvm_engine.registry.loader import load_registry
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -32,9 +32,7 @@ class TestInjectSection:
     def test_replaces_existing_markers(self, tmp_path):
         target = tmp_path / "CLAUDE.md"
         target.write_text(
-            "# My Project\n\n"
-            f"{AUTO_START}\n## Old Section\n{AUTO_END}\n\n"
-            "## Manual Section\n"
+            f"# My Project\n\n{AUTO_START}\n## Old Section\n{AUTO_END}\n\n## Manual Section\n",
         )
         new_section = f"{AUTO_START}\n## New Section\n{AUTO_END}"
         action = _inject_section(target, new_section)
@@ -129,7 +127,7 @@ class TestReadOmegaCounts:
             "|--------|-------|----------|\n"
             "| MET | 3 | #1, #2, #3 |\n"
             "| IN PROGRESS | 5 | #4-#8 |\n"
-            "| NOT STARTED | 9 | #9-#17 |\n"
+            "| NOT STARTED | 9 | #9-#17 |\n",
         )
         monkeypatch.setattr(
             "organvm_engine.paths.corpus_dir",
@@ -163,9 +161,7 @@ class TestSyncRepo:
         repo_path = tmp_path / "recursive-engine"
         repo_path.mkdir()
         claude_md = repo_path / "CLAUDE.md"
-        claude_md.write_text(
-            f"# My Repo\n\n{AUTO_START}\n## Old\n{AUTO_END}\n\n## Keep This\n"
-        )
+        claude_md.write_text(f"# My Repo\n\n{AUTO_START}\n## Old\n{AUTO_END}\n\n## Keep This\n")
         result = sync_repo(repo_path, "recursive-engine", "organvm-i-theoria", registry)
         assert result["action"] == "updated"
         content = claude_md.read_text()

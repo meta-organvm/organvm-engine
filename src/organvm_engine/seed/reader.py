@@ -19,7 +19,7 @@ def read_seed(path: Path | str) -> dict:
         yaml.YAMLError: If the YAML is malformed.
     """
     seed_path = Path(path)
-    with open(seed_path) as f:
+    with seed_path.open() as f:
         data = yaml.safe_load(f)
 
     if not isinstance(data, dict):

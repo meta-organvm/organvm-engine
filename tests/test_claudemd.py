@@ -6,13 +6,14 @@ organvm_engine.contextmd. See test_contextmd.py for comprehensive coverage.
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from organvm_engine.contextmd.generator import (
-    generate_repo_section,
     generate_organ_section,
+    generate_repo_section,
     generate_workspace_section,
 )
 from organvm_engine.contextmd.sync import sync_repo
@@ -27,10 +28,10 @@ def mock_registry():
                 "organization": "organvm-i-theoria",
                 "repositories": [
                     {"name": "repo-a", "tier": "flagship", "promotion_status": "GRADUATED"},
-                    {"name": "repo-b", "tier": "standard", "promotion_status": "LOCAL"}
-                ]
-            }
-        }
+                    {"name": "repo-b", "tier": "standard", "promotion_status": "LOCAL"},
+                ],
+            },
+        },
     }
 
 

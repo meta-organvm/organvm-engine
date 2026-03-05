@@ -10,6 +10,8 @@ on the element with id="hero-canvas". All animations:
 
 from __future__ import annotations
 
+# ruff: noqa: E501
+
 
 def generate_hero_canvas(organ_key: str) -> str:
     """Return JS code for an organ-specific Canvas 2D hero animation.

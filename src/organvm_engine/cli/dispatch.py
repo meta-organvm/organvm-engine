@@ -2,12 +2,13 @@
 
 import argparse
 import json
+from pathlib import Path
 
 
 def cmd_dispatch_validate(args: argparse.Namespace) -> int:
     from organvm_engine.dispatch.payload import validate_payload
 
-    with open(args.file) as f:
+    with Path(args.file).open() as f:
         payload = json.load(f)
 
     ok, errors = validate_payload(payload)

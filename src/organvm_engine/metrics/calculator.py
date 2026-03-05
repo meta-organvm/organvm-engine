@@ -12,7 +12,7 @@ def _strip_frontmatter(text: str) -> str:
     if text.startswith("---"):
         end = text.find("---", 3)
         if end != -1:
-            text = text[end + 3:]
+            text = text[end + 3 :]
     return text
 
 
@@ -188,10 +188,7 @@ def compute_metrics(registry: dict, workspace: Path | None = None) -> dict:
             ci_count += 1
         dep_count += len(repo.get("dependencies", []))
 
-    operational = sum(
-        1 for o in organs.values()
-        if o.get("launch_status") == "OPERATIONAL"
-    )
+    operational = sum(1 for o in organs.values() if o.get("launch_status") == "OPERATIONAL")
 
     result = {
         "total_repos": len(repos),
@@ -239,7 +236,7 @@ def write_metrics(
     if manual is not None:
         resolved_manual = manual
     elif out.exists():
-        with open(out) as f:
+        with out.open() as f:
             existing = json.load(f)
         resolved_manual = existing.get("manual", {})
     else:
@@ -262,6 +259,6 @@ def write_metrics(
         "manual": resolved_manual,
     }
 
-    with open(out, "w") as f:
+    with out.open("w") as f:
         json.dump(metrics, f, indent=2)
         f.write("\n")

@@ -1,17 +1,14 @@
 """Tests for the omega scorecard module."""
 
 import json
-from pathlib import Path
 
 import pytest
 
 from organvm_engine.omega.scorecard import (
     analyze_soak_streak,
+    diff_snapshots,
     evaluate,
     write_snapshot,
-    diff_snapshots,
-    OmegaScorecard,
-    SoakStreak,
 )
 
 
@@ -20,7 +17,6 @@ def soak_dir(tmp_path):
     """Create a temporary soak-test directory with 8 days of data."""
     d = tmp_path / "soak-test"
     d.mkdir()
-    start_date = "2026-02-16"
     for i in range(8):
         day = f"2026-02-{16 + i:02d}"
         snapshot = {
@@ -90,9 +86,9 @@ def registry():
                         "public": True,
                         "description": "Test product",
                         "revenue_status": "pre-launch",
-                    }
+                    },
                 ],
-            }
+            },
         },
     }
 
@@ -113,9 +109,9 @@ def registry_with_revenue():
                         "public": True,
                         "description": "Test product",
                         "revenue_status": "live",
-                    }
+                    },
                 ],
-            }
+            },
         },
     }
 
@@ -256,7 +252,7 @@ class TestWriteSnapshot:
 
     def test_creates_omega_dir(self, registry, soak_dir, tmp_path):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
-        path = write_snapshot(scorecard, corpus_dir=tmp_path)
+        write_snapshot(scorecard, corpus_dir=tmp_path)
         assert (tmp_path / "data" / "omega").is_dir()
 
     def test_diff_no_previous(self, registry, soak_dir, tmp_path):

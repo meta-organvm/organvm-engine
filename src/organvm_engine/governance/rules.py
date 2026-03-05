@@ -18,7 +18,7 @@ def load_governance_rules(path: Path | str | None = None) -> dict:
         Parsed governance rules dict.
     """
     rules_path = Path(path) if path else DEFAULT_RULES_PATH
-    with open(rules_path) as f:
+    with rules_path.open() as f:
         return json.load(f)
 
 

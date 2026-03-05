@@ -12,10 +12,7 @@ def cmd_deadlines(args: argparse.Namespace) -> int:
 
     deadlines = parse_deadlines()
 
-    if args.all:
-        filtered = deadlines
-    else:
-        filtered = filter_upcoming(deadlines, days=args.days)
+    filtered = deadlines if args.all else filter_upcoming(deadlines, days=args.days)
 
     print(f"\n  Upcoming Deadlines (next {args.days} days)")
     print(f"  {'═' * 60}")

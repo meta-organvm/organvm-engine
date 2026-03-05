@@ -32,7 +32,7 @@ def load_registry(path: Path | str | None = None) -> dict:
         Parsed registry dict.
     """
     registry_path = Path(path) if path else DEFAULT_REGISTRY_PATH
-    with open(registry_path) as f:
+    with registry_path.open() as f:
         return json.load(f)
 
 
@@ -60,9 +60,9 @@ def save_registry(data: dict, path: Path | str | None = None) -> None:
             raise ValueError(
                 f"Refusing to write registry with only {repo_count} repos "
                 f"to production path {registry_path}. This looks like test "
-                f"fixture data. Pass an explicit path to override."
+                f"fixture data. Pass an explicit path to override.",
             )
 
-    with open(registry_path, "w") as f:
+    with registry_path.open("w") as f:
         json.dump(data, f, indent=2)
         f.write("\n")

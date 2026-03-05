@@ -61,10 +61,7 @@ def cmd_git_sync_organ(args: argparse.Namespace) -> int:
         return 0
 
     prefix = "[DRY RUN] " if result.get("dry_run") else ""
-    print(
-        f"  {prefix}{result['organ']}: "
-        f"{len(result['changed'])} submodule(s) updated"
-    )
+    print(f"  {prefix}{result['organ']}: {len(result['changed'])} submodule(s) updated")
     for path in result["changed"]:
         print(f"    - {path}")
     return 0
@@ -83,10 +80,7 @@ def cmd_git_sync_all(args: argparse.Namespace) -> int:
             )
             if result["changed"]:
                 prefix = "[DRY RUN] " if result.get("dry_run") else ""
-                print(
-                    f"  {prefix}{result['organ']}: "
-                    f"{len(result['changed'])} updated"
-                )
+                print(f"  {prefix}{result['organ']}: {len(result['changed'])} updated")
                 for path in result["changed"]:
                     print(f"    - {path}")
                 total_changed += len(result["changed"])
@@ -110,10 +104,7 @@ def cmd_git_status(args: argparse.Namespace) -> int:
         print(f"  No drift detected across {scope}.")
         return 0
 
-    print(
-        f"  {'Organ':<30} {'Repo':<40} {'Pinned':<10} "
-        f"{'Current':<10} {'Status'}"
-    )
+    print(f"  {'Organ':<30} {'Repo':<40} {'Pinned':<10} {'Current':<10} {'Status'}")
     print(f"  {'─' * 100}")
     for d in drift:
         ahead_info = ""
@@ -124,7 +115,7 @@ def cmd_git_status(args: argparse.Namespace) -> int:
         print(
             f"  {d['organ']:<30} {d['repo']:<40} "
             f"{d['pinned_sha']:<10} {d['current_sha']:<10} "
-            f"{d['status']}{ahead_info}"
+            f"{d['status']}{ahead_info}",
         )
     print(f"\n  {len(drift)} submodule(s) with drift")
     return 0

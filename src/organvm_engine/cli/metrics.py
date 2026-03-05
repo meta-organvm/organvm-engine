@@ -16,17 +16,14 @@ def cmd_metrics_calculate(args: argparse.Namespace) -> int:
     workspace = _resolve_workspace(args)
     computed = compute_metrics(registry, workspace=workspace)
 
-    output = Path(args.output) if args.output else (
-        Path(args.registry).parent / "system-metrics.json"
+    output = (
+        Path(args.output) if args.output else (Path(args.registry).parent / "system-metrics.json")
     )
     write_metrics(computed, output)
 
     print(f"Metrics written to {output}")
     print(f"  Repos: {computed['total_repos']} ({computed['active_repos']} ACTIVE)")
-    print(
-        f"  Organs: {computed['operational_organs']}/{computed['total_organs']}"
-        " operational"
-    )
+    print(f"  Organs: {computed['operational_organs']}/{computed['total_organs']} operational")
     print(f"  CI: {computed['ci_workflows']}")
     print(f"  Dependencies: {computed['dependency_edges']} edges")
     if "word_counts" in computed:
@@ -34,7 +31,7 @@ def cmd_metrics_calculate(args: argparse.Namespace) -> int:
         print(
             f"  Words: {computed['total_words_short']} "
             f"(readmes={wc['readmes']:,}, essays={wc['essays']:,}, "
-            f"corpus={wc['corpus']:,}, profiles={wc['org_profiles']:,})"
+            f"corpus={wc['corpus']:,}, profiles={wc['org_profiles']:,})",
         )
     return 0
 
@@ -50,21 +47,19 @@ def cmd_metrics_propagate(args: argparse.Namespace) -> int:
 
     if not metrics_path.exists():
         print(
-            f"ERROR: {metrics_path} not found. "
-            "Run 'organvm metrics calculate' first.",
+            f"ERROR: {metrics_path} not found. Run 'organvm metrics calculate' first.",
             file=sys.stderr,
         )
         return 1
 
-    with open(metrics_path) as f:
+    with metrics_path.open() as f:
         metrics = json.load(f)
 
     mode = "DRY RUN" if args.dry_run else "PROPAGATING"
 
     if args.cross_repo:
         manifest_path = (
-            Path(args.targets) if args.targets
-            else (corpus_root / "metrics-targets.yaml")
+            Path(args.targets) if args.targets else (corpus_root / "metrics-targets.yaml")
         )
         if not manifest_path.exists():
             print(f"ERROR: {manifest_path} not found.", file=sys.stderr)
@@ -74,20 +69,25 @@ def cmd_metrics_propagate(args: argparse.Namespace) -> int:
         registry = load_registry(args.registry)
 
         result = propagate_cross_repo(
-            metrics, manifest_path, corpus_root,
-            dry_run=args.dry_run, registry=registry,
+            metrics,
+            manifest_path,
+            corpus_root,
+            dry_run=args.dry_run,
+            registry=registry,
         )
         print(f"[{mode}] Cross-repo propagation complete")
         print(f"  JSON copies: {result.json_copies}")
         print(
             f"  Markdown: {result.replacements} replacement(s) "
-            f"across {result.files_changed} file(s)"
+            f"across {result.files_changed} file(s)",
         )
     else:
         # Corpus-only: use the built-in whitelist from the standalone script
         whitelist_globs = [
-            "README.md", "CLAUDE.md",
-            "applications/*.md", "applications/shared/*.md",
+            "README.md",
+            "CLAUDE.md",
+            "applications/*.md",
+            "applications/shared/*.md",
             "docs/applications/*.md",
             "docs/applications/cover-letters/*.md",
             "docs/essays/09-ai-conductor-methodology.md",
@@ -106,10 +106,7 @@ def cmd_metrics_propagate(args: argparse.Namespace) -> int:
 
         result = propagate_metrics(metrics, unique, dry_run=args.dry_run)
         print(f"[{mode}] Corpus-only propagation complete")
-        print(
-            f"  {result.replacements} replacement(s) "
-            f"across {result.files_changed} file(s)"
-        )
+        print(f"  {result.replacements} replacement(s) across {result.files_changed} file(s)")
 
     if result.details:
         for d in result.details[:20]:
@@ -127,8 +124,7 @@ def cmd_metrics_count_words(args: argparse.Namespace) -> int:
     workspace = _resolve_workspace(args)
     if workspace is None:
         print(
-            "ERROR: Could not determine workspace. "
-            "Use --workspace or set ORGANVM_WORKSPACE_DIR.",
+            "ERROR: Could not determine workspace. Use --workspace or set ORGANVM_WORKSPACE_DIR.",
             file=sys.stderr,
         )
         return 1

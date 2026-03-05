@@ -9,7 +9,15 @@ from organvm_engine.registry.query import all_repos, find_repo
 
 # Fallback enum values — used when schema-definitions is unavailable
 _FALLBACK_STATUSES = {"ACTIVE", "PROTOTYPE", "SKELETON", "DESIGN_ONLY", "ARCHIVED"}
-_FALLBACK_REVENUE_MODELS = {"subscription", "freemium", "one-time", "advertising", "marketplace", "internal", "none"}
+_FALLBACK_REVENUE_MODELS = {
+    "subscription",
+    "freemium",
+    "one-time",
+    "advertising",
+    "marketplace",
+    "internal",
+    "none",
+}
 _FALLBACK_REVENUE_STATUSES = {"pre-launch", "beta", "live", "deprecated", "n/a"}
 _FALLBACK_PROMOTION_STATES = {"LOCAL", "CANDIDATE", "PUBLIC_PROCESS", "GRADUATED", "ARCHIVED"}
 _FALLBACK_TIERS = {"flagship", "standard", "stub", "archive", "infrastructure"}
@@ -22,8 +30,16 @@ def _load_schema_enums() -> dict[str, set[str]]:
     hardcoded values with a warning if the schema is unavailable.
     """
     candidates = [
-        Path(__file__).resolve().parents[4] / "schema-definitions" / "schemas" / "registry-v2.schema.json",
-        Path.home() / "Workspace" / "meta-organvm" / "schema-definitions" / "schemas" / "registry-v2.schema.json",
+        Path(__file__).resolve().parents[4]
+        / "schema-definitions"
+        / "schemas"
+        / "registry-v2.schema.json",
+        Path.home()
+        / "Workspace"
+        / "meta-organvm"
+        / "schema-definitions"
+        / "schemas"
+        / "registry-v2.schema.json",
     ]
 
     for schema_path in candidates:
@@ -39,7 +55,7 @@ def _load_schema_enums() -> dict[str, set[str]]:
                     "tiers": set(repo_props.get("tier", {}).get("enum", [])),
                 }
             except (json.JSONDecodeError, KeyError, TypeError) as e:
-                warnings.warn(f"Failed to parse registry-v2 schema enums: {e}")
+                warnings.warn(f"Failed to parse registry-v2 schema enums: {e}", stacklevel=2)
                 break
 
     return {}
@@ -117,7 +133,7 @@ def validate_registry(registry: dict) -> ValidationResult:
         if status and status not in VALID_STATUSES:
             result.errors.append(
                 f"{name}: invalid implementation_status '{status}' "
-                f"(valid: {', '.join(sorted(VALID_STATUSES))})"
+                f"(valid: {', '.join(sorted(VALID_STATUSES))})",
             )
 
         # Promotion status enum
@@ -159,7 +175,7 @@ def validate_registry(registry: dict) -> ValidationResult:
             dep_num = {"ORGAN-I": 1, "ORGAN-II": 2, "ORGAN-III": 3}.get(dep_organ)
             if organ_num and dep_num and organ_num < dep_num:
                 result.errors.append(
-                    f"{name}: back-edge dependency on {dep} ({organ_key} -> {dep_organ})"
+                    f"{name}: back-edge dependency on {dep} ({organ_key} -> {dep_organ})",
                 )
 
     # Count consistency
@@ -168,8 +184,6 @@ def validate_registry(registry: dict) -> ValidationResult:
         declared = organ.get("repository_count")
         actual = len(organ.get("repositories", []))
         if declared is not None and declared != actual:
-            result.warnings.append(
-                f"{organ_key}: repository_count={declared} but found {actual}"
-            )
+            result.warnings.append(f"{organ_key}: repository_count={declared} but found {actual}")
 
     return result

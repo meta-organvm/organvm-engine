@@ -1,7 +1,6 @@
 """Tests for the organvm git module — superproject management."""
 
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -19,15 +18,22 @@ def mock_workspace(tmp_path):
     for repo_name in ["organvm-engine", "organvm-corpvs"]:
         repo = organ_dir / repo_name
         repo.mkdir()
-        subprocess.run(["git", "init", "-b", "main"], cwd=repo, capture_output=True)
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo, capture_output=True, check=False)
         (repo / "seed.yaml").write_text(f"repo: {repo_name}\norgan: META\n")
-        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=False)
         subprocess.run(
             ["git", "commit", "-m", "init"],
-            cwd=repo, capture_output=True,
-            env={"GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "t@t",
-                 "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "t@t",
-                 "HOME": str(tmp_path), "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"},
+            cwd=repo,
+            capture_output=True,
+            check=False,
+            env={
+                "GIT_AUTHOR_NAME": "test",
+                "GIT_AUTHOR_EMAIL": "t@t",
+                "GIT_COMMITTER_NAME": "test",
+                "GIT_COMMITTER_EMAIL": "t@t",
+                "HOME": str(tmp_path),
+                "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+            },
         )
 
     return ws
@@ -139,6 +145,38 @@ class TestSuperproject:
 
         assert result["changed"] == []
         assert result["committed"] is False
+
+    def test_run_git_checked_raises_on_failure(self, tmp_path):
+        from organvm_engine.git.superproject import _run_git_checked
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo, capture_output=True, check=False)
+
+        with pytest.raises(RuntimeError, match="git not-a-command"):
+            _run_git_checked(["not-a-command"], repo)
+
+    def test_init_superproject_surfaces_git_failures(
+        self, mock_workspace, mock_registry, monkeypatch,
+    ):
+        from organvm_engine.git import superproject as sp
+
+        monkeypatch.setattr(
+            "organvm_engine.git.superproject.load_registry",
+            lambda *a, **kw: mock_registry,
+        )
+
+        real_run_checked = sp._run_git_checked
+
+        def failing_run(args, cwd, timeout=30):
+            if args[:2] == ["add", "-f"] and len(args) > 2 and args[2] == "organvm-engine":
+                raise RuntimeError("simulated git add failure")
+            return real_run_checked(args, cwd, timeout=timeout)
+
+        monkeypatch.setattr("organvm_engine.git.superproject._run_git_checked", failing_run)
+
+        with pytest.raises(RuntimeError, match="simulated git add failure"):
+            sp.init_superproject(organ="META", workspace=mock_workspace)
 
 
 class TestGetReposForOrgan:

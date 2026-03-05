@@ -1,17 +1,16 @@
 """Tests for the deadline parser module."""
 
 from datetime import date, timedelta
-from pathlib import Path
 
 import pytest
 
 from organvm_engine.deadlines.parser import (
     Deadline,
-    parse_deadlines,
+    _parse_approx_month,
+    _parse_month_day,
     filter_upcoming,
     format_deadlines,
-    _parse_month_day,
-    _parse_approx_month,
+    parse_deadlines,
 )
 
 
@@ -29,10 +28,23 @@ def todo_dir(tmp_path):
 
     # Format month names
     def fmt(d):
-        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        months = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
         return f"{months[d.month - 1]} {d.day}"
 
+    whiting_month = date(today.year, later.month, 1).strftime("%b")
     content = f"""# Rolling TODO
 
 ## NEEDS TIME
@@ -45,7 +57,7 @@ def todo_dir(tmp_path):
 
 - [ ] **F7.** Submit Rauschenberg — **opens {fmt(soon)}, closes {fmt(later)}** (~1 hr)
 
-- [ ] **F18.** Submit Whiting Grant — **~{date(today.year, later.month, 1).strftime('%b')} {today.year}** (~4 hrs)
+- [ ] **F18.** Submit Whiting Grant — **~{whiting_month} {today.year}** (~4 hrs)
 
 - [x] **E5.** Completed task — **deadline {fmt(soon)}** — done already
 

@@ -20,7 +20,6 @@ from organvm_engine.pitchdeck.data import assemble
 from organvm_engine.pitchdeck.generator import generate_pitch_deck
 from organvm_engine.pitchdeck.themes import resolve_theme
 
-
 # Tiers that are excluded from pitch deck generation
 EXCLUDED_TIERS = {"infrastructure", "archive"}
 
@@ -51,9 +50,8 @@ def sync_pitchdecks(
     Returns:
         Summary dict with generated, skipped, bespoke, and error lists.
     """
-    from organvm_engine.registry.loader import load_registry, DEFAULT_REGISTRY_PATH
-    from organvm_engine.registry.query import all_repos
     from organvm_engine.git.superproject import REGISTRY_KEY_MAP
+    from organvm_engine.registry.loader import DEFAULT_REGISTRY_PATH, load_registry
     from organvm_engine.seed.discover import discover_seeds
     from organvm_engine.seed.reader import read_seed
 
@@ -89,10 +87,7 @@ def sync_pitchdecks(
         organ_data = reg.get("organs", {}).get(organ_key, {})
 
         # Collect sibling names for this organ
-        sibling_names = [
-            r.get("name", "")
-            for r in organ_data.get("repositories", [])
-        ]
+        sibling_names = [r.get("name", "") for r in organ_data.get("repositories", [])]
 
         for repo_entry in organ_data.get("repositories", []):
             repo_name = repo_entry.get("name", "")
@@ -109,10 +104,11 @@ def sync_pitchdecks(
                 continue
 
             # Apply tier filter
-            if tier_filter and tier_filter != "all":
-                if repo_tier != tier_filter:
-                    skipped.append({"repo": repo_name, "reason": f"tier={repo_tier} (filter={tier_filter})"})
-                    continue
+            if tier_filter and tier_filter not in ("all", repo_tier):
+                skipped.append(
+                    {"repo": repo_name, "reason": f"tier={repo_tier} (filter={tier_filter})"},
+                )
+                continue
 
             # Check for existing bespoke deck
             pitch_dir = repo_path / "docs" / "pitch"
@@ -149,17 +145,21 @@ def sync_pitchdecks(
                     pitch_dir.mkdir(parents=True, exist_ok=True)
                     pitch_file.write_text(html_content, encoding="utf-8")
 
-                generated.append({
-                    "repo": repo_name,
-                    "organ": organ_key,
-                    "tier": repo_tier,
-                    "path": str(pitch_file),
-                })
+                generated.append(
+                    {
+                        "repo": repo_name,
+                        "organ": organ_key,
+                        "tier": repo_tier,
+                        "path": str(pitch_file),
+                    },
+                )
             except Exception as e:
-                errors.append({
-                    "repo": repo_name,
-                    "error": f"{type(e).__name__}: {e}",
-                })
+                errors.append(
+                    {
+                        "repo": repo_name,
+                        "error": f"{type(e).__name__}: {e}",
+                    },
+                )
 
     return {
         "generated": generated,
@@ -187,16 +187,20 @@ def generate_single(
     Returns:
         {"repo": str, "action": str, "path": str, "html": str (if dry_run)}
     """
-    from organvm_engine.registry.loader import load_registry, DEFAULT_REGISTRY_PATH
-    from organvm_engine.registry.query import find_repo
     from organvm_engine.git.superproject import REGISTRY_KEY_MAP
+    from organvm_engine.registry.loader import DEFAULT_REGISTRY_PATH, load_registry
+    from organvm_engine.registry.query import find_repo
 
     ws = Path(workspace) if workspace else Path.home() / "Workspace"
     reg = load_registry(registry_path or DEFAULT_REGISTRY_PATH)
 
     result = find_repo(reg, repo_name)
     if not result:
-        return {"repo": repo_name, "action": "error", "error": f"Repo '{repo_name}' not found in registry"}
+        return {
+            "repo": repo_name,
+            "action": "error",
+            "error": f"Repo '{repo_name}' not found in registry",
+        }
 
     organ_key, repo_entry = result
     organ_dir_name = REGISTRY_KEY_MAP.get(organ_key, "")
@@ -210,7 +214,11 @@ def generate_single(
     alt_pitch_file = repo_path / "docs" / "pitch-deck" / "index.html"
 
     if _is_bespoke(pitch_file) or _is_bespoke(alt_pitch_file):
-        return {"repo": repo_name, "action": "bespoke", "path": str(pitch_file if pitch_file.exists() else alt_pitch_file)}
+        return {
+            "repo": repo_name,
+            "action": "bespoke",
+            "path": str(pitch_file if pitch_file.exists() else alt_pitch_file),
+        }
 
     # Assemble, theme, generate
     data = assemble(
@@ -223,16 +231,19 @@ def generate_single(
     # Get siblings
     organ_data = reg.get("organs", {}).get(organ_key, {})
     data.siblings = [
-        r.get("name", "")
-        for r in organ_data.get("repositories", [])
-        if r.get("name") != repo_name
+        r.get("name", "") for r in organ_data.get("repositories", []) if r.get("name") != repo_name
     ]
 
     theme = resolve_theme(organ_key)
     html_content = generate_pitch_deck(data, theme)
 
     if dry_run:
-        return {"repo": repo_name, "action": "dry_run", "path": str(pitch_file), "html": html_content}
+        return {
+            "repo": repo_name,
+            "action": "dry_run",
+            "path": str(pitch_file),
+            "html": html_content,
+        }
 
     pitch_file.parent.mkdir(parents=True, exist_ok=True)
     pitch_file.write_text(html_content, encoding="utf-8")

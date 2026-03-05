@@ -8,13 +8,13 @@ evaluated automatically; others report their manual status.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from organvm_engine.paths import soak_dir as _default_soak_dir, corpus_dir as _default_corpus_dir
+from organvm_engine.paths import corpus_dir as _default_corpus_dir
+from organvm_engine.paths import soak_dir as _default_soak_dir
 from organvm_engine.registry.query import all_repos
-
 
 # ── Soak streak analysis ────────────────────────────────────────────
 
@@ -22,6 +22,7 @@ from organvm_engine.registry.query import all_repos
 @dataclass
 class SoakStreak:
     """Result of analyzing soak test data for consecutive-day streak."""
+
     total_snapshots: int = 0
     streak_days: int = 0
     first_date: str = ""
@@ -55,7 +56,7 @@ def analyze_soak_streak(soak_dir: Path | str | None = None) -> SoakStreak:
 
     snapshots = []
     for path in sorted(d.glob("daily-*.json")):
-        with open(path) as f:
+        with path.open() as f:
             snapshots.append(json.load(f))
 
     if not snapshots:
@@ -111,6 +112,7 @@ def analyze_soak_streak(soak_dir: Path | str | None = None) -> SoakStreak:
 @dataclass
 class OmegaCriterion:
     """A single omega criterion."""
+
     id: int
     name: str
     horizon: str
@@ -124,6 +126,7 @@ class OmegaCriterion:
 @dataclass
 class OmegaScorecard:
     """Complete omega scorecard with all 17 criteria."""
+
     criteria: list[OmegaCriterion]
     soak: SoakStreak
     generated: str = ""
@@ -154,12 +157,12 @@ class OmegaScorecard:
         lines.append(f"{'─' * 60}")
         lines.append(
             f"  {self.met_count} MET, {self.in_progress_count} IN PROGRESS, "
-            f"{self.total - self.met_count - self.in_progress_count} NOT MET"
+            f"{self.total - self.met_count - self.in_progress_count} NOT MET",
         )
 
         if self.soak.total_snapshots > 0:
             lines.append("")
-            lines.append(f"  Soak Test Streak")
+            lines.append("  Soak Test Streak")
             lines.append(f"  {'─' * 40}")
             lines.append(f"    Consecutive days: {self.soak.streak_days}/{self.soak.target_days}")
             lines.append(f"    Days remaining:   {self.soak.days_remaining}")
@@ -218,6 +221,7 @@ def evaluate(
 
     # Check if engagement baseline is established (30+ days of data)
     engagement_baseline = soak.total_snapshots >= 30
+    soak_value = f"{soak.streak_days}/{soak.target_days} days, {soak.critical_incidents} incidents"
 
     criteria = [
         OmegaCriterion(
@@ -226,8 +230,10 @@ def evaluate(
             horizon="H1",
             measurement="Soak test report",
             auto=True,
-            status="MET" if soak.target_met else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
-            value=f"{soak.streak_days}/{soak.target_days} days, {soak.critical_incidents} incidents",
+            status="MET"
+            if soak.target_met
+            else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
+            value=soak_value,
         ),
         OmegaCriterion(
             id=2,
@@ -244,7 +250,9 @@ def evaluate(
             horizon="H1",
             measurement="Engagement report",
             auto=True,
-            status="MET" if engagement_baseline else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
+            status="MET"
+            if engagement_baseline
+            else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
             value=f"{soak.total_snapshots} days of data",
         ),
         OmegaCriterion(
@@ -374,7 +382,9 @@ def evaluate(
             horizon="H1",
             measurement="Soak test data",
             auto=True,
-            status="MET" if soak.target_met else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
+            status="MET"
+            if soak.target_met
+            else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
             value=f"{soak.streak_days}/{soak.target_days} days",
         ),
     ]
@@ -429,7 +439,7 @@ def diff_snapshots(
     if not snapshots:
         return ["No previous snapshots found."]
 
-    with open(snapshots[-1]) as f:
+    with snapshots[-1].open() as f:
         prev = json.load(f)
 
     changes = []

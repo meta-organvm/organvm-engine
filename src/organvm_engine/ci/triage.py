@@ -16,6 +16,7 @@ from organvm_engine.paths import soak_dir as _default_soak_dir
 @dataclass
 class CITriageReport:
     """Categorized CI failure triage."""
+
     date: str = ""
     total_checked: int = 0
     passing: int = 0
@@ -30,11 +31,11 @@ class CITriageReport:
         lines.append(f"{'─' * 60}")
         lines.append(
             f"  {self.passing}/{self.total_checked} passing "
-            f"({self.pass_rate:.0%}), {self.failing} failing"
+            f"({self.pass_rate:.0%}), {self.failing} failing",
         )
 
         if self.by_organ:
-            lines.append(f"\n  Failures by Organ")
+            lines.append("\n  Failures by Organ")
             lines.append(f"  {'─' * 50}")
             for organ, repos in sorted(self.by_organ.items()):
                 lines.append(f"    {organ} ({len(repos)} failing):")
@@ -47,7 +48,7 @@ class CITriageReport:
             lines.append(f"  {'─' * 50}")
             lines.append(
                 "  These repos may have schedule-only workflows that report "
-                "failure when no code has changed."
+                "failure when no code has changed.",
             )
             for name in self.phantom_candidates:
                 lines.append(f"    - {name}")
@@ -94,7 +95,7 @@ def triage(soak_dir: Path | str | None = None) -> CITriageReport:
     if not snapshots:
         return report
 
-    with open(snapshots[-1]) as f:
+    with Path(snapshots[-1]).open() as f:
         latest = json.load(f)
 
     report.date = latest.get("date", "unknown")
@@ -103,11 +104,7 @@ def triage(soak_dir: Path | str | None = None) -> CITriageReport:
     report.total_checked = ci.get("total_checked", 0)
     report.passing = ci.get("passing", 0)
     report.failing = ci.get("failing", 0)
-    report.pass_rate = (
-        report.passing / report.total_checked
-        if report.total_checked > 0
-        else 0.0
-    )
+    report.pass_rate = report.passing / report.total_checked if report.total_checked > 0 else 0.0
 
     # Categorize failures by organ
     failing_repos = ci.get("failing_repos", [])

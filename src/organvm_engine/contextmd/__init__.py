@@ -1,7 +1,7 @@
 """System context file auto-generator.
 
-Generates and injects system context sections into CLAUDE.md, GEMINI.md, 
-and AGENTS.md files across the ORGANVM workspace. Keeps the AI context 
+Generates and injects system context sections into CLAUDE.md, GEMINI.md,
+and AGENTS.md files across the ORGANVM workspace. Keeps the AI context
 layer synchronized with registry-v2.json and seed.yaml contracts.
 
 Auto-generated sections are demarcated:

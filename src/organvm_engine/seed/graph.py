@@ -64,10 +64,7 @@ def build_seed_graph(
     producers_by_type: dict[str, list[str]] = defaultdict(list)
     for identity, seed in seeds_by_identity.items():
         for p in get_produces(seed):
-            if isinstance(p, str):
-                ptype = "unknown"
-            else:
-                ptype = p.get("type", "unknown")
+            ptype = "unknown" if isinstance(p, str) else p.get("type", "unknown")
             graph.produces.setdefault(identity, []).append(p)
             producers_by_type[ptype].append(identity)
 
@@ -89,7 +86,7 @@ def build_seed_graph(
                 if source:
                     # Match on org prefix or full identity
                     producer_org = producer.split("/")[0] if "/" in producer else ""
-                    if source != producer and source != producer_org:
+                    if source not in (producer, producer_org):
                         continue
                 graph.edges.append((producer, identity, ctype))
 
