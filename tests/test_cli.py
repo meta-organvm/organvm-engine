@@ -458,6 +458,72 @@ class TestDryRunFlags:
         assert args.dry_run is True
 
 
+# ── Organism commands ────────────────────────────────────────────
+
+
+class TestOrganismCommands:
+    def test_organism_subcommand_parses(self):
+        parser = build_parser()
+        args = parser.parse_args(["--registry", MOCK_REGISTRY, "organism"])
+        assert args.command == "organism"
+
+    def test_organism_snapshot_subcommand_parses(self):
+        parser = build_parser()
+        args = parser.parse_args(["--registry", MOCK_REGISTRY, "organism", "snapshot"])
+        assert args.command == "organism"
+        assert args.subcommand == "snapshot"
+
+    def test_organism_json_output(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "organism", "--json"],
+        ):
+            rc = main()
+        assert rc == 0
+        import json
+
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert "total_repos" in data
+        assert "organs" in data
+
+    def test_organism_organ_filter(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "organism", "--organ", "I", "--json"],
+        ):
+            rc = main()
+        assert rc == 0
+        import json
+
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert "organ_id" in data
+        assert data["organ_id"] == "ORGAN-I"
+
+    def test_organism_snapshot_dry_run(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "organism", "snapshot"],
+        ):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "DRY RUN" in out
+
+    def test_organism_snapshot_write(self, capsys, tmp_path):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "organism", "snapshot", "--write"],
+        ), patch("organvm_engine.paths.corpus_dir", return_value=tmp_path):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Snapshot written" in out
+        organism_files = list((tmp_path / "data" / "organism").glob("system-organism-*.json"))
+        assert len(organism_files) == 1
+
+
 # ── Error handling ───────────────────────────────────────────────
 
 

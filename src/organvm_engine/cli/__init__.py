@@ -67,6 +67,7 @@ from organvm_engine.cli.metrics import (
     cmd_metrics_refresh,
 )
 from organvm_engine.cli.omega import cmd_omega_check, cmd_omega_status, cmd_omega_update
+from organvm_engine.cli.organism import cmd_organism, cmd_organism_snapshot
 from organvm_engine.cli.pitch import cmd_pitch_generate, cmd_pitch_sync
 from organvm_engine.cli.registry import (
     cmd_registry_deps,
@@ -79,7 +80,7 @@ from organvm_engine.cli.registry import (
 )
 from organvm_engine.cli.seed import cmd_seed_discover, cmd_seed_graph, cmd_seed_validate
 from organvm_engine.cli.status import cmd_status
-from organvm_engine.registry.loader import DEFAULT_REGISTRY_PATH
+from organvm_engine.paths import registry_path as _default_registry_path
 
 
 def _resolve_workspace(args: argparse.Namespace) -> Path | None:
@@ -101,7 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--registry",
-        default=str(DEFAULT_REGISTRY_PATH),
+        default=str(_default_registry_path()),
         help="Path to registry-v2.json",
     )
     sub = parser.add_subparsers(dest="command")
@@ -510,6 +511,63 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filter to specific organ",
     )
 
+    # organism
+    org_cmd = sub.add_parser(
+        "organism",
+        help="Living data organism — unified system snapshot",
+    )
+    org_cmd.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory",
+    )
+    org_cmd.add_argument(
+        "--organ",
+        default=None,
+        help="Zoom to specific organ",
+    )
+    org_cmd.add_argument(
+        "--repo",
+        default=None,
+        help="Zoom to specific repo",
+    )
+    org_cmd.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON",
+    )
+    org_cmd.add_argument(
+        "--omega",
+        action="store_true",
+        help="Include omega scorecard",
+    )
+    org_sub = org_cmd.add_subparsers(dest="subcommand")
+    org_snap = org_sub.add_parser(
+        "snapshot",
+        help="Write system-organism.json snapshot to corpus",
+    )
+    org_snap.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory",
+    )
+    org_snap.add_argument(
+        "--omega",
+        action="store_true",
+        help="Include omega scorecard",
+    )
+    org_snap.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=True,
+        help="Preview without writing (default)",
+    )
+    org_snap.add_argument(
+        "--write",
+        action="store_true",
+        help="Actually write snapshot (overrides --dry-run)",
+    )
+
     return parser
 
 
@@ -563,6 +621,10 @@ def main() -> int:
         return cmd_status(args)
     if args.command == "deadlines":
         return cmd_deadlines(args)
+    if args.command == "organism":
+        if getattr(args, "subcommand", None) == "snapshot":
+            return cmd_organism_snapshot(args)
+        return cmd_organism(args)
 
     subcommand: str | None = getattr(args, "subcommand", None)
     handler = dispatch.get((args.command, subcommand or ""))

@@ -3,7 +3,13 @@
 from pathlib import Path
 
 from organvm_engine.governance.dependency_graph import validate_dependencies
-from organvm_engine.governance.rules import load_governance_rules
+from organvm_engine.governance.rules import (
+    get_audit_thresholds,
+    get_dependency_rules,
+    get_organ_requirements,
+    get_promotion_rules,
+    load_governance_rules,
+)
 from organvm_engine.governance.state_machine import check_transition, get_valid_transitions
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -110,3 +116,32 @@ class TestRules:
         rules = load_governance_rules(FIXTURES / "governance-rules-test.json")
         assert rules["version"] == "1.0"
         assert rules["dependency_rules"]["no_circular_dependencies"] is True
+
+    def test_get_dependency_rules_present(self):
+        rules = load_governance_rules(FIXTURES / "governance-rules-test.json")
+        dep_rules = get_dependency_rules(rules)
+        assert dep_rules["no_circular_dependencies"] is True
+
+    def test_get_dependency_rules_missing(self):
+        assert get_dependency_rules({}) == {}
+
+    def test_get_promotion_rules_present(self):
+        rules = load_governance_rules(FIXTURES / "governance-rules-test.json")
+        promo = get_promotion_rules(rules)
+        assert "promote-to-art" in promo
+
+    def test_get_audit_thresholds(self):
+        rules = load_governance_rules(FIXTURES / "governance-rules-test.json")
+        thresholds = get_audit_thresholds(rules)
+        assert "critical" in thresholds
+        assert "warning" in thresholds
+
+    def test_get_organ_requirements_present(self):
+        rules = load_governance_rules(FIXTURES / "governance-rules-test.json")
+        reqs = get_organ_requirements(rules, "ORGAN-I")
+        assert reqs["min_repos"] == 1
+
+    def test_get_organ_requirements_missing(self):
+        rules = load_governance_rules(FIXTURES / "governance-rules-test.json")
+        reqs = get_organ_requirements(rules, "ORGAN-X")
+        assert reqs == {}
