@@ -5,7 +5,7 @@ Usage:
     organvm session projects
     organvm session show <session-id>
     organvm session export <session-id> --slug <slug> [--output <dir>]
-    organvm session transcript <session-id> [--output <file>]
+    organvm session transcript <session-id> [--unabridged] [--output <file>]
     organvm session prompts <session-id> [--output <file>]
 """
 
@@ -22,6 +22,7 @@ from organvm_engine.session.parser import (
     parse_session,
     render_prompts,
     render_transcript,
+    render_transcript_unabridged,
 )
 
 
@@ -107,6 +108,12 @@ def cmd_session_show(args: argparse.Namespace) -> int:
         for name, count in sorted(meta.tools_used.items(), key=lambda x: x[1], reverse=True):
             print(f"  {name:<30} {count:>4}")
 
+    short_id = meta.session_id[:8]
+    print()
+    print("Render commands:")
+    print(f"  organvm session transcript {short_id}")
+    print(f"  organvm session transcript {short_id} --unabridged")
+    print(f"  organvm session prompts {short_id}")
     print()
     print("First human message:")
     print(f"  {meta.first_human_message[:200]}")
@@ -114,7 +121,11 @@ def cmd_session_show(args: argparse.Namespace) -> int:
 
 
 def cmd_session_export(args: argparse.Namespace) -> int:
-    """Export a session as a praxis-perpetua session review + prompts extract."""
+    """Export a session as a praxis-perpetua review + prompts extract.
+
+    Committed artifacts: review scaffold (with referential wires) + prompts extract.
+    Transcripts are rendered on-demand via CLI, not persisted.
+    """
     session_id = args.session_id
     slug = args.slug
     output_dir = Path(args.output).expanduser().resolve() if args.output else _default_praxis_sessions()
@@ -157,6 +168,7 @@ def cmd_session_export(args: argparse.Namespace) -> int:
     prompts_path.write_text(prompts_content, encoding="utf-8")
 
     prompt_count = prompts_content.count("### P")
+    short_id = meta.session_id[:8]
     print(f"Exported session review to: {review_path}")
     print(f"Exported prompts extract to: {prompts_path}")
     print(f"  Session: {meta.session_id}")
@@ -165,16 +177,24 @@ def cmd_session_export(args: argparse.Namespace) -> int:
     print(f"  Prompts extracted: {prompt_count}")
     dur = f"{meta.duration_minutes} min" if meta.duration_minutes else "unknown"
     print(f"  Duration: {dur}")
+    print()
+    print("Transcripts are on-demand (not committed):")
+    print(f"  organvm session transcript {short_id}")
+    print(f"  organvm session transcript {short_id} --unabridged")
     return 0
 
 
 def cmd_session_transcript(args: argparse.Namespace) -> int:
-    """Render full session transcript as readable markdown.
+    """Render session transcript as readable markdown.
 
-    When writing to file, automatically produces a companion --prompts.md.
+    Default: conversation summary (text + tool names).
+    --unabridged: full audit trail (thinking, tool I/O, generated code).
+
+    Transcripts are ephemeral views rendered from JSONL — not committed.
     """
     session_id = args.session_id
     output = getattr(args, "output", None)
+    unabridged = getattr(args, "unabridged", False)
 
     jsonl_path = find_session(session_id)
     if not jsonl_path:
@@ -182,7 +202,11 @@ def cmd_session_transcript(args: argparse.Namespace) -> int:
         print("Use 'organvm session list' to see available sessions.")
         return 1
 
-    content = render_transcript(jsonl_path)
+    if unabridged:
+        content = render_transcript_unabridged(jsonl_path)
+    else:
+        content = render_transcript(jsonl_path)
+
     if not content:
         print(f"Could not parse session: {jsonl_path}")
         return 1
@@ -193,21 +217,9 @@ def cmd_session_transcript(args: argparse.Namespace) -> int:
         out_path.write_text(content, encoding="utf-8")
         lines = content.count("\n")
         size_kb = len(content.encode("utf-8")) / 1024
-        print(f"Transcript written to: {out_path}")
+        mode = "unabridged" if unabridged else "summary"
+        print(f"Transcript ({mode}) written to: {out_path}")
         print(f"  {lines} lines, {size_kb:.0f} KB")
-
-        # Auto-generate companion prompts file
-        prompts_content = render_prompts(jsonl_path)
-        if prompts_content:
-            prompts_path = out_path.with_name(
-                out_path.stem.replace("--transcript", "") + "--prompts.md"
-            )
-            if "--transcript" not in out_path.stem:
-                prompts_path = out_path.with_name(out_path.stem + "--prompts.md")
-            prompts_path.write_text(prompts_content, encoding="utf-8")
-            prompt_count = prompts_content.count("### P")
-            print(f"Prompts written to: {prompts_path}")
-            print(f"  {prompt_count} prompts extracted")
     else:
         print(content)
 

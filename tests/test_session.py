@@ -11,12 +11,15 @@ from organvm_engine.session.parser import (
     SessionMeta,
     _extract_assistant_actions,
     _extract_human_text,
+    _fence,
     _read_cwd_from_project,
+    _render_tool_use_unabridged,
     find_session,
     list_projects,
     list_sessions,
     parse_session,
     render_prompts,
+    render_transcript_unabridged,
 )
 
 
@@ -277,6 +280,11 @@ class TestSessionExport:
         assert "| Read | 10 |" in content
         assert "| Write | 5 |" in content
         assert "Build the thing" in content
+        # Referential wires — render commands baked into the review
+        assert "organvm session transcript test-123" in content
+        assert "--unabridged" in content
+        assert "organvm session prompts test-123" in content
+        assert "Source JSONL" in content
 
     def test_export_write(self, tmp_path):
         meta = SessionMeta(
@@ -458,3 +466,175 @@ class TestRenderPrompts:
         f = tmp_path / "empty.jsonl"
         f.write_text("")
         assert render_prompts(f) == ""
+
+
+class TestFence:
+    def test_basic(self):
+        result = _fence("hello")
+        assert result == "```\nhello\n```"
+
+    def test_with_language(self):
+        result = _fence("echo hi", "bash")
+        assert result == "```bash\necho hi\n```"
+
+    def test_escapes_inner_backticks(self):
+        result = _fence("code with ``` inside")
+        assert "~~~" in result
+        assert "```" not in result.split("\n", 1)[1].rsplit("\n", 1)[0]
+
+
+class TestRenderToolUseUnabridged:
+    def test_read_tool(self):
+        block = {"type": "tool_use", "name": "Read", "id": "abc123def456", "input": {"file_path": "/foo/bar.py"}}
+        result = _render_tool_use_unabridged(block)
+        assert "### Tool: Read" in result
+        assert "`/foo/bar.py`" in result
+
+    def test_write_tool_includes_content(self):
+        block = {"type": "tool_use", "name": "Write", "id": "abc123def456",
+                 "input": {"file_path": "/out.md", "content": "# Hello\nWorld"}}
+        result = _render_tool_use_unabridged(block)
+        assert "### Tool: Write" in result
+        assert "# Hello" in result
+        assert "World" in result
+        assert "13 chars" in result
+
+    def test_edit_tool_includes_diffs(self):
+        block = {"type": "tool_use", "name": "Edit", "id": "abc123def456",
+                 "input": {"file_path": "/src/app.py", "old_string": "foo", "new_string": "bar"}}
+        result = _render_tool_use_unabridged(block)
+        assert "old_string" in result
+        assert "foo" in result
+        assert "new_string" in result
+        assert "bar" in result
+
+    def test_bash_tool(self):
+        block = {"type": "tool_use", "name": "Bash", "id": "abc123def456",
+                 "input": {"command": "git status", "description": "Check git"}}
+        result = _render_tool_use_unabridged(block)
+        assert "git status" in result
+        assert "Check git" in result
+
+    def test_unknown_tool_dumps_json(self):
+        block = {"type": "tool_use", "name": "CustomTool", "id": "abc123def456",
+                 "input": {"key": "value"}}
+        result = _render_tool_use_unabridged(block)
+        assert "### Tool: CustomTool" in result
+        assert '"key": "value"' in result
+
+
+class TestRenderTranscriptUnabridged:
+    def _assistant_with_thinking(self, thinking: str, text: str, ts: str = "2026-03-06T10:01:00Z",
+                                  tools: list[dict] | None = None) -> dict:
+        content: list[dict] = []
+        if thinking:
+            content.append({"type": "thinking", "thinking": thinking})
+        content.append({"type": "text", "text": text})
+        if tools:
+            content.extend(tools)
+        return {
+            "type": "assistant",
+            "sessionId": "test-session-001",
+            "slug": "test-slug",
+            "cwd": "/Users/test/Workspace/project",
+            "gitBranch": "main",
+            "timestamp": ts,
+            "message": {"role": "assistant", "content": content},
+        }
+
+    def test_includes_thinking_blocks(self, tmp_path):
+        f = _make_jsonl(tmp_path, [
+            _user_msg("Build it"),
+            self._assistant_with_thinking("I should read the file first", "Let me check."),
+        ])
+        content = render_transcript_unabridged(f)
+        assert "### Thinking" in content
+        assert "I should read the file first" in content
+
+    def test_includes_full_write_content(self, tmp_path):
+        write_tool = {"type": "tool_use", "name": "Write", "id": "tool-abc-123",
+                      "input": {"file_path": "/out.py", "content": "def hello():\n    return 42"}}
+        f = _make_jsonl(tmp_path, [
+            _user_msg("Create the file"),
+            self._assistant_with_thinking("", "Creating.", tools=[write_tool]),
+        ])
+        content = render_transcript_unabridged(f)
+        assert "def hello():" in content
+        assert "return 42" in content
+        assert "### Tool: Write" in content
+
+    def test_includes_edit_diffs(self, tmp_path):
+        edit_tool = {"type": "tool_use", "name": "Edit", "id": "tool-edit-1",
+                     "input": {"file_path": "/src/app.py", "old_string": "old code", "new_string": "new code"}}
+        f = _make_jsonl(tmp_path, [
+            _user_msg("Fix the bug"),
+            self._assistant_with_thinking("The bug is on line 5", "Fixed.", tools=[edit_tool]),
+        ])
+        content = render_transcript_unabridged(f)
+        assert "old code" in content
+        assert "new code" in content
+        assert "old_string" in content
+
+    def test_includes_tool_results(self, tmp_path):
+        """Tool results in user messages should be included."""
+        messages = [
+            _user_msg("Start"),
+            {"type": "assistant", "sessionId": "test-session-001", "slug": "test-slug",
+             "cwd": "/test", "gitBranch": "main", "timestamp": "2026-03-06T10:01:00Z",
+             "message": {"role": "assistant", "content": [
+                 {"type": "tool_use", "name": "Read", "id": "read-1", "input": {"file_path": "/foo.py"}},
+             ]}},
+            {"type": "user", "sessionId": "test-session-001", "slug": "test-slug",
+             "cwd": "/test", "gitBranch": "main", "timestamp": "2026-03-06T10:01:01Z",
+             "message": {"role": "user", "content": [
+                 {"type": "tool_result", "tool_use_id": "read-1",
+                  "content": [{"type": "text", "text": "file contents here"}]},
+             ]}},
+        ]
+        f = _make_jsonl(tmp_path, messages)
+        content = render_transcript_unabridged(f)
+        assert "Tool Result" in content
+        assert "file contents here" in content
+
+    def test_strips_system_reminders(self, tmp_path):
+        messages = [
+            {"type": "user", "sessionId": "test-session-001", "slug": "test-slug",
+             "cwd": "/test", "gitBranch": "main", "timestamp": "2026-03-06T10:00:00Z",
+             "message": {"role": "user",
+                         "content": "real prompt <system-reminder>noise</system-reminder> more text"}},
+            _assistant_msg("ok"),
+        ]
+        f = _make_jsonl(tmp_path, messages)
+        content = render_transcript_unabridged(f)
+        assert "real prompt" in content
+        assert "noise" not in content
+        assert "system-reminder" not in content
+
+    def test_header_includes_metadata(self, tmp_path):
+        f = _make_jsonl(tmp_path, [
+            _user_msg("Hello", ts="2026-03-06T10:00:00Z"),
+            _assistant_msg("Hi", ts="2026-03-06T10:30:00Z"),
+        ])
+        content = render_transcript_unabridged(f)
+        assert "Full Transcript (Unabridged)" in content
+        assert "test-slug" in content
+        assert "organvm session transcript" in content
+        assert "--unabridged" in content
+
+    def test_empty_session(self, tmp_path):
+        f = tmp_path / "empty.jsonl"
+        f.write_text("")
+        assert render_transcript_unabridged(f) == ""
+
+    def test_system_messages_included(self, tmp_path):
+        messages = [
+            {"type": "system", "sessionId": "test-session-001", "slug": "test-slug",
+             "cwd": "/test", "gitBranch": "main", "timestamp": "2026-03-06T10:00:00Z",
+             "message": {"role": "system", "content": "System context loaded"}},
+            _user_msg("Start"),
+            _assistant_msg("ok"),
+        ]
+        f = _make_jsonl(tmp_path, messages)
+        content = render_transcript_unabridged(f)
+        assert "System" in content
+        assert "System context loaded" in content

@@ -624,13 +624,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     sess_transcript = sess_sub.add_parser(
         "transcript",
-        help="Render full session transcript (auto-generates companion prompts file)",
+        help="Render session transcript (ephemeral view, not committed)",
     )
     sess_transcript.add_argument("session_id", help="Session ID (full or prefix)")
     sess_transcript.add_argument(
+        "--unabridged",
+        action="store_true",
+        help="Full audit trail: thinking blocks, tool I/O, generated code",
+    )
+    sess_transcript.add_argument(
         "--output",
         default=None,
-        help="Write to file instead of stdout (also writes --prompts.md companion)",
+        help="Write to file instead of stdout",
     )
 
     sess_prompts = sess_sub.add_parser(

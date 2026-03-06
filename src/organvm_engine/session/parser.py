@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -217,9 +218,10 @@ class SessionExport:
     output_path: Path
 
     def render(self) -> str:
-        """Render as a session review markdown file."""
+        """Render as a session review markdown file with referential wires."""
         duration = f"~{self.meta.duration_minutes} min" if self.meta.duration_minutes else "unknown"
         date = self.meta.date_str
+        short_id = self.meta.session_id[:8]
 
         # Top tools
         top_tools = sorted(self.meta.tools_used.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -239,6 +241,21 @@ class SessionExport:
 **Working directory:** `{self.meta.cwd}`
 **Branch:** `{self.meta.git_branch}`
 **Messages:** {self.meta.message_count} ({self.meta.human_messages} human, {self.meta.assistant_messages} assistant)
+
+### Source & Render Commands
+
+```bash
+# Transcript (conversation summary)
+organvm session transcript {short_id}
+
+# Unabridged audit trail (thinking, full tool I/O, generated code)
+organvm session transcript {short_id} --unabridged
+
+# Prompts only (drift detection, pattern analysis)
+organvm session prompts {short_id}
+```
+
+**Source JSONL:** `{self.meta.file_path}`
 
 ---
 
@@ -596,6 +613,217 @@ def render_transcript(jsonl_path: Path) -> str:
                                             v_str = v_str[:500] + "..."
                                         lines.append(f"- `{k}`: {v_str}")
                                 lines.append("")
+                lines.append("---")
+                lines.append("")
+
+    return "\n".join(lines)
+
+
+def _fence(content: str, lang: str = "") -> str:
+    """Wrap content in a fenced code block, escaping inner triple backticks."""
+    safe = content.replace("```", "~~~")
+    return f"```{lang}\n{safe}\n```"
+
+
+def _render_tool_use_unabridged(block: dict) -> str:
+    """Render a single tool_use block with full inputs for audit trail."""
+    name = block.get("name", "unknown")
+    tid = block.get("id", "?")
+    inp = block.get("input", {})
+
+    parts = [f"### Tool: {name}", "", f"**ID:** `{tid[:16]}...`"]
+
+    if name in ("Read", "read_file"):
+        parts.append(f"**File:** `{inp.get('file_path', inp.get('path', '?'))}`")
+        if inp.get("offset"):
+            parts.append(f"**Offset:** {inp['offset']}")
+        if inp.get("limit"):
+            parts.append(f"**Limit:** {inp['limit']}")
+    elif name == "Edit":
+        parts.append(f"**File:** `{inp.get('file_path', '?')}`")
+        old = inp.get("old_string", "")
+        new = inp.get("new_string", "")
+        parts.append(f"**old_string:**\n{_fence(old)}")
+        parts.append(f"**new_string:**\n{_fence(new)}")
+    elif name in ("Write", "write_file"):
+        parts.append(f"**File:** `{inp.get('file_path', inp.get('path', '?'))}`")
+        content = inp.get("content", "")
+        parts.append(f"**Content ({len(content)} chars):**\n{_fence(content)}")
+    elif name == "Bash":
+        cmd = inp.get("command", "?")
+        desc = inp.get("description", "")
+        if desc:
+            parts.append(f"**Description:** {desc}")
+        parts.append(f"**Command:**\n{_fence(cmd, 'bash')}")
+    elif name == "Glob":
+        parts.append(f"**Pattern:** `{inp.get('pattern', '?')}`")
+        if inp.get("path"):
+            parts.append(f"**Path:** `{inp['path']}`")
+    elif name == "Grep":
+        parts.append(f"**Pattern:** `{inp.get('pattern', '?')}`")
+        if inp.get("path"):
+            parts.append(f"**Path:** `{inp['path']}`")
+        if inp.get("output_mode"):
+            parts.append(f"**Mode:** {inp['output_mode']}")
+    elif name == "ToolSearch":
+        parts.append(f"**Query:** `{inp.get('query', '?')}`")
+    elif name == "Agent":
+        parts.append(f"**Prompt:** {str(inp.get('prompt', ''))[:500]}")
+    else:
+        parts.append(f"**Input:**\n{_fence(json.dumps(inp, indent=2))}")
+
+    return "\n\n".join(parts)
+
+
+_SYSTEM_REMINDER_RE = re.compile(r"<system-reminder>.*?</system-reminder>", re.DOTALL)
+
+TOOL_RESULT_CAP = 8000
+
+
+def render_transcript_unabridged(jsonl_path: Path) -> str:
+    """Render a full unabridged session transcript as an audit trail.
+
+    Includes thinking blocks, full tool inputs (Write/Edit content),
+    and tool results. System reminders are stripped from human entries.
+    """
+    meta = parse_session(jsonl_path)
+    if not meta:
+        return ""
+
+    lines: list[str] = []
+    duration = f"~{meta.duration_minutes} min" if meta.duration_minutes else "unknown"
+
+    lines.append(f"# Full Transcript (Unabridged): {meta.date_str}")
+    lines.append("")
+    lines.append(f"**Session ID:** `{meta.session_id}`")
+    lines.append(f"**Slug:** `{meta.slug}`")
+    lines.append(f"**Duration:** {duration}")
+    lines.append(f"**Working directory:** `{meta.cwd}`")
+    lines.append(f"**Branch:** `{meta.git_branch}`")
+    lines.append(f"**Messages:** {meta.message_count} ({meta.human_messages} human, {meta.assistant_messages} assistant)")
+    lines.append("")
+    lines.append("> This is the unabridged audit trail. Thinking blocks, tool inputs,")
+    lines.append("> tool outputs, and all generated code are included verbatim.")
+    lines.append("> Render command: `organvm session transcript {meta.session_id[:8]} --unabridged`")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    msg_num = 0
+    with jsonl_path.open(encoding="utf-8") as f:
+        for raw_line in f:
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            try:
+                entry = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+
+            etype = entry.get("type", "")
+            ts_str = entry.get("timestamp", "")
+            ts_short = ts_str[11:19] if len(ts_str) >= 19 else ""
+
+            if etype == "system":
+                msg_num += 1
+                lines.append(f"## [{msg_num}] System — {ts_short}")
+                lines.append("")
+                msg = entry.get("message", {})
+                content_parts = msg.get("content", [])
+                if isinstance(content_parts, str):
+                    lines.append(content_parts.strip())
+                elif isinstance(content_parts, list):
+                    for part in content_parts:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            lines.append(part.get("text", "").strip())
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+
+            elif etype == "user":
+                msg = entry.get("message", {})
+                content_parts = msg.get("content", "")
+
+                text_pieces: list[str] = []
+                if isinstance(content_parts, str):
+                    text_pieces.append(content_parts)
+                elif isinstance(content_parts, list):
+                    for part in content_parts:
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            text_pieces.append(part.get("text", ""))
+                        elif isinstance(part, dict) and part.get("type") == "tool_result":
+                            tid = part.get("tool_use_id", "?")
+                            result_content = part.get("content", "")
+                            if isinstance(result_content, list):
+                                result_texts = []
+                                for rc in result_content:
+                                    if isinstance(rc, dict) and rc.get("type") == "text":
+                                        result_texts.append(rc.get("text", ""))
+                                result_content = "\n".join(result_texts)
+                            if isinstance(result_content, str) and result_content.strip():
+                                capped = result_content[:TOOL_RESULT_CAP]
+                                if len(result_content) > TOOL_RESULT_CAP:
+                                    capped += f"\n[TRUNCATED at {TOOL_RESULT_CAP} chars]"
+                                text_pieces.append(
+                                    f"**Tool Result** (`{tid[:12]}...`):\n{_fence(capped)}"
+                                )
+
+                text = "\n\n".join(text_pieces)
+                # Strip system reminders
+                text = _SYSTEM_REMINDER_RE.sub("", text).strip()
+                if not text:
+                    continue
+
+                msg_num += 1
+                lines.append(f"## [{msg_num}] Human — {ts_short}")
+                lines.append("")
+                lines.append(text)
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+
+            elif etype == "assistant":
+                msg = entry.get("message", {})
+                content_parts = msg.get("content", [])
+                sections: list[str] = []
+                has_content = False
+
+                if isinstance(content_parts, list):
+                    for part in content_parts:
+                        if not isinstance(part, dict):
+                            continue
+                        ptype = part.get("type")
+
+                        if ptype == "thinking":
+                            thinking = part.get("thinking", "").strip()
+                            if thinking:
+                                has_content = True
+                                sections.append(f"### Thinking\n\n{_fence(thinking)}")
+
+                        elif ptype == "text":
+                            text = part.get("text", "").strip()
+                            if text:
+                                has_content = True
+                                sections.append(text)
+
+                        elif ptype == "tool_use":
+                            has_content = True
+                            sections.append(_render_tool_use_unabridged(part))
+
+                elif isinstance(content_parts, str):
+                    text = content_parts.strip()
+                    if text:
+                        has_content = True
+                        sections.append(text)
+
+                if not has_content:
+                    continue
+
+                msg_num += 1
+                lines.append(f"## [{msg_num}] Assistant — {ts_short}")
+                lines.append("")
+                lines.append("\n\n".join(sections))
+                lines.append("")
                 lines.append("---")
                 lines.append("")
 
