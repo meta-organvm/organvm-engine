@@ -13,6 +13,7 @@ from pathlib import Path
 
 from organvm_engine.domain import domain_set
 from organvm_engine.plans.graph import jaccard_similarity
+from organvm_engine.prompts.audit import _GENERIC_TAGS, EMPTY_FINGERPRINT
 
 
 @dataclass
@@ -67,7 +68,7 @@ def _extract_prompt_domain(prompt: dict) -> tuple[list[str], list[str]]:
 def compute_links(
     tasks_path: Path,
     prompts_path: Path,
-    threshold: float = 0.15,
+    threshold: float = 0.30,
     by_thread: bool = False,
 ) -> list[AtomLink]:
     """Compute content-based links between tasks and prompts.
@@ -84,6 +85,12 @@ def compute_links(
     """
     tasks = _load_jsonl(tasks_path)
     prompts = _load_jsonl(prompts_path)
+
+    # Filter out items with empty-string fingerprints (no content DNA)
+    tasks = [t for t in tasks
+             if not t.get("domain_fingerprint", "").startswith(EMPTY_FINGERPRINT)]
+    prompts = [p for p in prompts
+               if not p.get("domain_fingerprint", "").startswith(EMPTY_FINGERPRINT)]
 
     # Build task domain sets
     task_domains: list[tuple[str, set[str], list[str], list[str]]] = []
@@ -121,6 +128,10 @@ def _link_by_prompt(
                 p_lower = {t.lower() for t in p_tags}
                 shared_tags = sorted(t_lower & p_lower)
                 shared_refs = sorted(set(t_refs) & set(p_refs))
+                # Skip links based only on generic tags with no shared refs
+                specific_tags = [t for t in shared_tags if t not in _GENERIC_TAGS]
+                if not specific_tags and not shared_refs:
+                    continue
                 links.append(AtomLink(
                     task_id=tid,
                     prompt_id=pid,
@@ -168,6 +179,10 @@ def _link_by_thread(
                 a_lower = {t.lower() for t in all_tags}
                 shared_tags = sorted(t_lower & a_lower)
                 shared_refs = sorted(set(t_refs) & set(all_refs))
+                # Skip links based only on generic tags with no shared refs
+                specific_tags = [t for t in shared_tags if t not in _GENERIC_TAGS]
+                if not specific_tags and not shared_refs:
+                    continue
                 links.append(AtomLink(
                     task_id=tid,
                     prompt_id=f"thread:{thread_id}",

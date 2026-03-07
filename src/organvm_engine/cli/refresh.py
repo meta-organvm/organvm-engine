@@ -11,7 +11,7 @@ from organvm_engine.registry.loader import load_registry
 
 
 def cmd_refresh(args: argparse.Namespace) -> int:
-    from organvm_engine.cli import _resolve_workspace
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.calculator import compute_metrics, write_metrics
     from organvm_engine.metrics.vars import build_vars, resolve_targets_from_manifest, write_vars
 
@@ -21,6 +21,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     skip_organism = getattr(args, "skip_organism", False)
     skip_legacy = getattr(args, "skip_legacy", False)
     skip_plans = getattr(args, "skip_plans", False)
+    skip_sop = getattr(args, "skip_sop", False)
 
     registry = load_registry(args.registry)
     workspace = _resolve_workspace(args)
@@ -33,7 +34,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     if not dry_run:
         write_metrics(computed, metrics_path)
 
-    print(f"{prefix}[1/9] Metrics calculated -> {metrics_path}")
+    print(f"{prefix}[1/10] Metrics calculated -> {metrics_path}")
     print(f"  Repos: {computed['total_repos']} ({computed['active_repos']} ACTIVE)")
 
     # Step 2: Build + write system-vars.json
@@ -50,14 +51,14 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     if not dry_run:
         write_vars(variables, vars_path)
 
-    print(f"{prefix}[2/9] Variables manifest -> {vars_path} ({len(variables)} vars)")
+    print(f"{prefix}[2/10] Variables manifest -> {vars_path} ({len(variables)} vars)")
 
     # Step 3: Resolve variable bindings
     vars_targets_path = corpus_root / "vars-targets.yaml"
     if vars_targets_path.exists():
         result = resolve_targets_from_manifest(variables, vars_targets_path, dry_run=dry_run)
         print(
-            f"{prefix}[3/9] Variables resolved: "
+            f"{prefix}[3/10] Variables resolved: "
             f"{result.total_replacements} replacement(s) in "
             f"{result.files_changed}/{result.files_scanned} file(s)",
         )
@@ -68,7 +69,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         if len(result.details) > 10:
             print(f"    ... and {len(result.details) - 10} more")
     else:
-        print(f"{prefix}[3/9] No vars-targets.yaml found, skipping variable resolution")
+        print(f"{prefix}[3/10] No vars-targets.yaml found, skipping variable resolution")
         result = None
 
     # Step 4: Legacy regex propagation
@@ -84,7 +85,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
                 metrics, manifest_path, corpus_root, dry_run=dry_run, registry=registry,
             )
             print(
-                f"{prefix}[4/9] Legacy propagation: "
+                f"{prefix}[4/10] Legacy propagation: "
                 f"{legacy_result.replacements} replacement(s) in "
                 f"{legacy_result.files_changed} file(s), "
                 f"{legacy_result.json_copies} JSON copies",
@@ -105,18 +106,18 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             unique = [f for f in files if f not in seen and not seen.add(f)]  # type: ignore[func-returns-value]
             legacy_result = propagate_metrics(metrics, unique, dry_run=dry_run)
             print(
-                f"{prefix}[4/9] Legacy propagation (corpus-only): "
+                f"{prefix}[4/10] Legacy propagation (corpus-only): "
                 f"{legacy_result.replacements} replacement(s)",
             )
     else:
-        print(f"{prefix}[4/9] Legacy propagation skipped")
+        print(f"{prefix}[4/10] Legacy propagation skipped")
 
     # Step 5: JSON copies (portfolio)
     if not skip_legacy:
         # Already handled in step 4 if cross-repo
-        print(f"{prefix}[5/9] JSON copies (included in step 4)")
+        print(f"{prefix}[5/10] JSON copies (included in step 4)")
     else:
-        print(f"{prefix}[5/9] JSON copies skipped")
+        print(f"{prefix}[5/10] JSON copies skipped")
 
     # Step 6: Context sync
     if not skip_context:
@@ -127,13 +128,13 @@ def cmd_refresh(args: argparse.Namespace) -> int:
                 sync_all(
                     registry, workspace, dry_run=dry_run, write=not dry_run,
                 )
-                print(f"{prefix}[6/9] Context sync complete")
+                print(f"{prefix}[6/10] Context sync complete")
             else:
-                print(f"{prefix}[6/9] Context sync skipped (no workspace)")
+                print(f"{prefix}[6/10] Context sync skipped (no workspace)")
         except Exception as e:
-            print(f"{prefix}[6/9] Context sync error: {e}", file=sys.stderr)
+            print(f"{prefix}[6/10] Context sync error: {e}", file=sys.stderr)
     else:
-        print(f"{prefix}[6/9] Context sync skipped")
+        print(f"{prefix}[6/10] Context sync skipped")
 
     # Step 7: Organism snapshot
     if not skip_organism:
@@ -142,13 +143,13 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
             compute_organism(registry, metrics, workspace=workspace)
             print(
-                f"{prefix}[7/9] Organism computed "
+                f"{prefix}[7/10] Organism computed "
                 f"(use 'organvm organism snapshot --write' to persist)",
             )
         except Exception as e:
-            print(f"{prefix}[7/9] Organism error: {e}", file=sys.stderr)
+            print(f"{prefix}[7/10] Organism error: {e}", file=sys.stderr)
     else:
-        print(f"{prefix}[7/9] Organism skipped")
+        print(f"{prefix}[7/10] Organism skipped")
 
     # Step 8: Plan hygiene check
     if not skip_plans:
@@ -161,19 +162,44 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             sprawl = compute_sprawl(index.entries)
             if candidates:
                 print(
-                    f"{prefix}[8/9] Plan hygiene: {len(candidates)} archival "
+                    f"{prefix}[8/10] Plan hygiene: {len(candidates)} archival "
                     f"candidates ({sprawl.sprawl_level})",
                 )
             else:
                 print(
-                    f"{prefix}[8/9] Plan hygiene: clean ({sprawl.total_active} active)",
+                    f"{prefix}[8/10] Plan hygiene: clean ({sprawl.total_active} active)",
                 )
         except Exception as e:
-            print(f"{prefix}[8/9] Plan hygiene error: {e}", file=sys.stderr)
+            print(f"{prefix}[8/10] Plan hygiene error: {e}", file=sys.stderr)
     else:
-        print(f"{prefix}[8/9] Plan hygiene skipped")
+        print(f"{prefix}[8/10] Plan hygiene skipped")
 
-    # Step 9: Atoms pipeline + fanout
+    # Step 9: SOP inventory check
+    if not skip_sop:
+        try:
+            from organvm_engine.sop.discover import discover_sops
+            from organvm_engine.sop.inventory import audit_sops
+
+            if workspace:
+                sop_entries = discover_sops(workspace=workspace)
+                sop_result = audit_sops(sop_entries)
+                tracked_total = len(sop_result.tracked) + len(sop_result.reference_copy)
+                if sop_result.untracked:
+                    print(
+                        f"{prefix}[9/10] SOP check: {len(sop_result.untracked)} untracked",
+                    )
+                    for e in sop_result.untracked:
+                        print(f"    {e.org}/{e.repo}/{e.filename}")
+                else:
+                    print(f"{prefix}[9/10] SOP check: {tracked_total} tracked, 0 untracked")
+            else:
+                print(f"{prefix}[9/10] SOP check skipped (no workspace)")
+        except Exception as e:
+            print(f"{prefix}[9/10] SOP check error: {e}", file=sys.stderr)
+    else:
+        print(f"{prefix}[9/10] SOP check skipped")
+
+    # Step 10: Atoms pipeline + fanout
     skip_atoms = getattr(args, "skip_atoms", False)
     if not skip_atoms:
         try:
@@ -183,7 +209,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
             pipe_result = run_pipeline(dry_run=dry_run)
             print(
-                f"{prefix}[9/9] Atoms: {pipe_result.atomize_count} tasks, "
+                f"{prefix}[10/10] Atoms: {pipe_result.atomize_count} tasks, "
                 f"{pipe_result.narrate_count} prompts, {pipe_result.link_count} links",
             )
 
@@ -192,9 +218,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
                 write_rollups(rollups, workspace, dry_run=False)
                 print(f"  Fanout: {len(rollups)} organ rollups written")
         except Exception as e:
-            print(f"{prefix}[9/9] Atoms error: {e}", file=sys.stderr)
+            print(f"{prefix}[10/10] Atoms error: {e}", file=sys.stderr)
     else:
-        print(f"{prefix}[9/9] Atoms skipped")
+        print(f"{prefix}[10/10] Atoms skipped")
 
     # Summary
     var_count = result.total_replacements if result else 0

@@ -153,7 +153,7 @@ class TestPipelineQuality:
         assert "null_organ_tasks" in q
         assert "empty_fingerprint_prompts" in q
         assert "link_threshold" in q
-        assert q["link_threshold"] == 0.25
+        assert q["link_threshold"] == 0.30
 
 
 class TestPipelineSkips:

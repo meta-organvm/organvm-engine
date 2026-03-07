@@ -63,8 +63,8 @@ def test_refresh_dry_run(workspace, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "[DRY RUN]" in out
-    assert "[1/8]" in out
-    assert "[2/8]" in out
+    assert "[1/10]" in out
+    assert "[2/10]" in out
 
 
 def test_refresh_writes_metrics_and_vars(workspace, capsys):

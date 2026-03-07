@@ -133,3 +133,4 @@ class NarrateResult:
     type_counts: dict[str, int] = field(default_factory=dict)
     size_counts: dict[str, int] = field(default_factory=dict)
     arc_pattern_counts: dict[str, int] = field(default_factory=dict)
+    noise_skipped: int = 0

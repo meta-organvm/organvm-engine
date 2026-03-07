@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from organvm_engine.plans.atomizer import extract_tags
+from organvm_engine.prompts.audit import _classify_noise
 from organvm_engine.prompts.classifier import (
     classify_prompt_type,
     classify_session_position,
@@ -48,6 +49,7 @@ def narrate_prompts(
     errors: list[tuple[str, str]] = []
     sessions_processed = 0
     sessions_skipped = 0
+    noise_skipped = 0
 
     for session in sessions:
         raw_prompts = extract_prompts(session)
@@ -60,6 +62,9 @@ def narrate_prompts(
         slug = derive_project_slug(session.project_dir)
 
         for rp in raw_prompts:
+            if _classify_noise(rp.text) is not None:
+                noise_skipped += 1
+                continue
             try:
                 ap = _build_annotated(rp.text, rp.timestamp, rp.index, prompt_count, session, slug)
                 all_annotated.append(ap)
@@ -93,6 +98,7 @@ def narrate_prompts(
         type_counts=dict(type_counts),
         size_counts=dict(size_counts),
         arc_pattern_counts=dict(arc_pattern_counts),
+        noise_skipped=noise_skipped,
     )
 
 

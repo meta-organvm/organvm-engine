@@ -21,6 +21,7 @@ class PipelineResult:
     atomize_count: int = 0
     plans_parsed: int = 0
     narrate_count: int = 0
+    noise_skipped: int = 0
     sessions_processed: int = 0
     thread_count: int = 0
     link_count: int = 0
@@ -44,7 +45,7 @@ def run_pipeline(
     organ: str | None = None,
     skip_narrate: bool = False,
     skip_link: bool = False,
-    link_threshold: float = 0.25,
+    link_threshold: float = 0.30,
     dry_run: bool = True,
 ) -> PipelineResult:
     """Run the full atomization pipeline.
@@ -110,6 +111,7 @@ def run_pipeline(
 
             narrate_result = narrate_prompts(agent=agent)
             result.narrate_count = len(narrate_result.prompts)
+            result.noise_skipped = narrate_result.noise_skipped
             result.sessions_processed = narrate_result.sessions_processed
             result.thread_count = narrate_result.thread_count
             result.errors.extend(("narrate", e) for _, e in narrate_result.errors)
@@ -213,6 +215,7 @@ def run_pipeline(
         "plans_parsed": result.plans_parsed,
         "tasks": result.atomize_count,
         "prompts": result.narrate_count,
+        "noise_skipped": result.noise_skipped,
         "sessions": result.sessions_processed,
         "threads": result.thread_count,
         "links": result.link_count,

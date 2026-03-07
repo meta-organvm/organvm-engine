@@ -87,7 +87,7 @@ from organvm_engine.cli.plans import (
     cmd_plans_sweep,
     cmd_plans_tidy,
 )
-from organvm_engine.cli.prompts import cmd_prompts_clipboard, cmd_prompts_narrate
+from organvm_engine.cli.prompts import cmd_prompts_audit, cmd_prompts_clipboard, cmd_prompts_narrate
 from organvm_engine.cli.refresh import cmd_refresh
 from organvm_engine.cli.registry import (
     cmd_registry_deps,
@@ -99,6 +99,7 @@ from organvm_engine.cli.registry import (
     cmd_registry_validate,
 )
 from organvm_engine.cli.seed import cmd_seed_discover, cmd_seed_graph, cmd_seed_validate
+from organvm_engine.cli.sop import cmd_sop_audit, cmd_sop_check, cmd_sop_discover
 from organvm_engine.cli.session import (
     cmd_session_agents,
     cmd_session_analyze,
@@ -113,18 +114,7 @@ from organvm_engine.cli.session import (
 )
 from organvm_engine.cli.status import cmd_status
 from organvm_engine.paths import registry_path as _default_registry_path
-
-
-def _resolve_workspace(args: argparse.Namespace) -> Path | None:
-    """Resolve workspace path from args or environment."""
-    raw = getattr(args, "workspace", None)
-    if raw:
-        return Path(raw).expanduser().resolve()
-    env = os.environ.get("ORGANVM_WORKSPACE_DIR")
-    if env:
-        return Path(env).expanduser().resolve()
-    default = Path.home() / "Workspace"
-    return default if default.is_dir() else None
+from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -636,6 +626,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip plan hygiene check",
     )
     ref.add_argument(
+        "--skip-sop",
+        action="store_true",
+        help="Skip SOP inventory check",
+    )
+    ref.add_argument(
         "--skip-atoms",
         action="store_true",
         help="Skip atoms pipeline + fanout",
@@ -889,6 +884,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Only write Markdown export",
     )
 
+    prompts_audit = prompts_sub.add_parser(
+        "audit",
+        help="Run prompt & pipeline data audit — noise, completion, linking quality",
+    )
+    prompts_audit.add_argument(
+        "--output",
+        default=None,
+        help="Output file path (default: <atoms-dir>/AUDIT-REPORT.md)",
+    )
+    prompts_audit.add_argument(
+        "--json",
+        action="store_true",
+        help="Output machine-readable JSON instead of writing report",
+    )
+    prompts_audit.add_argument(
+        "--noise-only",
+        action="store_true",
+        help="Run only the noise analysis",
+    )
+
     # plans
     plans = sub.add_parser("plans", help="Plan file analysis and atomization")
     plans_sub = plans.add_subparsers(dest="subcommand")
@@ -1057,6 +1072,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Actually move files (overrides --dry-run)",
     )
 
+    # sop
+    sop = sub.add_parser("sop", help="SOP discovery and inventory tracking")
+    sop.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory",
+    )
+    sop.add_argument(
+        "--organ",
+        default=None,
+        help="Filter to specific organ",
+    )
+    sop_sub = sop.add_subparsers(dest="subcommand")
+
+    sop_discover = sop_sub.add_parser("discover", help="Find all SOP/METADOC files")
+    sop_discover.add_argument("--json", action="store_true", help="Output JSON")
+
+    sop_sub.add_parser("audit", help="Compare discovered SOPs against METADOC inventory")
+
+    sop_check = sop_sub.add_parser(
+        "check",
+        help="Exit non-zero if untracked SOPs exist",
+    )
+    sop_check.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 on any untracked or missing SOPs",
+    )
+
     # atoms
     atoms = sub.add_parser("atoms", help="Cross-system atom linking")
     atoms_sub = atoms.add_subparsers(dest="subcommand")
@@ -1068,8 +1112,8 @@ def build_parser() -> argparse.ArgumentParser:
     atoms_link.add_argument(
         "--threshold",
         type=float,
-        default=0.25,
-        help="Minimum Jaccard similarity (default 0.25)",
+        default=0.30,
+        help="Minimum Jaccard similarity (default 0.30)",
     )
     atoms_link.add_argument(
         "--by-thread",
@@ -1130,8 +1174,8 @@ def build_parser() -> argparse.ArgumentParser:
     atoms_pipeline.add_argument(
         "--threshold",
         type=float,
-        default=0.25,
-        help="Minimum Jaccard similarity for linking (default 0.25)",
+        default=0.30,
+        help="Minimum Jaccard similarity for linking (default 0.30)",
     )
     atoms_pipeline.add_argument(
         "--output-dir",
@@ -1141,7 +1185,13 @@ def build_parser() -> argparse.ArgumentParser:
     atoms_pipeline.add_argument(
         "--reconcile",
         action="store_true",
-        help="Run git-based task reconciliation after pipeline",
+        default=True,
+        help="Run git-based task reconciliation after pipeline (default: on)",
+    )
+    atoms_pipeline.add_argument(
+        "--skip-reconcile",
+        action="store_true",
+        help="Skip git-based reconciliation step",
     )
 
     atoms_reconcile = atoms_sub.add_parser(
@@ -1261,6 +1311,7 @@ def main() -> int:
         prompts_dispatch = {
             "narrate": cmd_prompts_narrate,
             "clipboard": cmd_prompts_clipboard,
+            "audit": cmd_prompts_audit,
         }
         handler = prompts_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:
@@ -1280,6 +1331,17 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["plans", "--help"])
+        return 0
+    if args.command == "sop":
+        sop_dispatch = {
+            "discover": cmd_sop_discover,
+            "audit": cmd_sop_audit,
+            "check": cmd_sop_check,
+        }
+        handler = sop_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["sop", "--help"])
         return 0
     if args.command == "session":
         session_dispatch = {

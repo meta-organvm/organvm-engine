@@ -31,7 +31,7 @@ def cmd_atoms_link(args: argparse.Namespace) -> int:
         print("Run 'organvm prompts narrate' first.", file=sys.stderr)
         return 1
 
-    threshold = getattr(args, "threshold", 0.15)
+    threshold = getattr(args, "threshold", 0.30)
     by_thread = getattr(args, "by_thread", False)
     as_json = getattr(args, "json", False)
     output = getattr(args, "output", None)
@@ -120,16 +120,16 @@ def cmd_atoms_pipeline(args: argparse.Namespace) -> int:
         organ=getattr(args, "organ", None),
         skip_narrate=getattr(args, "skip_narrate", False),
         skip_link=getattr(args, "skip_link", False),
-        link_threshold=getattr(args, "threshold", 0.15),
+        link_threshold=getattr(args, "threshold", 0.30),
         dry_run=dry_run,
     )
 
     prefix = "[DRY RUN] " if dry_run else ""
     print(f"{prefix}[1/5] Atomize: {result.plans_parsed} plans → {result.atomize_count} tasks")
     print(f"{prefix}[2/5] Narrate: {result.sessions_processed} sessions → "
-          f"{result.narrate_count} prompts")
+          f"{result.narrate_count} prompts ({result.noise_skipped} noise skipped)")
     print(f"{prefix}[3/5] Link: {result.link_count} matches "
-          f"(threshold={getattr(args, 'threshold', 0.15)})")
+          f"(threshold={getattr(args, 'threshold', 0.30)})")
     if not dry_run:
         idx_count = result.manifest.get("files", {}).get("plan-index.json", {}).get("count", "?")
         print(f"{prefix}[4/5] Index: plan-index.json ({idx_count} plans)")
@@ -138,7 +138,7 @@ def cmd_atoms_pipeline(args: argparse.Namespace) -> int:
     print(f"{prefix}[5/5] Manifest: pipeline-manifest.json")
 
     # Optional reconciliation step
-    reconcile = getattr(args, "reconcile", False)
+    reconcile = getattr(args, "reconcile", True) and not getattr(args, "skip_reconcile", False)
     if reconcile and not dry_run:
         try:
             from organvm_engine.atoms.reconciler import apply_verdicts, reconcile_tasks

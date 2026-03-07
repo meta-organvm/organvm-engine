@@ -6,6 +6,7 @@ Usage:
                             [--dry-run] [--gap-hours 24]
     organvm prompts clipboard [--db-path PATH] [--output-dir DIR]
                               [--dry-run] [--json-only] [--md-only]
+    organvm prompts audit [--output FILE] [--json] [--noise-only]
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ def cmd_prompts_narrate(args: argparse.Namespace) -> int:
     # Print stats
     print(f"Sessions processed: {result.sessions_processed}")
     print(f"Sessions skipped: {result.sessions_skipped}")
+    print(f"Noise skipped: {result.noise_skipped}")
     print(f"Prompts extracted: {len(result.prompts)}")
     print(f"Threads: {result.thread_count}")
     print(f"Errors: {len(result.errors)}")
@@ -74,6 +76,102 @@ def cmd_prompts_narrate(args: argparse.Namespace) -> int:
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(summary, encoding="utf-8")
     print(f"Wrote summary to {summary_path}")
+
+    return 0
+
+
+def cmd_prompts_audit(args: argparse.Namespace) -> int:
+    """Run prompt & pipeline data audit."""
+    import json as json_mod
+
+    from organvm_engine.paths import atoms_dir
+    from organvm_engine.prompts.audit import (
+        audit_completion,
+        audit_effectiveness,
+        audit_links,
+        audit_noise,
+        audit_sessions,
+        generate_recommendations,
+    )
+    from organvm_engine.prompts.audit_report import generate_audit_report
+
+    data_dir = atoms_dir()
+    noise_only = getattr(args, "noise_only", False)
+    json_output = getattr(args, "json", False)
+    output_path = Path(getattr(args, "output", None) or (data_dir / "AUDIT-REPORT.md"))
+
+    # Load JSONL data
+    def _load_jsonl(path: Path) -> list[dict]:
+        if not path.exists():
+            print(f"Warning: {path} not found")
+            return []
+        items = []
+        with path.open(encoding="utf-8") as f:
+            for raw in f:
+                stripped = raw.strip()
+                if stripped:
+                    items.append(json_mod.loads(stripped))
+        return items
+
+    prompts = _load_jsonl(data_dir / "annotated-prompts.jsonl")
+    if not prompts:
+        print("No annotated prompts found. Run `organvm prompts narrate` first.")
+        return 1
+
+    noise = audit_noise(prompts)
+    print(f"Noise analysis: {noise['signal_count']} signal / {noise['noise_count']} noise "
+          f"({noise['noise_pct']}% noise)")
+
+    if noise_only:
+        if json_output:
+            print(json_mod.dumps(noise, indent=2))
+        else:
+            for ntype, count in sorted(noise["noise_by_type"].items(), key=lambda x: -x[1]):
+                print(f"  {ntype}: {count}")
+        return 0
+
+    tasks = _load_jsonl(data_dir / "atomized-tasks.jsonl")
+    links = _load_jsonl(data_dir / "atom-links.jsonl")
+
+    completion = audit_completion(tasks, prompts, links)
+    effectiveness = audit_effectiveness(prompts, tasks, links)
+    sessions = audit_sessions(prompts)
+    links_audit = audit_links(links, tasks, prompts)
+    recommendations = generate_recommendations(
+        noise, completion, effectiveness, sessions, links_audit,
+    )
+
+    results = {
+        "noise": noise,
+        "completion": completion,
+        "effectiveness": effectiveness,
+        "sessions": sessions,
+        "links": links_audit,
+        "recommendations": recommendations,
+    }
+
+    if json_output:
+        # Remove noise_ids for cleaner JSON (can be large)
+        results["noise"] = {k: v for k, v in noise.items() if k != "noise_ids"}
+        print(json_mod.dumps(results, indent=2))
+        return 0
+
+    # Print summary
+    funnel = completion.get("funnel_summary", {})
+    print(f"Tasks: {funnel.get('total_tasks', 0)} "
+          f"(completed: {funnel.get('completed_tasks', 0)}, "
+          f"rate: {funnel.get('completion_rate', 0)}%)")
+    print(f"Links: {links_audit.get('total_links', 0)} "
+          f"(empty-FP: {links_audit.get('empty_fp_pct', 0)}%)")
+    print(f"Sessions: {sessions.get('total_sessions', 0)}")
+    print(f"Recommendations: {len(recommendations)} "
+          f"({sum(1 for r in recommendations if r.get('priority') == 'P0')} P0)")
+
+    # Write report
+    report = generate_audit_report(results)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(report, encoding="utf-8")
+    print(f"\nWrote audit report to {output_path}")
 
     return 0
 

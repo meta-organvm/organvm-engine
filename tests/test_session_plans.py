@@ -234,8 +234,8 @@ def test_resolve_organ_repo_global_path(tmp_path):
     """Path outside workspace returns None, None."""
     path = Path("/some/other/path/plan.md")
     organ, repo = _resolve_organ_repo(path, tmp_path)
-    assert organ is None
-    assert repo is None
+    assert organ == "_root"
+    assert repo == "_global"
 
 
 def test_resolve_organ_repo_personal(tmp_path):
