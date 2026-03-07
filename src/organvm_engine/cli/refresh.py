@@ -11,9 +11,9 @@ from organvm_engine.registry.loader import load_registry
 
 
 def cmd_refresh(args: argparse.Namespace) -> int:
-    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.calculator import compute_metrics, write_metrics
     from organvm_engine.metrics.vars import build_vars, resolve_targets_from_manifest, write_vars
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
     dry_run = args.dry_run
     prefix = "[DRY RUN] " if dry_run else ""

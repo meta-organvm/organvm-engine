@@ -220,4 +220,75 @@ class TestCLIPipeline:
         assert ret == 0
         captured = capsys.readouterr()
         assert "[DRY RUN]" in captured.out
-        assert "[1/5] Atomize" in captured.out
+        assert "[1/6] Atomize" in captured.out
+
+
+class TestPipelineReconcile:
+    """Pipeline reconcile step persists verdicts into atomized-tasks.jsonl."""
+
+    def test_pipeline_result_has_reconcile_fields(self):
+        from organvm_engine.atoms.pipeline import PipelineResult
+
+        r = PipelineResult()
+        assert r.reconcile_completed == 0
+        assert r.reconcile_partial == 0
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_dry_run_skips_reconcile(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{"id": "t1", "status": "pending"}],
+            plans_parsed=1, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, dry_run=True,
+            skip_narrate=True, skip_link=True,
+        )
+
+        assert result.reconcile_completed == 0
+        assert result.reconcile_partial == 0
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_skip_reconcile_flag(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{"id": "t1", "status": "pending"}],
+            plans_parsed=1, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, dry_run=False,
+            skip_narrate=True, skip_link=True,
+            skip_reconcile=True,
+        )
+
+        assert result.reconcile_completed == 0
+        assert result.reconcile_partial == 0
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_manifest_includes_reconcile_counts(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[], plans_parsed=0, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, dry_run=True,
+            skip_narrate=True, skip_link=True,
+        )
+
+        counts = result.manifest["counts"]
+        assert "reconcile_completed" in counts
+        assert "reconcile_partial" in counts
+        assert counts["reconcile_completed"] == 0
+        assert counts["reconcile_partial"] == 0

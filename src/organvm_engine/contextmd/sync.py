@@ -58,6 +58,13 @@ def sync_all(
         except Exception:
             continue
 
+    # 1b. Discover all SOPs for directive injection
+    from organvm_engine.sop.discover import discover_sops
+    from organvm_engine.sop.resolver import promotion_to_phase
+    from organvm_engine.sop.resolver import resolve_all as resolve_all_sops
+
+    all_sops = discover_sops(workspace=ws)
+
     updated = []
     created = []
     skipped = []
@@ -100,6 +107,13 @@ def sync_all(
             # Use repo's own org field, fall back to organ directory name
             org_name = repo_entry.get("org") or organ_dir_name
 
+            # Resolve SOPs for this repo, filtered by lifecycle phase
+            promo_status = repo_entry.get("promotion_status", "LOCAL")
+            repo_phase = promotion_to_phase(promo_status)
+            repo_sops = resolve_all_sops(
+                all_sops, repo=repo_name, organ=organ_dir_name, phase=repo_phase,
+            )
+
             # Sync CLAUDE.md and GEMINI.md
             for filename in ["CLAUDE.md", "GEMINI.md"]:
                 try:
@@ -111,6 +125,7 @@ def sync_all(
                         repo_to_seed.get(repo_name),
                         dry_run,
                         filename=filename,
+                        sop_entries=repo_sops,
                     )
                     if res["action"] == "created":
                         created.append(res["path"])
@@ -167,9 +182,10 @@ def sync_repo(
     seed: dict | None = None,
     dry_run: bool = False,
     filename: str = "CLAUDE.md",
+    sop_entries: list | None = None,
 ) -> dict[str, Any]:
     """Sync a single repo's context file."""
-    section = generate_repo_section(repo_name, org, registry, seed)
+    section = generate_repo_section(repo_name, org, registry, seed, sop_entries=sop_entries)
     file_path = repo_path / filename
     action = _inject_section(file_path, section, dry_run)
     return {"path": str(file_path), "action": action, "dry_run": dry_run}

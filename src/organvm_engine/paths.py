@@ -48,3 +48,16 @@ def soak_dir() -> Path:
 def atoms_dir() -> Path:
     """Return the path to the centralized atoms output directory."""
     return corpus_dir() / "data" / "atoms"
+
+
+def resolve_workspace(args: "argparse.Namespace | None" = None) -> Path | None:
+    """Resolve workspace from CLI args, env, or default."""
+    if args is not None:
+        raw = getattr(args, "workspace", None)
+        if raw:
+            return Path(raw).expanduser().resolve()
+    env = os.environ.get("ORGANVM_WORKSPACE_DIR")
+    if env:
+        return Path(env).expanduser().resolve()
+    default = Path.home() / "Workspace"
+    return default if default.is_dir() else None

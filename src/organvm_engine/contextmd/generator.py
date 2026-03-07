@@ -20,6 +20,7 @@ from organvm_engine.contextmd.templates import (
     PLAN_CONTEXT_SECTION,
     REPO_SECTION,
     SESSION_REVIEW_SECTION,
+    SOP_DIRECTIVES_SECTION,
     WORKSPACE_SECTION,
     format_consumes_edge,
     format_no_edges,
@@ -34,6 +35,7 @@ def generate_repo_section(
     registry: dict,
     seed: dict | None = None,
     plan_index: "PlanIndex | None" = None,
+    sop_entries: list | None = None,
 ) -> str:
     """Generate the auto-generated section for a repo-level CLAUDE.md / GEMINI.md."""
 
@@ -101,7 +103,10 @@ def generate_repo_section(
         # Build plan context if plan_index is provided
         plan_section = _build_plan_context(repo_name, organ_key, plan_index)
         atoms_section = _build_atoms_context(repo_name, organ_key)
+        sop_section = _build_sop_directives(sop_entries)
         injected = SESSION_REVIEW_SECTION
+        if sop_section:
+            injected += "\n" + sop_section
         if plan_section:
             injected += "\n" + plan_section
         if atoms_section:
@@ -268,6 +273,37 @@ def generate_workspace_section(
         omega_met=omega_met,
         omega_total=omega_total,
         timestamp=_timestamp(),
+    )
+
+
+def _build_sop_directives(sop_entries: list | None) -> str:
+    """Build the Active Directives section from resolved SOP entries."""
+    if not sop_entries:
+        return ""
+
+    rows = []
+    all_complements: list[str] = []
+    for e in sop_entries:
+        desc = e.title or e.sop_name or e.filename
+        rows.append(f"| {e.scope} | {e.phase} | {e.sop_name or e.filename} | {desc} |")
+        all_complements.extend(e.complements or [])
+
+    if not rows:
+        return ""
+
+    table = (
+        "| Scope | Phase | Name | Description |\n"
+        "|-------|-------|------|-------------|\n" + "\n".join(rows)
+    )
+
+    skills_line = ""
+    if all_complements:
+        unique = sorted(set(all_complements))
+        skills_line = f"Linked skills: {', '.join(unique)}"
+
+    return SOP_DIRECTIVES_SECTION.format(
+        directives_table=table,
+        linked_skills_line=skills_line,
     )
 
 

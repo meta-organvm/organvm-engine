@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 def cmd_lint_vars(args: argparse.Namespace) -> int:
-    from organvm_engine.cli import _resolve_workspace
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.lint_vars import lint_workspace
     from organvm_engine.metrics.vars import build_vars, load_vars
 

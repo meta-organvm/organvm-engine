@@ -99,7 +99,13 @@ from organvm_engine.cli.registry import (
     cmd_registry_validate,
 )
 from organvm_engine.cli.seed import cmd_seed_discover, cmd_seed_graph, cmd_seed_validate
-from organvm_engine.cli.sop import cmd_sop_audit, cmd_sop_check, cmd_sop_discover
+from organvm_engine.cli.sop import (
+    cmd_sop_audit,
+    cmd_sop_check,
+    cmd_sop_discover,
+    cmd_sop_init,
+    cmd_sop_resolve,
+)
 from organvm_engine.cli.session import (
     cmd_session_agents,
     cmd_session_analyze,
@@ -1101,6 +1107,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit 1 on any untracked or missing SOPs",
     )
 
+    sop_resolve = sop_sub.add_parser(
+        "resolve",
+        help="Show active SOPs for a given context",
+    )
+    sop_resolve.add_argument("name", nargs="?", default=None, help="SOP name to resolve")
+    sop_resolve.add_argument("--repo", default=None, help="Filter to specific repo")
+    sop_resolve.add_argument(
+        "--phase",
+        default=None,
+        choices=["genesis", "foundation", "hardening", "graduation", "sustaining", "any"],
+        help="Filter to lifecycle phase",
+    )
+
+    sop_init = sop_sub.add_parser(
+        "init",
+        help="Scaffold a .sops/ directory with template",
+    )
+    sop_init.add_argument(
+        "--scope",
+        choices=["repo", "organ"],
+        default="repo",
+        help="Scope of the new SOP (default: repo)",
+    )
+    sop_init.add_argument("--name", default=None, help="SOP name (default: new-procedure)")
+
     # atoms
     atoms = sub.add_parser("atoms", help="Cross-system atom linking")
     atoms_sub = atoms.add_subparsers(dest="subcommand")
@@ -1337,6 +1368,8 @@ def main() -> int:
             "discover": cmd_sop_discover,
             "audit": cmd_sop_audit,
             "check": cmd_sop_check,
+            "resolve": cmd_sop_resolve,
+            "init": cmd_sop_init,
         }
         handler = sop_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:

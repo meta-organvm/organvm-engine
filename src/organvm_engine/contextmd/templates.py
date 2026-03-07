@@ -179,6 +179,15 @@ Cross-organ links: {cross_link_count} | Top tags: {top_tags}
 Run: `organvm atoms pipeline --write && organvm atoms fanout --write`
 """
 
+SOP_DIRECTIVES_SECTION = """\
+
+## Active Directives
+
+{directives_table}
+
+{linked_skills_line}
+"""
+
 ATOMS_NOT_RUN_HINT = """\
 
 ## Atomization Pipeline

@@ -114,46 +114,36 @@ def cmd_atoms_pipeline(args: argparse.Namespace) -> int:
     if output_dir:
         output_dir = Path(output_dir)
 
+    skip_reconcile = getattr(args, "skip_reconcile", False)
+
     result = run_pipeline(
         output_dir=output_dir,
         agent=getattr(args, "agent", None),
         organ=getattr(args, "organ", None),
         skip_narrate=getattr(args, "skip_narrate", False),
         skip_link=getattr(args, "skip_link", False),
+        skip_reconcile=skip_reconcile,
         link_threshold=getattr(args, "threshold", 0.30),
         dry_run=dry_run,
     )
 
     prefix = "[DRY RUN] " if dry_run else ""
-    print(f"{prefix}[1/5] Atomize: {result.plans_parsed} plans → {result.atomize_count} tasks")
-    print(f"{prefix}[2/5] Narrate: {result.sessions_processed} sessions → "
+    print(f"{prefix}[1/6] Atomize: {result.plans_parsed} plans → {result.atomize_count} tasks")
+    print(f"{prefix}[2/6] Narrate: {result.sessions_processed} sessions → "
           f"{result.narrate_count} prompts ({result.noise_skipped} noise skipped)")
-    print(f"{prefix}[3/5] Link: {result.link_count} matches "
+    print(f"{prefix}[3/6] Link: {result.link_count} matches "
           f"(threshold={getattr(args, 'threshold', 0.30)})")
+    if not dry_run and not skip_reconcile:
+        print(f"{prefix}[4/6] Reconcile: {result.reconcile_completed} completed, "
+              f"{result.reconcile_partial} partial")
+    else:
+        print(f"{prefix}[4/6] Reconcile: skipped ({'dry-run' if dry_run else 'disabled'})")
     if not dry_run:
         idx_count = result.manifest.get("files", {}).get("plan-index.json", {}).get("count", "?")
-        print(f"{prefix}[4/5] Index: plan-index.json ({idx_count} plans)")
+        print(f"{prefix}[5/6] Index: plan-index.json ({idx_count} plans)")
     else:
-        print(f"{prefix}[4/5] Index: skipped (dry-run)")
-    print(f"{prefix}[5/5] Manifest: pipeline-manifest.json")
-
-    # Optional reconciliation step
-    reconcile = getattr(args, "reconcile", True) and not getattr(args, "skip_reconcile", False)
-    if reconcile and not dry_run:
-        try:
-            from organvm_engine.atoms.reconciler import apply_verdicts, reconcile_tasks
-            from organvm_engine.paths import atoms_dir, workspace_root
-
-            tasks_path = atoms_dir() / "atomized-tasks.jsonl"
-            workspace = workspace_root()
-            rec_result = reconcile_tasks(tasks_path, workspace)
-            updated = apply_verdicts(tasks_path, rec_result.verdicts)
-            print(f"{prefix}[6/6] Reconcile: {rec_result.likely_completed} completed, "
-                  f"{rec_result.partially_done} partial, {updated} updated")
-        except Exception as e:
-            print(f"{prefix}[6/6] Reconcile error: {e}")
-    elif reconcile:
-        print(f"{prefix}[6/6] Reconcile: skipped (dry-run)")
+        print(f"{prefix}[5/6] Index: skipped (dry-run)")
+    print(f"{prefix}[6/6] Manifest: pipeline-manifest.json")
 
     if result.errors:
         print(f"\nErrors ({len(result.errors)}):")

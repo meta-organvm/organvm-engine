@@ -25,6 +25,8 @@ class PipelineResult:
     sessions_processed: int = 0
     thread_count: int = 0
     link_count: int = 0
+    reconcile_completed: int = 0
+    reconcile_partial: int = 0
     manifest: dict = field(default_factory=dict)
     errors: list[tuple[str, str]] = field(default_factory=list)
     links: list[AtomLink] = field(default_factory=list)
@@ -45,6 +47,7 @@ def run_pipeline(
     organ: str | None = None,
     skip_narrate: bool = False,
     skip_link: bool = False,
+    skip_reconcile: bool = False,
     link_threshold: float = 0.30,
     dry_run: bool = True,
 ) -> PipelineResult:
@@ -56,6 +59,7 @@ def run_pipeline(
         organ: Filter by organ key.
         skip_narrate: Skip prompt narration step.
         skip_link: Skip cross-system linking step.
+        skip_reconcile: Skip git-based reconciliation step.
         link_threshold: Minimum Jaccard similarity for links.
         dry_run: If True, compute results but don't write files.
 
@@ -163,7 +167,22 @@ def run_pipeline(
         except Exception as e:
             result.errors.append(("link", str(e)))
 
-    # Step 4: Write plan index
+    # Step 4: Reconcile tasks against git history
+    if not skip_reconcile and not dry_run and result.atomize_count > 0:
+        try:
+            from organvm_engine.atoms.reconciler import apply_verdicts, reconcile_tasks
+            from organvm_engine.paths import workspace_root
+
+            tasks_path = output_dir / "atomized-tasks.jsonl"
+            if tasks_path.exists():
+                rec_result = reconcile_tasks(tasks_path, workspace_root())
+                apply_verdicts(tasks_path, rec_result.verdicts)
+                result.reconcile_completed = rec_result.likely_completed
+                result.reconcile_partial = rec_result.partially_done
+        except Exception as e:
+            result.errors.append(("reconcile", str(e)))
+
+    # Step 5: Write plan index
     if not dry_run:
         try:
             from organvm_engine.plans.index import build_plan_index, index_to_json
@@ -219,6 +238,8 @@ def run_pipeline(
         "sessions": result.sessions_processed,
         "threads": result.thread_count,
         "links": result.link_count,
+        "reconcile_completed": result.reconcile_completed,
+        "reconcile_partial": result.reconcile_partial,
         "errors": len(result.errors),
     }
 
