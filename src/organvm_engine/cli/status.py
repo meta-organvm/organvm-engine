@@ -1,6 +1,7 @@
 """Status CLI command."""
 
 import argparse
+import json
 
 from organvm_engine.registry.loader import load_registry
 
@@ -56,6 +57,22 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"  {'─' * 50}")
     print(f"    CI workflows:  {metrics['ci_workflows']}")
     print(f"    Dep edges:     {metrics['dependency_edges']}")
+
+    # Atoms
+    try:
+        from organvm_engine.paths import atoms_dir
+
+        manifest_path = atoms_dir() / "pipeline-manifest.json"
+        if manifest_path.exists():
+            m = json.loads(manifest_path.read_text(encoding="utf-8"))
+            counts = m.get("counts", {})
+            print("\n  Atoms Pipeline")
+            print(f"  {'─' * 50}")
+            print(f"    Tasks:     {counts.get('tasks', 0)} ({counts.get('prompts', 0)} prompts)")
+            print(f"    Links:     {counts.get('links', 0)}")
+            print(f"    Last run:  {m.get('generated', '?')[:19]}")
+    except Exception:
+        pass
 
     print()
     return 0

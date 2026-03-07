@@ -33,6 +33,9 @@ Usage:
     organvm pitch generate <repo> [--dry-run]
     organvm pitch sync [--organ X] [--dry-run] [--tier X]
     organvm context sync [--dry-run] [--organ X]
+    organvm prompts narrate [--agent claude|gemini|codex] [--project FILTER] [--output FILE] [--summary FILE] [--dry-run] [--gap-hours 24]
+    organvm plans atomize [--plans-dir DIR] [--output FILE] [--summary FILE] [--dry-run]
+    organvm atoms link [--threshold 0.25] [--by-thread] [--json] [--output FILE]
 """
 
 import argparse
@@ -40,6 +43,12 @@ import os
 import sys
 from pathlib import Path
 
+from organvm_engine.cli.atoms import (
+    cmd_atoms_fanout,
+    cmd_atoms_link,
+    cmd_atoms_pipeline,
+    cmd_atoms_reconcile,
+)
 from organvm_engine.cli.ci import cmd_ci_triage
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
@@ -54,13 +63,13 @@ from organvm_engine.cli.git_cmds import (
     cmd_git_sync_all,
     cmd_git_sync_organ,
 )
-from organvm_engine.cli.lint_vars import cmd_lint_vars
 from organvm_engine.cli.governance import (
     cmd_governance_audit,
     cmd_governance_checkdeps,
     cmd_governance_impact,
     cmd_governance_promote,
 )
+from organvm_engine.cli.lint_vars import cmd_lint_vars
 from organvm_engine.cli.metrics import (
     cmd_metrics_calculate,
     cmd_metrics_count_words,
@@ -70,6 +79,15 @@ from organvm_engine.cli.metrics import (
 from organvm_engine.cli.omega import cmd_omega_check, cmd_omega_status, cmd_omega_update
 from organvm_engine.cli.organism import cmd_organism, cmd_organism_snapshot
 from organvm_engine.cli.pitch import cmd_pitch_generate, cmd_pitch_sync
+from organvm_engine.cli.plans import (
+    cmd_plans_atomize,
+    cmd_plans_audit,
+    cmd_plans_index,
+    cmd_plans_overlaps,
+    cmd_plans_sweep,
+    cmd_plans_tidy,
+)
+from organvm_engine.cli.prompts import cmd_prompts_clipboard, cmd_prompts_narrate
 from organvm_engine.cli.refresh import cmd_refresh
 from organvm_engine.cli.registry import (
     cmd_registry_deps,
@@ -612,6 +630,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip legacy regex propagation",
     )
+    ref.add_argument(
+        "--skip-plans",
+        action="store_true",
+        help="Skip plan hygiene check",
+    )
+    ref.add_argument(
+        "--skip-atoms",
+        action="store_true",
+        help="Skip atoms pipeline + fanout",
+    )
 
     # lint-vars
     lv = sub.add_parser(
@@ -729,6 +757,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Render plan-vs-reality audit scaffold",
     )
+    sess_plans.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex", "governance"],
+        help="Filter by agent",
+    )
+    sess_plans.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key (I, II, ..., META)",
+    )
+    sess_plans.add_argument(
+        "--matrix",
+        action="store_true",
+        help="Show agent × organ count matrix",
+    )
 
     # analyze
     sess_analyze = sess_sub.add_parser(
@@ -772,6 +816,372 @@ def build_parser() -> argparse.ArgumentParser:
         "--project",
         default=None,
         help="Filter to project when using --latest",
+    )
+
+    # prompts
+    prompts = sub.add_parser("prompts", help="Prompt narrative analysis")
+    prompts_sub = prompts.add_subparsers(dest="subcommand")
+
+    prompts_narrate = prompts_sub.add_parser(
+        "narrate",
+        help="Extract, classify, and thread prompts into narrative arcs",
+    )
+    prompts_narrate.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex"],
+        help="Filter to specific agent",
+    )
+    prompts_narrate.add_argument(
+        "--project",
+        default=None,
+        help="Filter to specific project directory name or path substring",
+    )
+    prompts_narrate.add_argument(
+        "--output",
+        default=None,
+        help="Output JSONL file path (default: ~/.claude/prompts/annotated-prompts.jsonl)",
+    )
+    prompts_narrate.add_argument(
+        "--summary",
+        default=None,
+        help="Output summary .md path (default: ~/.claude/prompts/NARRATIVE-SUMMARY.md)",
+    )
+    prompts_narrate.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse all sessions, print stats, write nothing",
+    )
+    prompts_narrate.add_argument(
+        "--gap-hours",
+        type=float,
+        default=24.0,
+        help="Hours gap to split episodes (default 24)",
+    )
+
+    prompts_clipboard = prompts_sub.add_parser(
+        "clipboard",
+        help="Extract and classify AI prompts from Paste.app clipboard history",
+    )
+    prompts_clipboard.add_argument(
+        "--db-path",
+        default=None,
+        help="Path to Paste.app SQLite database (default: standard macOS location)",
+    )
+    prompts_clipboard.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory for export files",
+    )
+    prompts_clipboard.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse and classify but write nothing",
+    )
+    prompts_clipboard.add_argument(
+        "--json-only",
+        action="store_true",
+        help="Only write JSON export",
+    )
+    prompts_clipboard.add_argument(
+        "--md-only",
+        action="store_true",
+        help="Only write Markdown export",
+    )
+
+    # plans
+    plans = sub.add_parser("plans", help="Plan file analysis and atomization")
+    plans_sub = plans.add_subparsers(dest="subcommand")
+
+    plans_atomize = plans_sub.add_parser(
+        "atomize",
+        help="Atomize plan files into atomic tasks with rich metadata",
+    )
+    plans_atomize.add_argument(
+        "--plans-dir",
+        default=None,
+        help="Root directory containing plan .md files (default: ~/.claude/plans)",
+    )
+    plans_atomize.add_argument(
+        "--output",
+        default=None,
+        help="Output JSONL file path (default: <plans-dir>/atomized-tasks.jsonl)",
+    )
+    plans_atomize.add_argument(
+        "--summary",
+        default=None,
+        help="Output summary .md path (default: <plans-dir>/ATOMIZED-SUMMARY.md)",
+    )
+    plans_atomize.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse all files, print stats, write nothing",
+    )
+    plans_atomize.add_argument(
+        "--all",
+        action="store_true",
+        help="Discover from entire workspace (multi-agent) instead of single --plans-dir",
+    )
+    plans_atomize.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex"],
+        help="Filter source plans by agent (requires --all)",
+    )
+    plans_atomize.add_argument(
+        "--organ",
+        default=None,
+        help="Filter source plans by organ key (requires --all)",
+    )
+
+    plans_index = plans_sub.add_parser(
+        "index",
+        help="Build and display plan index (machine-readable snapshot)",
+    )
+    plans_index.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON instead of table",
+    )
+    plans_index.add_argument(
+        "--write",
+        action="store_true",
+        help="Write plan-index.json to corpus data/plans/",
+    )
+    plans_index.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex"],
+        help="Filter by agent",
+    )
+    plans_index.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+
+    plans_audit = plans_sub.add_parser(
+        "audit",
+        help="Flag stale plans, duplicates, and orphans",
+    )
+    plans_audit.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+    plans_audit.add_argument(
+        "--stale-days",
+        type=int,
+        default=30,
+        help="Days threshold for stale detection (default 30)",
+    )
+
+    plans_overlaps = plans_sub.add_parser(
+        "overlaps",
+        help="Show overlapping plan clusters",
+    )
+    plans_overlaps.add_argument(
+        "--severity",
+        default=None,
+        choices=["conflict", "warning", "info"],
+        help="Filter by severity level",
+    )
+    plans_overlaps.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+
+    plans_sweep = plans_sub.add_parser(
+        "sweep",
+        help="List archival candidates (read-only)",
+    )
+    plans_sweep.add_argument(
+        "--stale-days",
+        type=int,
+        default=14,
+        help="Days threshold for stale detection (default 14)",
+    )
+    plans_sweep.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex"],
+        help="Filter by agent",
+    )
+    plans_sweep.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+    plans_sweep.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON",
+    )
+
+    plans_tidy = plans_sub.add_parser(
+        "tidy",
+        help="Archive eligible plans (dry-run by default)",
+    )
+    plans_tidy.add_argument(
+        "--stale-days",
+        type=int,
+        default=14,
+        help="Days threshold for stale detection (default 14)",
+    )
+    plans_tidy.add_argument(
+        "--include-review",
+        action="store_true",
+        help="Include stale plans (review confidence) in archival",
+    )
+    plans_tidy.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex"],
+        help="Filter by agent",
+    )
+    plans_tidy.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+    plans_tidy.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=True,
+        help="Preview without moving files (default)",
+    )
+    plans_tidy.add_argument(
+        "--write",
+        action="store_true",
+        help="Actually move files (overrides --dry-run)",
+    )
+
+    # atoms
+    atoms = sub.add_parser("atoms", help="Cross-system atom linking")
+    atoms_sub = atoms.add_subparsers(dest="subcommand")
+
+    atoms_link = atoms_sub.add_parser(
+        "link",
+        help="Link atomized tasks to annotated prompts by content similarity",
+    )
+    atoms_link.add_argument(
+        "--threshold",
+        type=float,
+        default=0.25,
+        help="Minimum Jaccard similarity (default 0.25)",
+    )
+    atoms_link.add_argument(
+        "--by-thread",
+        action="store_true",
+        help="Aggregate prompts per thread before comparison (higher recall)",
+    )
+    atoms_link.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON instead of table",
+    )
+    atoms_link.add_argument(
+        "--output",
+        default=None,
+        help="Write output to file",
+    )
+    atoms_link.add_argument(
+        "--tasks",
+        default=None,
+        help="Path to atomized-tasks.jsonl (default: ~/.claude/plans/atomized-tasks.jsonl)",
+    )
+    atoms_link.add_argument(
+        "--prompts",
+        default=None,
+        help="Path to annotated-prompts.jsonl",
+    )
+
+    atoms_pipeline = atoms_sub.add_parser(
+        "pipeline",
+        help="Run the full atomization pipeline (atomize → narrate → link → index)",
+    )
+    atoms_pipeline.add_argument(
+        "--write",
+        action="store_true",
+        help="Execute pipeline and write files (default is dry-run)",
+    )
+    atoms_pipeline.add_argument(
+        "--skip-narrate",
+        action="store_true",
+        help="Skip prompt narration step",
+    )
+    atoms_pipeline.add_argument(
+        "--skip-link",
+        action="store_true",
+        help="Skip cross-system linking step",
+    )
+    atoms_pipeline.add_argument(
+        "--agent",
+        default=None,
+        choices=["claude", "gemini", "codex"],
+        help="Filter by agent",
+    )
+    atoms_pipeline.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+    atoms_pipeline.add_argument(
+        "--threshold",
+        type=float,
+        default=0.25,
+        help="Minimum Jaccard similarity for linking (default 0.25)",
+    )
+    atoms_pipeline.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory (default: corpus data/atoms/)",
+    )
+    atoms_pipeline.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="Run git-based task reconciliation after pipeline",
+    )
+
+    atoms_reconcile = atoms_sub.add_parser(
+        "reconcile",
+        help="Cross-reference tasks against git history to detect completed work",
+    )
+    atoms_reconcile.add_argument(
+        "--write",
+        action="store_true",
+        help="Rewrite tasks JSONL with updated statuses",
+    )
+    atoms_reconcile.add_argument(
+        "--since",
+        default=None,
+        help="Only check git log since this date (default: plan date)",
+    )
+    atoms_reconcile.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory",
+    )
+
+    atoms_fanout = atoms_sub.add_parser(
+        "fanout",
+        help="Fan out atom data to per-organ rollup JSON files",
+    )
+    atoms_fanout.add_argument(
+        "--write",
+        action="store_true",
+        help="Execute fanout (default is dry-run)",
+    )
+    atoms_fanout.add_argument(
+        "--atoms-dir",
+        default=None,
+        help="Path to centralized atoms directory (default: corpus data/atoms/)",
+    )
+    atoms_fanout.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory",
     )
 
     return parser
@@ -835,6 +1245,42 @@ def main() -> int:
         if getattr(args, "subcommand", None) == "snapshot":
             return cmd_organism_snapshot(args)
         return cmd_organism(args)
+    if args.command == "atoms":
+        atoms_dispatch = {
+            "link": cmd_atoms_link,
+            "pipeline": cmd_atoms_pipeline,
+            "reconcile": cmd_atoms_reconcile,
+            "fanout": cmd_atoms_fanout,
+        }
+        handler = atoms_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["atoms", "--help"])
+        return 0
+    if args.command == "prompts":
+        prompts_dispatch = {
+            "narrate": cmd_prompts_narrate,
+            "clipboard": cmd_prompts_clipboard,
+        }
+        handler = prompts_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["prompts", "--help"])
+        return 0
+    if args.command == "plans":
+        plans_dispatch = {
+            "atomize": cmd_plans_atomize,
+            "index": cmd_plans_index,
+            "audit": cmd_plans_audit,
+            "overlaps": cmd_plans_overlaps,
+            "sweep": cmd_plans_sweep,
+            "tidy": cmd_plans_tidy,
+        }
+        handler = plans_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["plans", "--help"])
+        return 0
     if args.command == "session":
         session_dispatch = {
             "projects": cmd_session_projects,

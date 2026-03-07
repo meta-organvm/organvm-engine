@@ -7,10 +7,17 @@ for auto-generated sections at each level (repo, organ, workspace).
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from organvm_engine.plans.index import PlanIndex
 
 from organvm_engine.contextmd.templates import (
     AGENTS_SECTION,
+    ATOMS_NOT_RUN_HINT,
+    ATOMS_REPO_QUEUE_SECTION,
     ORGAN_SECTION,
+    PLAN_CONTEXT_SECTION,
     REPO_SECTION,
     SESSION_REVIEW_SECTION,
     WORKSPACE_SECTION,
@@ -26,6 +33,7 @@ def generate_repo_section(
     org: str,
     registry: dict,
     seed: dict | None = None,
+    plan_index: "PlanIndex | None" = None,
 ) -> str:
     """Generate the auto-generated section for a repo-level CLAUDE.md / GEMINI.md."""
 
@@ -90,9 +98,17 @@ def generate_repo_section(
     # Inject session review protocol before the AUTO:END marker
     end_marker = "<!-- ORGANVM:AUTO:END -->"
     if end_marker in section:
+        # Build plan context if plan_index is provided
+        plan_section = _build_plan_context(repo_name, organ_key, plan_index)
+        atoms_section = _build_atoms_context(repo_name, organ_key)
+        injected = SESSION_REVIEW_SECTION
+        if plan_section:
+            injected += "\n" + plan_section
+        if atoms_section:
+            injected += "\n" + atoms_section
         section = section.replace(
             end_marker,
-            SESSION_REVIEW_SECTION + "\n" + end_marker,
+            injected + "\n" + end_marker,
         )
 
     return section
@@ -252,6 +268,129 @@ def generate_workspace_section(
         omega_met=omega_met,
         omega_total=omega_total,
         timestamp=_timestamp(),
+    )
+
+
+def _build_plan_context(
+    repo_name: str,
+    organ_key: str,
+    plan_index: "PlanIndex | None",
+) -> str:
+    """Build the plan context section for a repo's CLAUDE.md.
+
+    Shows up to 5 active plans in this repo + up to 5 related plans from
+    other repos/agents that share the same organ.
+    """
+    if plan_index is None:
+        return ""
+
+    entries = plan_index.entries if hasattr(plan_index, "entries") else []
+    if not entries:
+        return ""
+
+    # Plans in this repo
+    repo_plans = [
+        e for e in entries
+        if e.repo == repo_name and e.status == "active"
+    ]
+    # Related plans: same organ, different repo or different agent
+    related = [
+        e for e in entries
+        if e.organ == organ_key
+        and e.repo != repo_name
+        and e.status == "active"
+    ]
+
+    if not repo_plans and not related:
+        return ""
+
+    # Format repo plans (max 5)
+    plan_lines = []
+    for e in repo_plans[:5]:
+        pct = f"{e.completed_count}/{e.task_count}" if e.task_count else "0/0"
+        plan_lines.append(f"- `{e.slug}` ({e.agent}, {e.date}) — {pct} tasks complete")
+    if len(repo_plans) > 5:
+        plan_lines.append(f"- ... and {len(repo_plans) - 5} more")
+    plan_list = "\n".join(plan_lines) if plan_lines else "- *No active plans in this repo*"
+
+    # Format related plans (max 5)
+    related_lines = []
+    for e in related[:5]:
+        related_lines.append(
+            f"- `{e.repo}/{e.slug}` ({e.agent}) — {e.title[:50]}",
+        )
+    if len(related) > 5:
+        related_lines.append(f"- ... and {len(related) - 5} more")
+    no_related = "- *No related plans in this organ*"
+    related_plans = "\n".join(related_lines) if related_lines else no_related
+
+    return PLAN_CONTEXT_SECTION.format(
+        plan_list=plan_list,
+        related_plans=related_plans,
+    )
+
+
+def _build_atoms_context(repo_name: str, organ_key: str) -> str:
+    """Build the atoms task queue section for a repo's CLAUDE.md.
+
+    Reads pre-computed rollup JSON (not raw JSONL) so context sync stays fast.
+    """
+    from organvm_engine.atoms.rollup import load_repo_task_queue, load_rollup
+    from organvm_engine.organ_config import registry_key_to_dir
+    from organvm_engine.paths import workspace_root
+
+    rk_to_dir = registry_key_to_dir()
+    organ_dir_name = rk_to_dir.get(organ_key)
+    if not organ_dir_name:
+        return ""
+
+    organ_dir = workspace_root() / organ_dir_name
+    rollup = load_rollup(organ_dir)
+    if rollup is None:
+        return ATOMS_NOT_RUN_HINT
+
+    queue = load_repo_task_queue(rollup, repo_name)
+    if queue is None or queue["pending_count"] == 0:
+        return ""
+
+    # Format task list (max 8)
+    task_lines = []
+    for t in queue["tasks"][:8]:
+        tags = ", ".join(t.get("tags", [])[:3])
+        tag_str = f" [{tags}]" if tags else ""
+        task_lines.append(f"- `{t.get('id', '?')}` {t.get('title', 'untitled')}{tag_str}")
+    if queue["pending_count"] > 8:
+        task_lines.append(f"- ... and {queue['pending_count'] - 8} more")
+    task_list = "\n".join(task_lines)
+
+    # Cross-organ link count
+    cross_links = rollup.get("cross_organ_links", [])
+
+    # Top tags from all pending tasks across all repos
+    from collections import Counter
+    tag_counter: Counter[str] = Counter()
+    for repo_tasks in rollup.get("pending_by_repo", {}).values():
+        for t in repo_tasks:
+            tag_counter.update(t.get("tags", []))
+    top_tags = ", ".join(f"`{t}`" for t, _ in tag_counter.most_common(5)) or "none"
+
+    # Last run timestamp from manifest (if available)
+    import json
+    manifest_path = organ_dir / ".atoms" / "pipeline-manifest.json"
+    last_run = "unknown"
+    if manifest_path.exists():
+        try:
+            m = json.loads(manifest_path.read_text(encoding="utf-8"))
+            last_run = m.get("generated", "unknown")[:19]
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return ATOMS_REPO_QUEUE_SECTION.format(
+        pending_count=queue["pending_count"],
+        last_run=last_run,
+        task_list=task_list,
+        cross_link_count=len(cross_links),
+        top_tags=top_tags,
     )
 
 

@@ -48,6 +48,7 @@ def _make_args(reg_path, dry_run=True, **kwargs):
         "skip_context": True,
         "skip_organism": True,
         "skip_legacy": True,
+        "skip_plans": True,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -62,8 +63,8 @@ def test_refresh_dry_run(workspace, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "[DRY RUN]" in out
-    assert "[1/7]" in out
-    assert "[2/7]" in out
+    assert "[1/8]" in out
+    assert "[2/8]" in out
 
 
 def test_refresh_writes_metrics_and_vars(workspace, capsys):

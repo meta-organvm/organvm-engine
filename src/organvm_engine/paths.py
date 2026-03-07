@@ -43,3 +43,8 @@ def governance_rules_path() -> Path:
 def soak_dir() -> Path:
     """Return the path to the soak-test data directory."""
     return corpus_dir() / "data" / "soak-test"
+
+
+def atoms_dir() -> Path:
+    """Return the path to the centralized atoms output directory."""
+    return corpus_dir() / "data" / "atoms"

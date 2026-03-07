@@ -352,15 +352,24 @@ def cmd_session_plans(args: argparse.Namespace) -> int:
         discover_plans,
         render_plan_audit,
         render_plan_inventory,
+        render_plan_matrix,
     )
 
     project = getattr(args, "project", None)
     since = getattr(args, "since", None)
     audit = getattr(args, "audit", False)
+    agent = getattr(args, "agent", None)
+    organ = getattr(args, "organ", None)
+    matrix = getattr(args, "matrix", False)
 
-    plans = discover_plans(project_filter=project, since=since)
+    plans = discover_plans(
+        project_filter=project, since=since,
+        agent=agent, organ=organ,
+    )
 
-    if audit:
+    if matrix:
+        print(render_plan_matrix(plans))
+    elif audit:
         print(render_plan_audit(plans))
     else:
         print(render_plan_inventory(plans))

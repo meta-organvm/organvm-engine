@@ -130,3 +130,58 @@ Transcripts are on-demand (never committed):
 - `organvm session transcript <id> --unabridged` — full audit trail
 - `organvm session prompts <id>` — human prompts only
 """
+
+# ── Plan context (injected into repo-level context) ───────────────
+
+PLAN_CONTEXT_SECTION = """\
+
+## Active Plans
+
+{plan_list}
+
+### Related Plans (other repos/agents)
+{related_plans}
+"""
+
+# ── Atoms pipeline context (injected when pipeline-manifest.json exists) ──
+
+ATOMS_PIPELINE_SECTION = """\
+
+## Atomization Pipeline
+
+Last run: {last_run}
+
+| Metric | Count |
+|--------|-------|
+| Plans parsed | {plans_parsed} |
+| Tasks atomized | {tasks} |
+| Prompts narrated | {prompts} |
+| Threads | {threads} |
+| Cross-system links | {links} |
+
+Top domains: {top_domains}
+
+Run: `organvm atoms pipeline --write`
+"""
+
+# ── Per-repo task queue (from fanout rollup) ─────────────────────
+
+ATOMS_REPO_QUEUE_SECTION = """\
+
+## Task Queue (from pipeline)
+
+**{pending_count}** pending tasks | Last pipeline: {last_run}
+
+{task_list}
+
+Cross-organ links: {cross_link_count} | Top tags: {top_tags}
+
+Run: `organvm atoms pipeline --write && organvm atoms fanout --write`
+"""
+
+ATOMS_NOT_RUN_HINT = """\
+
+## Atomization Pipeline
+
+Run `organvm atoms pipeline --write && organvm atoms fanout --write` to generate task queue.
+"""

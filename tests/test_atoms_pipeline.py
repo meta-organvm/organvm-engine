@@ -1,0 +1,223 @@
+"""Tests for the centralized atomization pipeline."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+
+def test_atoms_dir_path():
+    """atoms_dir() returns corpus_dir / data / atoms."""
+    from organvm_engine.paths import atoms_dir, corpus_dir
+
+    assert atoms_dir() == corpus_dir() / "data" / "atoms"
+
+
+class TestPipelineDryRun:
+    """Pipeline in dry-run mode computes results but writes nothing."""
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_dry_run_no_files(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{"id": "t1", "status": "pending"}],
+            plans_parsed=1,
+            errors=[],
+            archetype_counts={"checklist": 1},
+            status_counts={"pending": 1},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path,
+            skip_narrate=True,
+            skip_link=True,
+            dry_run=True,
+        )
+
+        assert result.atomize_count == 1
+        assert result.plans_parsed == 1
+        # No files written in dry-run
+        assert not list(tmp_path.iterdir())
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_dry_run_manifest_has_dry_run_flag(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[], plans_parsed=0, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, skip_narrate=True, skip_link=True, dry_run=True,
+        )
+
+        assert result.manifest["dry_run"] is True
+
+
+class TestPipelineWrite:
+    """Pipeline in write mode creates expected files."""
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_write_creates_files(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{
+                "id": "t1", "status": "pending", "task_type": "implement",
+                "actionable": True,
+                "source": {"file": "plan.md", "plan_title": "Test"},
+                "project": {"slug": "test-proj", "organ": "META"},
+                "agent": "claude",
+            }],
+            plans_parsed=1,
+            errors=[],
+            archetype_counts={"checklist": 1},
+            status_counts={"pending": 1},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path,
+            skip_narrate=True,
+            skip_link=True,
+            dry_run=False,
+        )
+
+        assert result.atomize_count == 1
+        assert (tmp_path / "atomized-tasks.jsonl").exists()
+        assert (tmp_path / "ATOMIZED-SUMMARY.md").exists()
+        assert (tmp_path / "pipeline-manifest.json").exists()
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_write_manifest_structure(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[], plans_parsed=0, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, skip_narrate=True, skip_link=True, dry_run=False,
+        )
+
+        manifest = json.loads((tmp_path / "pipeline-manifest.json").read_text())
+        assert "generated" in manifest
+        assert "counts" in manifest
+        assert "files" in manifest
+        assert "filters" in manifest
+        required_counts = {"plans_parsed", "tasks", "prompts", "sessions", "threads", "links", "errors"}
+        assert required_counts <= set(manifest["counts"].keys())
+
+
+class TestPipelineQuality:
+    """Pipeline manifest includes quality stats."""
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_manifest_quality_stats(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{
+                "id": "t1", "status": "pending", "task_type": "implement",
+                "actionable": True,
+                "source": {"file": "plan.md", "plan_title": "Test"},
+                "project": {"slug": "test-proj", "organ": "META"},
+                "agent": "claude",
+            }],
+            plans_parsed=1,
+            errors=[],
+            archetype_counts={"checklist": 1},
+            status_counts={"pending": 1},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path,
+            skip_narrate=True,
+            skip_link=True,
+            dry_run=False,
+        )
+
+        manifest = json.loads((tmp_path / "pipeline-manifest.json").read_text())
+        assert "quality" in manifest
+        q = manifest["quality"]
+        assert "null_organ_tasks" in q
+        assert "empty_fingerprint_prompts" in q
+        assert "link_threshold" in q
+        assert q["link_threshold"] == 0.25
+
+
+class TestPipelineSkips:
+    """Pipeline respects skip flags."""
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_skip_narrate(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[], plans_parsed=0, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, skip_narrate=True, skip_link=True, dry_run=True,
+        )
+
+        assert result.narrate_count == 0
+        assert result.sessions_processed == 0
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_skip_link(self, mock_atomize, tmp_path):
+        from organvm_engine.atoms.pipeline import run_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{"id": "t1"}], plans_parsed=1, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        result = run_pipeline(
+            output_dir=tmp_path, skip_narrate=True, skip_link=True, dry_run=True,
+        )
+
+        assert result.link_count == 0
+
+
+class TestCLIPipeline:
+    """CLI integration for atoms pipeline subcommand."""
+
+    @patch("organvm_engine.plans.atomizer.atomize_all")
+    def test_cli_pipeline_dry_run(self, mock_atomize, tmp_path, capsys):
+        from organvm_engine.cli.atoms import cmd_atoms_pipeline
+        from organvm_engine.plans.atomizer import AtomizeResult
+
+        mock_atomize.return_value = AtomizeResult(
+            tasks=[{"id": "t1"}], plans_parsed=1, errors=[],
+            archetype_counts={}, status_counts={},
+        )
+
+        args = MagicMock()
+        args.write = False
+        args.output_dir = str(tmp_path)
+        args.agent = None
+        args.organ = None
+        args.skip_narrate = True
+        args.skip_link = True
+        args.threshold = 0.15
+
+        ret = cmd_atoms_pipeline(args)
+
+        assert ret == 0
+        captured = capsys.readouterr()
+        assert "[DRY RUN]" in captured.out
+        assert "[1/5] Atomize" in captured.out
