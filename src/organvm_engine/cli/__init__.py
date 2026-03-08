@@ -114,6 +114,7 @@ from organvm_engine.cli.sop import (
 from organvm_engine.cli.session import (
     cmd_session_agents,
     cmd_session_analyze,
+    cmd_session_debrief,
     cmd_session_export,
     cmd_session_list,
     cmd_session_plans,
@@ -829,6 +830,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filter to project when using --latest",
     )
 
+    # debrief
+    sess_debrief = sess_sub.add_parser(
+        "debrief",
+        help="Session close-out with tiered to-dos (big/medium/small)",
+    )
+    sess_debrief.add_argument(
+        "session_id",
+        nargs="?",
+        default=None,
+        help="Session ID (full or prefix)",
+    )
+    sess_debrief.add_argument(
+        "--latest",
+        action="store_true",
+        help="Debrief the most recent session",
+    )
+    sess_debrief.add_argument(
+        "--project",
+        default=None,
+        help="Filter to project when using --latest",
+    )
+    sess_debrief.add_argument(
+        "--json",
+        action="store_true",
+        help="Output as JSON",
+    )
+
     # prompts
     prompts = sub.add_parser("prompts", help="Prompt narrative analysis")
     prompts_sub = prompts.add_subparsers(dest="subcommand")
@@ -1482,6 +1510,7 @@ def main() -> int:
             "plans": cmd_session_plans,
             "analyze": cmd_session_analyze,
             "review": cmd_session_review,
+            "debrief": cmd_session_debrief,
         }
         handler = session_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:

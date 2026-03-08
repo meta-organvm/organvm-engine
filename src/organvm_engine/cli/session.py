@@ -11,6 +11,7 @@ Usage:
     organvm session plans [--project X] [--since YYYY-MM-DD] [audit]
     organvm session analyze [--agent X] [--full] [--output <file>]
     organvm session review <session-id> | --latest [--project <path>]
+    organvm session debrief <session-id> | --latest [--project <path>] [--json]
 """
 
 from __future__ import annotations
@@ -19,7 +20,6 @@ import argparse
 from pathlib import Path
 
 from organvm_engine.session.agents import agent_summary, discover_all_sessions
-from organvm_engine.session.plans import discover_plans
 from organvm_engine.session.parser import (
     SessionExport,
     detect_agent,
@@ -27,13 +27,10 @@ from organvm_engine.session.parser import (
     list_projects,
     list_sessions,
     parse_any_session,
-    parse_session,
     render_any_prompts,
     render_any_transcript,
-    render_prompts,
-    render_transcript,
-    render_transcript_unabridged,
 )
+from organvm_engine.session.plans import discover_plans
 
 
 def cmd_session_projects(args: argparse.Namespace) -> int:
@@ -68,7 +65,7 @@ def cmd_session_agents(args: argparse.Namespace) -> int:
     for agent, info in sorted(summary.items()):
         print(
             f"{agent:<10} {info['count']:>8} {info['total_human']:>10} "
-            f"{info['earliest'] or '?':>12} {info['latest'] or '?':>12}"
+            f"{info['earliest'] or '?':>12} {info['latest'] or '?':>12}",
         )
         total_sessions += info["count"]
         total_bytes += info["total_bytes"]
@@ -123,7 +120,11 @@ def cmd_session_list(args: argparse.Namespace) -> int:
             if limit:
                 all_sessions = all_sessions[:limit]
 
-            print(f"{'Date':<12} {'Agent':<8} {'Size':>8} {'Dur':>6} {'ID (first 8)':<10} {'Project'}")
+            hdr = (
+                f"{'Date':<12} {'Agent':<8} {'Size':>8} "
+                f"{'Dur':>6} {'ID (first 8)':<10} {'Project'}"
+            )
+            print(hdr)
             print("-" * 80)
             for s in all_sessions:
                 date = s.date_str
@@ -133,7 +134,8 @@ def cmd_session_list(args: argparse.Namespace) -> int:
                 print(f"{date:<12} {s.agent:<8} {s.size_human:>8} {dur:>6} {short_id:<10} {proj}")
 
             shown = len(all_sessions)
-            print(f"\nShowing {shown} sessions across all agents" + (f" (use --limit to see more)" if limit and shown == limit else ""))
+            suffix = " (use --limit to see more)" if limit and shown == limit else ""
+            print(f"\nShowing {shown} sessions across all agents{suffix}")
             return 0
 
     # Claude-only (legacy path, or --agent claude)
@@ -146,7 +148,11 @@ def cmd_session_list(args: argparse.Namespace) -> int:
     if limit:
         sessions = sessions[:limit]
 
-    print(f"{'Date':<12} {'Msgs':>5} {'Dur':>6} {'Branch':<15} {'ID (first 8)':<10} {'First message'}")
+    hdr = (
+        f"{'Date':<12} {'Msgs':>5} {'Dur':>6} "
+        f"{'Branch':<15} {'ID (first 8)':<10} {'First message'}"
+    )
+    print(hdr)
     print("-" * 100)
     for s in sessions:
         date = s.date_str
@@ -159,7 +165,8 @@ def cmd_session_list(args: argparse.Namespace) -> int:
         print(f"{date:<12} {s.message_count:>5} {dur:>6} {branch:<15} {short_id:<10} {preview}")
 
     shown = len(sessions)
-    print(f"\nShowing {shown} sessions" + (f" (use --limit to see more)" if limit and shown == limit else ""))
+    suffix = " (use --limit to see more)" if limit and shown == limit else ""
+    print(f"\nShowing {shown} sessions{suffix}")
     return 0
 
 
@@ -192,7 +199,10 @@ def cmd_session_show(args: argparse.Namespace) -> int:
     dur = f"{meta.duration_minutes} minutes" if meta.duration_minutes else "unknown"
     print(f"Duration: {dur}")
     print()
-    print(f"Messages: {meta.message_count} ({meta.human_messages} human, {meta.assistant_messages} assistant)")
+    print(
+        f"Messages: {meta.message_count} "
+        f"({meta.human_messages} human, {meta.assistant_messages} assistant)",
+    )
     print()
 
     if meta.tools_used:
@@ -221,7 +231,11 @@ def cmd_session_export(args: argparse.Namespace) -> int:
     """
     session_id = args.session_id
     slug = args.slug
-    output_dir = Path(args.output).expanduser().resolve() if args.output else _default_praxis_sessions()
+    output_dir = (
+        Path(args.output).expanduser().resolve()
+        if args.output
+        else _default_praxis_sessions()
+    )
     dry_run = getattr(args, "dry_run", False)
 
     jsonl_path = find_session(session_id)
@@ -247,7 +261,8 @@ def cmd_session_export(args: argparse.Namespace) -> int:
         print(f"Would write review to:  {review_path}")
         print(f"Would write prompts to: {prompts_path}")
         print(f"Review: {len(review_content)} chars")
-        print(f"Prompts: {len(prompts_content)} chars, {prompts_content.count('### P')} prompts extracted")
+        pcount = prompts_content.count("### P")
+        print(f"Prompts: {len(prompts_content)} chars, {pcount} extracted")
         return 0
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -472,6 +487,51 @@ def cmd_session_review(args: argparse.Namespace) -> int:
 
     print(f"Export: organvm session export {short_id} --slug <your-slug>")
     print(f"Full transcript: organvm session transcript {short_id}")
+    return 0
+
+
+def cmd_session_debrief(args: argparse.Namespace) -> int:
+    """Generate a structured session debrief with tiered to-dos."""
+    from organvm_engine.session.debrief import (
+        build_debrief,
+        classify_todos,
+        render_debrief,
+    )
+
+    session_id = getattr(args, "session_id", None)
+    latest = getattr(args, "latest", False)
+    project = getattr(args, "project", None)
+    as_json = getattr(args, "json", False)
+
+    if latest:
+        sessions = discover_all_sessions(project_filter=project)
+        if not sessions:
+            print("No sessions found.")
+            return 1
+        jsonl_path = sessions[0].file_path
+    elif session_id:
+        jsonl_path = find_session(session_id)
+        if not jsonl_path:
+            print(f"Session not found: {session_id}")
+            return 1
+    else:
+        print("Provide a session ID or use --latest.")
+        return 1
+
+    debrief = build_debrief(jsonl_path)
+    if not debrief:
+        print(f"Could not parse session: {jsonl_path}")
+        return 1
+
+    classify_todos(debrief)
+
+    if as_json:
+        import json
+
+        print(json.dumps(debrief.to_dict(), indent=2))
+    else:
+        print(render_debrief(debrief))
+
     return 0
 
 
