@@ -119,7 +119,7 @@ All pipeline outputs go to `corpus_dir/data/atoms/` with a `pipeline-manifest.js
 ### Governance
 - *Standard ORGANVM governance applies*
 
-*Last synced: 2026-03-08T13:07:06Z*
+*Last synced: 2026-03-08T13:08:42Z*
 
 ## Session Review Protocol
 
@@ -127,6 +127,7 @@ At the end of each session that produces or modifies files:
 1. Run `organvm session review --latest` to get a session summary
 2. Check for unimplemented plans: `organvm session plans --project .`
 3. Export significant sessions: `organvm session export <id> --slug <slug>`
+4. Run `organvm prompts distill --dry-run` to detect uncovered operational patterns
 
 Transcripts are on-demand (never committed):
 - `organvm session transcript <id>` — conversation summary

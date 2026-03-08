@@ -124,6 +124,7 @@ At the end of each session that produces or modifies files:
 1. Run `organvm session review --latest` to get a session summary
 2. Check for unimplemented plans: `organvm session plans --project .`
 3. Export significant sessions: `organvm session export <id> --slug <slug>`
+4. Run `organvm prompts distill --dry-run` to detect uncovered operational patterns
 
 Transcripts are on-demand (never committed):
 - `organvm session transcript <id>` — conversation summary
