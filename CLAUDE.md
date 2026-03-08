@@ -119,7 +119,7 @@ All pipeline outputs go to `corpus_dir/data/atoms/` with a `pipeline-manifest.js
 ### Governance
 - *Standard ORGANVM governance applies*
 
-*Last synced: 2026-03-08T13:08:42Z*
+*Last synced: 2026-03-08T13:18:18Z*
 
 ## Session Review Protocol
 
