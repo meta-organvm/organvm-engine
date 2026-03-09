@@ -52,6 +52,22 @@ from organvm_engine.cli.atoms import (
 from organvm_engine.cli.ci import cmd_ci_triage
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
+from organvm_engine.cli.ecosystem import (
+    cmd_ecosystem_actions,
+    cmd_ecosystem_audit,
+    cmd_ecosystem_coverage,
+    cmd_ecosystem_dna,
+    cmd_ecosystem_lifecycle,
+    cmd_ecosystem_list,
+    cmd_ecosystem_matrix,
+    cmd_ecosystem_scaffold,
+    cmd_ecosystem_scaffold_dna,
+    cmd_ecosystem_show,
+    cmd_ecosystem_staleness,
+    cmd_ecosystem_sync,
+    cmd_ecosystem_sync_dna,
+    cmd_ecosystem_validate,
+)
 from organvm_engine.cli.dispatch import cmd_dispatch_validate
 from organvm_engine.cli.git_cmds import (
     cmd_git_add_submodule,
@@ -1206,6 +1222,76 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sop_init.add_argument("--name", default=None, help="SOP name (default: new-procedure)")
 
+    # ecosystem
+    eco = sub.add_parser(
+        "ecosystem",
+        help="Product ecosystem discovery — per-product business profiles",
+    )
+    eco.add_argument("--workspace", default=None, help="Workspace root directory")
+    eco.add_argument("--organ", default=None, help="Filter to specific organ")
+    eco_sub = eco.add_subparsers(dest="subcommand")
+
+    eco_show = eco_sub.add_parser("show", help="Show ecosystem profile for a repo")
+    eco_show.add_argument("repo", help="Repository name")
+    eco_show.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_sub.add_parser("list", help="List products with/without ecosystem profiles")
+
+    eco_cov = eco_sub.add_parser("coverage", help="Product x Pillar coverage matrix")
+    eco_cov.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_sub.add_parser("audit", help="Show gaps and suggestions")
+
+    eco_scaffold = eco_sub.add_parser(
+        "scaffold", help="Generate ecosystem scaffold for a repo",
+    )
+    eco_scaffold.add_argument("repo", help="Repository name")
+    eco_scaffold.add_argument("--dry-run", action="store_true", default=True)
+    eco_scaffold.add_argument("--write", action="store_true", help="Write file")
+
+    eco_sync = eco_sub.add_parser(
+        "sync", help="Scaffold ecosystem.yaml for all missing products",
+    )
+    eco_sync.add_argument("--dry-run", action="store_true", default=True)
+    eco_sync.add_argument("--write", action="store_true", help="Actually write files")
+
+    eco_matrix = eco_sub.add_parser("matrix", help="Cross-product view of one pillar")
+    eco_matrix.add_argument("--pillar", required=True, help="Pillar name")
+    eco_matrix.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_actions = eco_sub.add_parser("actions", help="Prioritized next-action list")
+    eco_actions.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_validate = eco_sub.add_parser("validate", help="Validate all ecosystem.yaml files")
+    eco_validate.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_dna = eco_sub.add_parser("dna", help="Show pillar DNA for a repo")
+    eco_dna.add_argument("repo", help="Repository name")
+    eco_dna.add_argument("--pillar", default=None, help="Show only one pillar")
+    eco_dna.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_scaffold_dna = eco_sub.add_parser(
+        "scaffold-dna", help="Generate pillar DNA from ecosystem.yaml",
+    )
+    eco_scaffold_dna.add_argument("repo", help="Repository name")
+    eco_scaffold_dna.add_argument("--dry-run", action="store_true", default=True)
+    eco_scaffold_dna.add_argument("--write", action="store_true", help="Write files")
+
+    eco_sync_dna = eco_sub.add_parser(
+        "sync-dna", help="Scaffold pillar DNA for all repos with ecosystem.yaml",
+    )
+    eco_sync_dna.add_argument("--dry-run", action="store_true", default=True)
+    eco_sync_dna.add_argument("--write", action="store_true", help="Actually write files")
+
+    eco_staleness = eco_sub.add_parser(
+        "staleness", help="Staleness report for pillar DNA artifacts",
+    )
+    eco_staleness.add_argument("--json", action="store_true", help="Output JSON")
+
+    eco_lifecycle = eco_sub.add_parser("lifecycle", help="Show lifecycle stages for a repo")
+    eco_lifecycle.add_argument("repo", help="Repository name")
+    eco_lifecycle.add_argument("--json", action="store_true", help="Output JSON")
+
     # study
     study = sub.add_parser(
         "study",
@@ -1484,6 +1570,28 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["study", "--help"])
+        return 0
+    if args.command == "ecosystem":
+        ecosystem_dispatch = {
+            "show": cmd_ecosystem_show,
+            "list": cmd_ecosystem_list,
+            "coverage": cmd_ecosystem_coverage,
+            "audit": cmd_ecosystem_audit,
+            "scaffold": cmd_ecosystem_scaffold,
+            "sync": cmd_ecosystem_sync,
+            "matrix": cmd_ecosystem_matrix,
+            "actions": cmd_ecosystem_actions,
+            "validate": cmd_ecosystem_validate,
+            "dna": cmd_ecosystem_dna,
+            "scaffold-dna": cmd_ecosystem_scaffold_dna,
+            "sync-dna": cmd_ecosystem_sync_dna,
+            "staleness": cmd_ecosystem_staleness,
+            "lifecycle": cmd_ecosystem_lifecycle,
+        }
+        handler = ecosystem_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["ecosystem", "--help"])
         return 0
     if args.command == "sop":
         sop_dispatch = {
