@@ -5,10 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from organvm_engine.cli.session import cmd_session_review
-
 
 # ── Helpers ───────────────────────────────────────────────────────
 
@@ -64,9 +61,9 @@ class _FakeArgs:
     """Minimal argparse namespace for testing."""
 
     def __init__(self, **kwargs):
-        self.session_id = kwargs.get("session_id", None)
+        self.session_id = kwargs.get("session_id")
         self.latest = kwargs.get("latest", False)
-        self.project = kwargs.get("project", None)
+        self.project = kwargs.get("project")
 
 
 # ── Tests ─────────────────────────────────────────────────────────

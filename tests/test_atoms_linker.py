@@ -13,7 +13,6 @@ from organvm_engine.atoms.linker import (
     compute_links,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -42,7 +41,7 @@ def _prompt(pid: str, tags: list[str], files: list[str],
 
 
 def _write_jsonl(path: Path, items: list[dict]) -> None:
-    with open(path, "w") as f:
+    with path.open("w") as f:
         for item in items:
             f.write(json.dumps(item) + "\n")
 
@@ -254,6 +253,7 @@ class TestComputeLinksEdgeCases:
 class TestCLI:
     def test_missing_files_exit_1(self, tmp_path):
         import argparse
+
         from organvm_engine.cli.atoms import cmd_atoms_link
 
         args = argparse.Namespace(
@@ -265,6 +265,7 @@ class TestCLI:
 
     def test_valid_invocation(self, tmp_path):
         import argparse
+
         from organvm_engine.cli.atoms import cmd_atoms_link
 
         _write_jsonl(tmp_path / "t.jsonl", [_task("t1", ["py"], ["a.py"])])

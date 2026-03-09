@@ -72,7 +72,7 @@ def _apply_overrides(entries: list[SOPEntry]) -> list[SOPEntry]:
     An entry with ``overrides=X`` removes entries named X that do NOT
     themselves declare an override — i.e., the overrider survives.
     """
-    overriders: set[str] = set()
+    overriders: set[int] = set()
     overridden_names: set[str] = set()
     for e in entries:
         if e.overrides:

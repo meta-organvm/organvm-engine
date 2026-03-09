@@ -5,8 +5,6 @@ from pathlib import Path
 
 from organvm_engine.paths import soak_dir as _default_soak_dir
 
-DEFAULT_SOAK_DIR = _default_soak_dir()
-
 
 def load_snapshots(soak_dir: Path | str | None = None) -> list[dict]:
     """Load all daily soak test snapshots, sorted by date.
@@ -17,7 +15,7 @@ def load_snapshots(soak_dir: Path | str | None = None) -> list[dict]:
     Returns:
         List of snapshot dicts sorted by date.
     """
-    d = Path(soak_dir) if soak_dir else DEFAULT_SOAK_DIR
+    d = Path(soak_dir) if soak_dir else _default_soak_dir()
     if not d.is_dir():
         return []
 

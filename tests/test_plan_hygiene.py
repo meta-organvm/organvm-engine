@@ -4,21 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.plans.hygiene import (
-    ArchiveResult,
     SweepCandidate,
+    _age_days,
+    _find_plans_ancestor,
     archive_plans,
     compute_archive_path,
     compute_sprawl,
     sweep_candidates,
-    _age_days,
-    _find_plans_ancestor,
-    _is_orphan_subplan,
 )
 from organvm_engine.plans.index import PlanEntry
-
 
 # ---------------------------------------------------------------------------
 # Helpers

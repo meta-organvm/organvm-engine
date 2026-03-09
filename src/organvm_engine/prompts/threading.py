@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from organvm_engine.prompts.schema import AnnotatedPrompt
 
@@ -37,7 +36,7 @@ def cluster_into_episodes(
         project_prompts = by_project[slug]
         # Sort by timestamp then prompt_index
         project_prompts.sort(
-            key=lambda p: (p.source.timestamp or "", p.source.prompt_index)
+            key=lambda p: (p.source.timestamp or "", p.source.prompt_index),
         )
 
         if not project_prompts:

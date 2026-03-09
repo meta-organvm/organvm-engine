@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
 from organvm_engine.plans.graph import (
-    PlanEdge,
-    PlanOverlap,
     _domain_set,
     compute_edges,
     compute_overlaps,
     jaccard_similarity,
 )
 from organvm_engine.plans.index import PlanEntry
-
 
 # ---------------------------------------------------------------------------
 # Helpers

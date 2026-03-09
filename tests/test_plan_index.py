@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from organvm_engine.plans.index import (
     PlanEntry,
     _build_entry_from_plan,
@@ -14,7 +10,6 @@ from organvm_engine.plans.index import (
     index_to_json,
     render_index_table,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -152,10 +147,10 @@ class TestBuildPlanIndex:
         plan_dir = tmp_path / "organvm-iii-ergon" / "my-repo" / ".claude" / "plans"
         plan_dir.mkdir(parents=True)
         (plan_dir / "2026-01-15-feature-x.md").write_text(
-            "# Feature X\n\n- [ ] Task 1\n"
+            "# Feature X\n\n- [ ] Task 1\n",
         )
         (plan_dir / "2026-01-20-feature-y.md").write_text(
-            "# Feature Y\n\n- [x] Done\n"
+            "# Feature Y\n\n- [x] Done\n",
         )
 
         index = build_plan_index(workspace=tmp_path)
@@ -167,7 +162,7 @@ class TestBuildPlanIndex:
         plan_dir.mkdir(parents=True)
         # Very old plan with no completed tasks
         (plan_dir / "2025-01-01-old-plan.md").write_text(
-            "# Old Plan\n\n- [ ] Never started\n"
+            "# Old Plan\n\n- [ ] Never started\n",
         )
 
         index = build_plan_index(workspace=tmp_path, stale_days=30)

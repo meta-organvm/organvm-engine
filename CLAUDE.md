@@ -36,7 +36,7 @@ Every other module imports from these; change them carefully.
 
 - **`project_slug.py`** — Canonical project slug derivation (`meta-organvm/organvm-engine` form). Converts filesystem paths, plan directory names, and raw slugs to a normalized slash-separated format. Shared across `prompts/`, `plans/`, and `session/`.
 
-### Domain modules (16)
+### Domain modules (21)
 
 | Module | Role |
 |--------|------|
@@ -55,7 +55,12 @@ Every other module imports from these; change them carefully.
 | `plans/` | Plan file atomization, indexing, hygiene checks, overlap detection, and per-organ synthesis |
 | `prompts/` | Prompt extraction, classification, narrative threading, and clipboard history analysis |
 | `atoms/` | Cross-system linking pipeline: Jaccard matching tasks↔prompts, git reconciliation, per-organ rollups |
-| `cli/` | One module per command group (21 modules), wired together in `cli/__init__.py` |
+| `coordination/` | Multi-agent claims registry (punch-in/out), tool checkout line for concurrent command traffic |
+| `distill/` | Operational pattern taxonomy, SOP-to-pattern coverage analysis, scaffold generation |
+| `ecosystem/` | Product business profiles, competitive matrix, gap analysis, action generation |
+| `prompting/` | Agent-specific prompting guidelines and provider standards |
+| `sop/` | SOP/METADOC discovery, inventory audit, tiered resolver (T4→T3→T2 cascade) |
+| `cli/` | One module per command group (23 modules), wired together in `cli/__init__.py` |
 
 ### The atomization pipeline
 

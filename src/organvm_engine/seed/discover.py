@@ -8,8 +8,6 @@ from organvm_engine.paths import workspace_root
 # Known org directories — derived from canonical organ_config
 ORGAN_ORGS = organ_org_dirs()
 
-DEFAULT_WORKSPACE = workspace_root()
-
 
 def discover_seeds(
     workspace: Path | str | None = None,
@@ -26,7 +24,7 @@ def discover_seeds(
     Returns:
         Sorted list of paths to seed.yaml files found.
     """
-    ws = Path(workspace) if workspace else DEFAULT_WORKSPACE
+    ws = Path(workspace) if workspace else workspace_root()
     scan_orgs = orgs or ORGAN_ORGS
 
     seeds: list[Path] = []

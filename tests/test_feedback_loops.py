@@ -1,6 +1,5 @@
 """Tests for governance/feedback_loops.py."""
 
-import pytest
 
 from organvm_engine.governance.feedback_loops import (
     FeedbackLoop,

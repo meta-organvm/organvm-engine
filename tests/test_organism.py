@@ -1,10 +1,8 @@
 """Tests for the SystemOrganism module."""
 
-from pathlib import Path
 
 from organvm_engine.metrics.organism import (
     GateStats,
-    OrganOrganism,
     SystemOrganism,
     clear_organism_cache,
     compute_organism,

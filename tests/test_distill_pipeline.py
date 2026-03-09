@@ -4,12 +4,11 @@ from pathlib import Path
 
 from organvm_engine.distill.coverage import CoverageEntry, analyze_coverage, coverage_summary
 from organvm_engine.distill.matcher import (
-    MATCH_THRESHOLD,
     PatternMatch,
     match_batch,
     match_prompt,
 )
-from organvm_engine.distill.scaffold import generate_sop_scaffold, generate_scaffolds
+from organvm_engine.distill.scaffold import generate_scaffolds, generate_sop_scaffold
 from organvm_engine.distill.taxonomy import OPERATIONAL_PATTERNS, get_pattern
 from organvm_engine.prompts.clipboard.schema import ClipboardPrompt
 from organvm_engine.sop.discover import SOPEntry

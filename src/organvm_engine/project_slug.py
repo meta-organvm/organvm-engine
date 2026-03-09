@@ -18,7 +18,6 @@ flat hyphenated names (e.g., 'meta-organvm-stakeholder-portal' → 'meta-organvm
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 # Lazy-loaded to avoid circular imports

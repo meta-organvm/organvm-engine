@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from organvm_engine.prompts.schema import RawPrompt
 from organvm_engine.session.agents import AgentSession
 from organvm_engine.session.analysis import _content_to_text
-from organvm_engine.prompts.schema import RawPrompt
 
 
 def extract_prompts(session: AgentSession) -> list[RawPrompt] | None:

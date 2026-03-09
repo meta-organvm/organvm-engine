@@ -5,8 +5,6 @@ from pathlib import Path
 
 from organvm_engine.paths import governance_rules_path as _default_rules_path
 
-DEFAULT_RULES_PATH = _default_rules_path()
-
 
 def load_governance_rules(path: Path | str | None = None) -> dict:
     """Load governance-rules.json.
@@ -17,7 +15,7 @@ def load_governance_rules(path: Path | str | None = None) -> dict:
     Returns:
         Parsed governance rules dict.
     """
-    rules_path = Path(path) if path else DEFAULT_RULES_PATH
+    rules_path = Path(path) if path else _default_rules_path()
     with rules_path.open() as f:
         return json.load(f)
 

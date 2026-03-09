@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
+from organvm_engine.prompting.loader import (
+    format_guidelines_hint,
+    load_guidelines,
+)
 from organvm_engine.prompting.standards import (
     PROVIDER_GUIDELINES,
     ProviderGuidelines,
     agent_to_provider,
     get_guidelines,
-)
-from organvm_engine.prompting.loader import (
-    format_guidelines_hint,
-    load_guidelines,
 )
 
 

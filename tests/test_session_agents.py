@@ -4,15 +4,10 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.session.agents import (
     AgentSession,
     _human_size,
     _parse_iso,
-    _quick_parse_claude,
-    _quick_parse_codex,
-    _quick_parse_gemini,
     discover_all_sessions,
     discover_claude_sessions,
     discover_codex_sessions,
@@ -28,7 +23,6 @@ from organvm_engine.session.parser import (
     render_gemini_prompts,
     render_gemini_transcript,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────────────
 

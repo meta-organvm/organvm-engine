@@ -167,6 +167,6 @@ def _build_annotated(
 def write_jsonl(prompts: list[dict], output_path: Path) -> None:
     """Write annotated prompts as JSONL."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         for prompt in prompts:
             f.write(json.dumps(prompt, ensure_ascii=False) + "\n")

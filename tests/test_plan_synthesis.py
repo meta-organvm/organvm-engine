@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from organvm_engine.plans.index import PlanEntry
 from organvm_engine.plans.synthesis import OrganPlanSummary, synthesize_all, synthesize_organ
-
 
 # ---------------------------------------------------------------------------
 # Helpers

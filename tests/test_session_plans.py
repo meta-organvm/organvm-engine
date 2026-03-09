@@ -1,9 +1,6 @@
 """Tests for session plan discovery and inventory."""
 
-import textwrap
 from pathlib import Path
-
-import pytest
 
 from organvm_engine.session.plans import (
     AGENT_PLAN_DIRS,
@@ -16,7 +13,6 @@ from organvm_engine.session.plans import (
     render_plan_inventory,
     render_plan_matrix,
 )
-
 
 # ── PlanFile dataclass ────────────────────────────────────────────
 
@@ -658,10 +654,10 @@ def test_discover_and_render(tmp_path):
     plans_dir = tmp_path / "my-project" / ".claude" / "plans"
     plans_dir.mkdir(parents=True)
     (plans_dir / "2026-03-01-sprint-plan.md").write_text(
-        "# Sprint Plan\n\nContent here.\n\n## Verification\n- All tests pass\n"
+        "# Sprint Plan\n\nContent here.\n\n## Verification\n- All tests pass\n",
     )
     (plans_dir / "2026-03-02-bugfix-plan.md").write_text(
-        "# Bugfix Plan\n\nFix the bug.\n"
+        "# Bugfix Plan\n\nFix the bug.\n",
     )
 
     plans = discover_plans(workspace=tmp_path)

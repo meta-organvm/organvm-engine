@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.session.agents import AgentSession
 from organvm_engine.session.analysis import (
     PromptStats,
@@ -15,7 +13,6 @@ from organvm_engine.session.analysis import (
     analyze_prompts,
     render_analysis_report,
 )
-
 
 # ── _content_to_text ──────────────────────────────────────────────
 
@@ -102,7 +99,7 @@ def test_extract_gemini_prompts(tmp_path):
             {"role": "user", "parts": [{"text": "Gemini prompt long enough to pass"}]},
             {"role": "model", "parts": [{"text": "response"}]},
             {"role": "user", "parts": [{"text": "Another gemini prompt here long"}]},
-        ]
+        ],
     }
     session_file.write_text(json.dumps(data))
 

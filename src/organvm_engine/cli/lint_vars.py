@@ -9,9 +9,9 @@ from pathlib import Path
 
 
 def cmd_lint_vars(args: argparse.Namespace) -> int:
-    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.lint_vars import lint_workspace
     from organvm_engine.metrics.vars import build_vars, load_vars
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
     corpus_root = Path(args.registry).parent
     vars_path = corpus_root / "system-vars.json"

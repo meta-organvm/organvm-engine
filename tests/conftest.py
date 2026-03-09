@@ -26,7 +26,7 @@ def _block_production_paths(monkeypatch):
 
     monkeypatch.setattr(paths_mod, "_DEFAULT_WORKSPACE", _BLOCKED)
     monkeypatch.setattr(
-        loader_mod, "_default_registry_path", lambda: _BLOCKED / "registry-v2.json"
+        loader_mod, "_default_registry_path", lambda: _BLOCKED / "registry-v2.json",
     )
 
 

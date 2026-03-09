@@ -16,6 +16,7 @@ from organvm_engine.contextmd.templates import (
     AGENTS_SECTION,
     ATOMS_NOT_RUN_HINT,
     ATOMS_REPO_QUEUE_SECTION,
+    ECOSYSTEM_STATUS_SECTION,
     ORGAN_SECTION,
     PLAN_CONTEXT_SECTION,
     REPO_SECTION,
@@ -106,11 +107,14 @@ def generate_repo_section(
         atoms_section = _build_atoms_context(repo_name, organ_key)
         sop_section = _build_sop_directives(sop_entries)
         prompting_hint = _build_prompting_hint(agent)
+        ecosystem_section = _build_ecosystem_context(repo_name, organ_key)
         injected = SESSION_REVIEW_SECTION
         if sop_section:
             injected += "\n" + sop_section
         if prompting_hint:
             injected += "\n" + prompting_hint
+        if ecosystem_section:
+            injected += "\n" + ecosystem_section
         if plan_section:
             injected += "\n" + plan_section
         if atoms_section:
@@ -431,6 +435,51 @@ def _build_atoms_context(repo_name: str, organ_key: str) -> str:
         task_list=task_list,
         cross_link_count=len(cross_links),
         top_tags=top_tags,
+    )
+
+
+def _build_ecosystem_context(repo_name: str, organ_key: str) -> str:
+    """Build ecosystem status snippet for a repo if ecosystem.yaml exists."""
+    from organvm_engine.organ_config import registry_key_to_dir
+    from organvm_engine.paths import workspace_root
+
+    rk_to_dir = registry_key_to_dir()
+    organ_dir_name = rk_to_dir.get(organ_key)
+    if not organ_dir_name:
+        return ""
+
+    eco_path = workspace_root() / organ_dir_name / repo_name / "ecosystem.yaml"
+    if not eco_path.is_file():
+        return ""
+
+    try:
+        from organvm_engine.ecosystem.reader import get_pillars, read_ecosystem
+
+        data = read_ecosystem(eco_path)
+        pillars = get_pillars(data)
+    except Exception:
+        return ""
+
+    if not pillars:
+        return ""
+
+    lines = []
+    for pillar_name, arms in pillars.items():
+        total = len(arms)
+        live = sum(1 for a in arms if a.get("status") in ("live", "active"))
+        planned = sum(1 for a in arms if a.get("status") == "planned")
+        lines.append(f"- **{pillar_name}**: {live}/{total} live, {planned} planned")
+
+    if not lines:
+        return ""
+
+    # Derive organ short key for CLI hint
+    organ_short = organ_key.replace("ORGAN-", "").replace("META-ORGANVM", "META")
+
+    return ECOSYSTEM_STATUS_SECTION.format(
+        pillar_summary="\n".join(lines),
+        repo_name=repo_name,
+        organ_short=organ_short,
     )
 
 

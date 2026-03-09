@@ -189,6 +189,15 @@ SOP_DIRECTIVES_SECTION = """\
 {linked_skills_line}
 """
 
+ECOSYSTEM_STATUS_SECTION = """\
+
+## Ecosystem Status
+
+{pillar_summary}
+
+Run: `organvm ecosystem show {repo_name}` | `organvm ecosystem validate --organ {organ_short}`
+"""
+
 ATOMS_NOT_RUN_HINT = """\
 
 ## Atomization Pipeline

@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.metrics.gates import (
     GATE_ORDER,
     GateResult,
@@ -21,7 +19,6 @@ from organvm_engine.metrics.gates import (
     scaffold_info,
     stale_days,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

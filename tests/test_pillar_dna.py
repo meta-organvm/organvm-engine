@@ -6,11 +6,8 @@ Covers: product_types, pillar_dna, intelligence, scaffold_pillar, CLI commands.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from pathlib import Path
 
-import pytest
 import yaml
-
 
 # ── Product Types ────────────────────────────────────────────────────
 

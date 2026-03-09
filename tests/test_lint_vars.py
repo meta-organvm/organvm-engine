@@ -3,9 +3,6 @@
 import pytest
 
 from organvm_engine.metrics.lint_vars import (
-    FROZEN_PATTERNS,
-    LintReport,
-    LintViolation,
     _is_frozen,
     _strip_var_markers,
     lint_file,

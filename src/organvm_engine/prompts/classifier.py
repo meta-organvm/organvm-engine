@@ -6,9 +6,7 @@ import re
 
 from organvm_engine.plans.atomizer import (
     BACKTICK_PATH_RE,
-    KNOWN_TAGS,
     STANDALONE_PATH_RE,
-    extract_tags,
 )
 
 # ── Prompt type detection (first-match cascade) ──────────────────

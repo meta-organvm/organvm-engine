@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from organvm_engine.sop.discover import SOPEntry
-from organvm_engine.sop.inventory import AuditResult, audit_sops, parse_inventory
+from organvm_engine.sop.inventory import audit_sops, parse_inventory
 
 
 def _entry(
@@ -33,7 +33,7 @@ class TestParseInventory:
             "| # | File | Type |\n"
             "|---|------|------|\n"
             "| 1 | `SOP--alpha.md` | SOP |\n"
-            "| 2 | `METADOC--beta.md` | METADOC |\n"
+            "| 2 | `METADOC--beta.md` | METADOC |\n",
         )
         result = parse_inventory(metadoc)
         assert result == {"SOP--alpha.md", "METADOC--beta.md"}
@@ -53,7 +53,7 @@ class TestParseInventory:
         metadoc.write_text(
             "## 3.1\n| 1 | `SOP--a.md` | SOP |\n\n"
             "## 3.2\n| 1 | `template.md` | Template |\n\n"
-            "## 3.6\n| 1 | `sop-external.md` | SOP |\n"
+            "## 3.6\n| 1 | `sop-external.md` | SOP |\n",
         )
         result = parse_inventory(metadoc)
         assert "SOP--a.md" in result
@@ -98,7 +98,7 @@ class TestAuditSops:
         metadoc = tmp_path / "inv.md"
         metadoc.write_text(
             "| 1 | `SOP--tracked.md` | SOP |\n"
-            "| 2 | `SOP--missing.md` | SOP |\n"
+            "| 2 | `SOP--missing.md` | SOP |\n",
         )
         discovered = [
             _entry("SOP--tracked.md"),

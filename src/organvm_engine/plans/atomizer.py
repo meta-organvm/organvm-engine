@@ -9,11 +9,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -29,10 +27,10 @@ SKIP_FILES = {
 AGENT_SUBPLAN_RE = re.compile(r"-agent-a[0-9a-f]+(?:\.md)?$", re.IGNORECASE)
 
 PHASE_RE = re.compile(
-    r"^(#{1,3})\s+(?:Phase|Stage)\s+(\w+)[:\s\u2014\u2013\-]*(.*)", re.IGNORECASE
+    r"^(#{1,3})\s+(?:Phase|Stage)\s+(\w+)[:\s\u2014\u2013\-]*(.*)", re.IGNORECASE,
 )
 STEP_RE = re.compile(
-    r"^(#{1,4})\s+(?:Step|Task)\s+(\w+)[:\s\u2014\u2013\-]*(.*)", re.IGNORECASE
+    r"^(#{1,4})\s+(?:Step|Task)\s+(\w+)[:\s\u2014\u2013\-]*(.*)", re.IGNORECASE,
 )
 SPRINT_RE = re.compile(r"^(#{1,3})\s+Sprint\s+(\d+)(.*)", re.IGNORECASE)
 STREAM_RE = re.compile(r"^(#{1,3})\s+Stream\s+(\w+)(.*)", re.IGNORECASE)
@@ -54,7 +52,7 @@ FILE_ACTION_RE = re.compile(
 )
 STANDALONE_PATH_RE = re.compile(
     r"(?:^|\s)`?((?:src|lib|scripts|tests|docs|server|client|app|packages|config)"
-    r"/[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)`?"
+    r"/[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)`?",
 )
 
 # Task type keyword triggers (checked in order; first match wins)
@@ -261,7 +259,7 @@ def extract_plan_status(lines: list[str]) -> Optional[str]:
     """Look for explicit status markers in first 15 lines."""
     for line in lines[:15]:
         m = re.search(
-            r"\*\*Status\*\*:\s*(.+?)(?:\s*\*\*|\s*$)", line, re.IGNORECASE
+            r"\*\*Status\*\*:\s*(.+?)(?:\s*\*\*|\s*$)", line, re.IGNORECASE,
         )
         if m:
             return m.group(1).strip()
@@ -348,11 +346,7 @@ def is_actionable(title: str, body: str, archetype: str) -> bool:
         "summary", "context", "overview", "background", "analysis complete",
         "investigation complete", "evaluation", "findings",
     ]
-    if any(w in lower for w in non_actionable) and not any(
-        w in lower for w in ["create", "implement", "build", "add", "fix", "write"]
-    ):
-        return False
-    return True
+    return not (any(w in lower for w in non_actionable) and not any(w in lower for w in ["create", "implement", "build", "add", "fix", "write"]))
 
 
 # ---------------------------------------------------------------------------
@@ -413,7 +407,7 @@ def classify_archetype(lines: list[str]) -> str:
     if has_phases and (has_steps or has_numbered):
         return "phase_task"
     if has_table_sep and re.search(
-        r"\|.*(?:file|path|action|create|modify|status).*\|", text, re.IGNORECASE
+        r"\|.*(?:file|path|action|create|modify|status).*\|", text, re.IGNORECASE,
     ):
         return "table_inventory"
     if has_numbered or has_phases:
@@ -512,9 +506,8 @@ class PlanParser:
                 self._handle_table_row(stripped, lineno)
                 self.current_lines.append(line)
                 return
-            else:
-                self.in_table = False
-                self.table_headers = []
+            self.in_table = False
+            self.table_headers = []
 
         cb_match = CHECKBOX_RE.match(line)
         if cb_match:
@@ -532,7 +525,7 @@ class PlanParser:
 
         num_match = NUMBERED_ITEM_RE.match(line)
         if num_match and self.stack and self.archetype in (
-            "sequenced_list", "phase_task", "generic"
+            "sequenced_list", "phase_task", "generic",
         ):
             indent, num, text = num_match.groups()
             depth = len(indent) // 2
@@ -559,13 +552,12 @@ class PlanParser:
                     title = m.group(3).strip() if m.group(3) else m.group(2)
                     full_title = line.lstrip("#").strip()
                     return htype, level, idx, full_title
-                elif htype == "numbered":
+                if htype == "numbered":
                     idx = m.group(2)
                     title = m.group(3).strip()
                     return htype, level, idx, f"{idx}. {title}"
-                else:
-                    title = m.group(2).strip()
-                    return htype, level, None, title
+                title = m.group(2).strip()
+                return htype, level, None, title
         return None
 
     def _push_heading(self, text: str, level: int, htype: str, index):
@@ -577,7 +569,7 @@ class PlanParser:
         return " > ".join(item[0] for item in self.stack)
 
     def _get_phase(self) -> tuple[Optional[str], Optional[int]]:
-        for text, level, htype in self.stack:
+        for text, _level, htype in self.stack:
             if htype in ("phase", "sprint", "stage"):
                 m = re.search(r"(\d+)", text)
                 idx = int(m.group(1)) if m else None
@@ -591,7 +583,7 @@ class PlanParser:
 
         top = self.stack[-1] if self.stack else None
         if top and top[2] in ("step", "numbered") and self.archetype in (
-            "phase_task", "sequenced_list"
+            "phase_task", "sequenced_list",
         ):
             body = "\n".join(self.current_lines).strip()
             if body and len(body) > 20:
@@ -642,7 +634,7 @@ class PlanParser:
 
         if has_file_col or has_action_col:
             title_parts = []
-            for i, cell in enumerate(cells):
+            for _i, cell in enumerate(cells):
                 if cell and cell != "#" and not cell.isdigit():
                     title_parts.append(cell.strip("`*"))
                     if len(title_parts) >= 2:
@@ -712,8 +704,8 @@ class PlanParser:
             code_block_lines=self.code_block_lines,
         )
         task.agent = self.agent
-        task._organ = self.organ
-        task._repo = self.repo
+        setattr(task, "_organ", self.organ)
+        setattr(task, "_repo", self.repo)
         task.actionable = is_actionable(title, body, self.archetype)
         task.phase_order = phase_index
         task.compute_id()
@@ -730,7 +722,7 @@ class PlanParser:
             phases.setdefault(t.phase_index, []).append(t)
 
         sorted_phase_keys = sorted(
-            (k for k in phases if k is not None), key=lambda x: x
+            (k for k in phases if k is not None), key=lambda x: x,
         )
         for pk in sorted_phase_keys:
             phase_tasks = phases[pk]
@@ -887,6 +879,6 @@ def atomize_all(
 
 def write_jsonl(tasks: list[dict], output_path: Path) -> None:
     """Write tasks as JSONL."""
-    with open(output_path, "w", encoding="utf-8") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         for task in tasks:
             f.write(json.dumps(task, ensure_ascii=False) + "\n")

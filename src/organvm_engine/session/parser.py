@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
@@ -768,7 +767,7 @@ def render_transcript_unabridged(jsonl_path: Path) -> str:
                                 if len(result_content) > TOOL_RESULT_CAP:
                                     capped += f"\n[TRUNCATED at {TOOL_RESULT_CAP} chars]"
                                 text_pieces.append(
-                                    f"**Tool Result** (`{tid[:12]}...`):\n{_fence(capped)}"
+                                    f"**Tool Result** (`{tid[:12]}...`):\n{_fence(capped)}",
                                 )
 
                 text = "\n\n".join(text_pieces)
@@ -916,7 +915,7 @@ def render_gemini_transcript(json_path: Path, unabridged: bool = False) -> str:
     lines = [
         f"# {title}: Gemini — {project_slug}",
         "",
-        f"**Agent:** Gemini CLI",
+        "**Agent:** Gemini CLI",
         f"**Session ID:** `{session_id}`",
         f"**Project:** `{project_slug}`",
         f"**Started:** {started}",
@@ -1052,7 +1051,7 @@ def render_gemini_prompts(json_path: Path) -> str:
     lines: list[str] = [
         f"# Session Prompts: Gemini — {meta.project_dir}",
         "",
-        f"**Agent:** Gemini CLI",
+        "**Agent:** Gemini CLI",
         f"**Session ID:** `{meta.session_id}`",
         f"**Duration:** ~{meta.duration_minutes} min" if meta.duration_minutes else "",
         "",
@@ -1218,7 +1217,7 @@ def render_codex_transcript(jsonl_path: Path, unabridged: bool = False) -> str:
     lines = [
         f"# {title}: Codex — {meta.cwd or meta.project_dir}",
         "",
-        f"**Agent:** Codex (OpenAI)",
+        "**Agent:** Codex (OpenAI)",
         f"**Session ID:** `{meta.session_id}`",
         f"**Working directory:** `{meta.cwd}`",
         f"**Messages:** {meta.message_count} ({meta.human_messages} human, {meta.assistant_messages} assistant)",
@@ -1406,7 +1405,6 @@ def _parse_iso_ts(ts_str: str | None) -> datetime | None:
 def find_session(session_id: str) -> Path | None:
     """Find a session by full or partial ID across all agents."""
     from organvm_engine.session.agents import (
-        CLAUDE_PROJECTS_DIR as _CLAUDE_DIR,
         CODEX_ARCHIVED_DIR,
         CODEX_SESSIONS_DIR,
         GEMINI_TMP_DIR,

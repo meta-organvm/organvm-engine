@@ -39,9 +39,7 @@ Usage:
 """
 
 import argparse
-import os
 import sys
-from pathlib import Path
 
 from organvm_engine.cli.atoms import (
     cmd_atoms_fanout,
@@ -52,6 +50,7 @@ from organvm_engine.cli.atoms import (
 from organvm_engine.cli.ci import cmd_ci_triage
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
+from organvm_engine.cli.dispatch import cmd_dispatch_validate
 from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_actions,
     cmd_ecosystem_audit,
@@ -68,7 +67,6 @@ from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_sync_dna,
     cmd_ecosystem_validate,
 )
-from organvm_engine.cli.dispatch import cmd_dispatch_validate
 from organvm_engine.cli.git_cmds import (
     cmd_git_add_submodule,
     cmd_git_diff_pinned,
@@ -120,13 +118,6 @@ from organvm_engine.cli.registry import (
     cmd_registry_validate,
 )
 from organvm_engine.cli.seed import cmd_seed_discover, cmd_seed_graph, cmd_seed_validate
-from organvm_engine.cli.sop import (
-    cmd_sop_audit,
-    cmd_sop_check,
-    cmd_sop_discover,
-    cmd_sop_init,
-    cmd_sop_resolve,
-)
 from organvm_engine.cli.session import (
     cmd_session_agents,
     cmd_session_analyze,
@@ -140,6 +131,13 @@ from organvm_engine.cli.session import (
     cmd_session_show,
     cmd_session_transcript,
 )
+from organvm_engine.cli.sop import (
+    cmd_sop_audit,
+    cmd_sop_check,
+    cmd_sop_discover,
+    cmd_sop_init,
+    cmd_sop_resolve,
+)
 from organvm_engine.cli.status import cmd_status
 from organvm_engine.cli.study import (
     cmd_study_audit_report,
@@ -147,7 +145,6 @@ from organvm_engine.cli.study import (
     cmd_study_feedback,
 )
 from organvm_engine.paths import registry_path as _default_registry_path
-from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
 
 def build_parser() -> argparse.ArgumentParser:

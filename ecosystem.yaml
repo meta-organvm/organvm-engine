@@ -1,0 +1,9 @@
+schema_version: '1.0'
+repo: organvm-engine
+organ: META
+display_name: "Core Python package \u2014 governance, registry, seed discovery, metrics,\
+  \ dispatch, and unified CLI for the eight-organ system. Consolidates ~30 standalone\
+  \ scripts into a proper installable package."
+delivery:
+- platform: web_app
+  status: not_started

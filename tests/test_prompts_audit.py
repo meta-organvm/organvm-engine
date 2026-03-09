@@ -14,7 +14,6 @@ from organvm_engine.prompts.audit import (
 )
 from organvm_engine.prompts.audit_report import generate_audit_report
 
-
 # ── Fixtures ────────────────────────────────────────────────────
 
 def _make_prompt(
@@ -386,8 +385,9 @@ class TestReport:
 class TestCLI:
     def test_cli_audit_dry_run(self, tmp_path):
         """Verify CLI wiring loads without errors (no real data)."""
-        from organvm_engine.cli.prompts import cmd_prompts_audit
         import argparse
+
+        from organvm_engine.cli.prompts import cmd_prompts_audit
 
         args = argparse.Namespace(
             output=str(tmp_path / "report.md"),
@@ -412,8 +412,9 @@ class TestCLI:
 
     def test_cli_audit_with_data(self, tmp_path):
         """Full CLI run with minimal synthetic data."""
-        from organvm_engine.cli.prompts import cmd_prompts_audit
         import argparse
+
+        from organvm_engine.cli.prompts import cmd_prompts_audit
 
         # Write minimal JSONL data
         prompts_data = [

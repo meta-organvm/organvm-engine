@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 
@@ -11,7 +12,7 @@ from organvm_engine.paths import resolve_workspace
 def cmd_ecosystem_show(args) -> int:
     """Display the full ecosystem profile for a repo."""
     from organvm_engine.ecosystem.discover import discover_ecosystems
-    from organvm_engine.ecosystem.reader import get_pillars, read_ecosystem
+    from organvm_engine.ecosystem.reader import read_ecosystem
 
     workspace = resolve_workspace(args)
     if not workspace:
@@ -39,7 +40,7 @@ def cmd_ecosystem_show(args) -> int:
 def cmd_ecosystem_list(args) -> int:
     """List products with/without ecosystem profiles."""
     from organvm_engine.ecosystem.discover import discover_ecosystems
-    from organvm_engine.ecosystem.reader import get_pillars, read_ecosystem
+    from organvm_engine.ecosystem.reader import read_ecosystem
     from organvm_engine.registry.loader import load_registry
     from organvm_engine.registry.query import all_repos
 
@@ -80,9 +81,7 @@ def cmd_ecosystem_list(args) -> int:
 
 def cmd_ecosystem_coverage(args) -> int:
     """Display Product x Pillar coverage matrix."""
-    from organvm_engine.ecosystem.discover import discover_ecosystems
     from organvm_engine.ecosystem.query import coverage_matrix
-    from organvm_engine.ecosystem.reader import read_ecosystem
 
     workspace = resolve_workspace(args)
     organ = getattr(args, "organ", None)
@@ -176,10 +175,8 @@ def cmd_ecosystem_scaffold(args) -> int:
         if organ_dir:
             seed_path = workspace / organ_dir / args.repo / "seed.yaml"
             if seed_path.is_file():
-                try:
+                with contextlib.suppress(Exception):
                     seed = read_seed(seed_path)
-                except Exception:
-                    pass
 
     from organvm_engine.ecosystem.sync import _organ_key_to_short
     organ_short = _organ_key_to_short(organ_key)
@@ -195,16 +192,15 @@ def cmd_ecosystem_scaffold(args) -> int:
     output = yaml.dump(eco, default_flow_style=False, sort_keys=False)
     print(output)
 
-    if not getattr(args, "dry_run", True):
-        if workspace:
-            from organvm_engine.organ_config import registry_key_to_dir
-            rk2d = registry_key_to_dir()
-            organ_dir = rk2d.get(organ_key)
-            if organ_dir:
-                eco_path = workspace / organ_dir / args.repo / "ecosystem.yaml"
-                with eco_path.open("w") as f:
-                    yaml.dump(eco, f, default_flow_style=False, sort_keys=False)
-                print(f"Written: {eco_path}")
+    if not getattr(args, "dry_run", True) and workspace:
+        from organvm_engine.organ_config import registry_key_to_dir
+        rk2d = registry_key_to_dir()
+        organ_dir = rk2d.get(organ_key)
+        if organ_dir:
+            eco_path = workspace / organ_dir / args.repo / "ecosystem.yaml"
+            with eco_path.open("w") as f:
+                yaml.dump(eco, f, default_flow_style=False, sort_keys=False)
+            print(f"Written: {eco_path}")
 
     return 0
 
@@ -310,7 +306,7 @@ def cmd_ecosystem_actions(args) -> int:
         print(
             f"{a['priority']:<10} {a['repo']:<35} "
             f"{a['pillar']:<12} {a['platform']:<25} "
-            f"{a['next_action']}"
+            f"{a['next_action']}",
         )
 
     return 0
@@ -455,7 +451,6 @@ def cmd_ecosystem_dna(args) -> int:
 
 def cmd_ecosystem_scaffold_dna(args) -> int:
     """Generate pillar DNA from ecosystem.yaml for a repo."""
-    import yaml
 
     from organvm_engine.ecosystem.reader import read_ecosystem
     from organvm_engine.ecosystem.scaffold_pillar import scaffold_repo_ecosystem
@@ -482,10 +477,8 @@ def cmd_ecosystem_scaffold_dna(args) -> int:
     seed_path = repo_path / "seed.yaml"
     if seed_path.is_file():
         from organvm_engine.seed.reader import read_seed
-        try:
+        with contextlib.suppress(Exception):
             seed = read_seed(seed_path)
-        except Exception:
-            pass
 
     dry_run = not getattr(args, "write", False)
     result = scaffold_repo_ecosystem(
@@ -504,7 +497,7 @@ def cmd_ecosystem_scaffold_dna(args) -> int:
         print(f"  {pillar}: stage={stage}, type={ptype}, artifacts={arts}")
 
     if result["written"]:
-        print(f"\n  Written:")
+        print("\n  Written:")
         for p in result["written"]:
             print(f"    {p}")
 
@@ -678,8 +671,6 @@ def _load_all(workspace, organ=None) -> list[dict]:
     paths = discover_ecosystems(workspace, organ=organ)
     data: list[dict] = []
     for p in paths:
-        try:
+        with contextlib.suppress(Exception):
             data.append(read_ecosystem(p))
-        except Exception:
-            pass
     return data

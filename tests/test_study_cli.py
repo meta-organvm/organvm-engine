@@ -1,13 +1,12 @@
 """Tests for cli/study.py — Study Suite CLI commands."""
 
 import json
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from organvm_engine.cli.study import (
-    cmd_study_feedback,
-    cmd_study_consilience,
     cmd_study_audit_report,
+    cmd_study_consilience,
+    cmd_study_feedback,
 )
 
 

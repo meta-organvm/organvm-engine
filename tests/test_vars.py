@@ -1,13 +1,10 @@
 """Tests for the variable binding system (metrics/vars.py)."""
 
-import json
 
 import pytest
 
 from organvm_engine.metrics.vars import (
     VAR_PATTERN,
-    Replacement,
-    ResolutionResult,
     build_vars,
     load_vars,
     resolve_file,
@@ -15,7 +12,6 @@ from organvm_engine.metrics.vars import (
     resolve_targets_from_manifest,
     write_vars,
 )
-
 
 # --- build_vars ---
 
@@ -227,7 +223,7 @@ def test_resolve_file_multiple_vars(tmp_path):
     f = tmp_path / "test.md"
     f.write_text(
         "Repos: <!-- v:total_repos -->99<!-- /v -->, "
-        "Organs: <!-- v:total_organs -->7<!-- /v -->"
+        "Organs: <!-- v:total_organs -->7<!-- /v -->",
     )
     variables = {"total_repos": "103", "total_organs": "8"}
 
@@ -324,7 +320,7 @@ def test_resolve_targets_from_manifest(tmp_path):
     manifest.write_text(
         f"targets:\n"
         f"  - root: \"{sub}\"\n"
-        f"    files: [\"a.md\", \"b.md\"]\n"
+        f"    files: [\"a.md\", \"b.md\"]\n",
     )
 
     variables = {"total_repos": "103", "total_organs": "8"}
@@ -344,7 +340,7 @@ def test_resolve_targets_from_manifest_with_globs(tmp_path):
     manifest.write_text(
         f"targets:\n"
         f"  - root: \"{sub}\"\n"
-        f"    globs: [\"*.md\"]\n"
+        f"    globs: [\"*.md\"]\n",
     )
 
     variables = {"total_repos": "103"}
@@ -364,10 +360,10 @@ def test_round_trip(tmp_path, sample_metrics, sample_registry):
     # Write a test file with markers
     f = tmp_path / "test.md"
     lines = [
-        f"Total repos: <!-- v:total_repos -->PLACEHOLDER<!-- /v -->\n",
-        f"Active: <!-- v:active_repos -->PLACEHOLDER<!-- /v -->\n",
-        f"Words: <!-- v:total_words_short -->PLACEHOLDER<!-- /v -->\n",
-        f"Organ I: <!-- v:organ_repos.ORGAN-I -->PLACEHOLDER<!-- /v -->\n",
+        "Total repos: <!-- v:total_repos -->PLACEHOLDER<!-- /v -->\n",
+        "Active: <!-- v:active_repos -->PLACEHOLDER<!-- /v -->\n",
+        "Words: <!-- v:total_words_short -->PLACEHOLDER<!-- /v -->\n",
+        "Organ I: <!-- v:organ_repos.ORGAN-I -->PLACEHOLDER<!-- /v -->\n",
     ]
     f.write_text("".join(lines))
 

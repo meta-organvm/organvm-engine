@@ -60,7 +60,7 @@ def generate_narrative_summary(result: NarrateResult) -> str:
         thread_stats[tid]["types"][p["classification"]["prompt_type"]] += 1
 
     top_threads = sorted(
-        thread_stats.items(), key=lambda x: x[1]["prompts"], reverse=True
+        thread_stats.items(), key=lambda x: x[1]["prompts"], reverse=True,
     )[:25]
 
     if top_threads:
@@ -68,14 +68,14 @@ def generate_narrative_summary(result: NarrateResult) -> str:
         lines.append("")
         lines.append("| Thread | Sessions | Prompts | Date Range | Dominant Type |")
         lines.append("|--------|----------|---------|------------|---------------|")
-        for tid, info in top_threads:
+        for _tid, info in top_threads:
             dates = sorted(set(info["dates"]))
             date_range = f"{dates[0]}..{dates[-1]}" if len(dates) > 1 else (dates[0] if dates else "?")
             dominant = info["types"].most_common(1)[0][0] if info["types"] else "?"
             label = info["label"][:50]
             lines.append(
                 f"| {label} | {len(info['sessions'])} | "
-                f"{info['prompts']} | {date_range} | {dominant} |"
+                f"{info['prompts']} | {date_range} | {dominant} |",
             )
         lines.append("")
 
@@ -109,7 +109,7 @@ def generate_narrative_summary(result: NarrateResult) -> str:
             top_proj = top_proj[:30]
             lines.append(
                 f"| {month} | {len(info['sessions'])} | "
-                f"{info['prompts']} | {len(info['new_threads'])} | {top_proj} |"
+                f"{info['prompts']} | {len(info['new_threads'])} | {top_proj} |",
             )
         lines.append("")
 
@@ -143,7 +143,7 @@ def generate_narrative_summary(result: NarrateResult) -> str:
             "steady-build": "Continuous command flow without major corrections",
         }
         for pattern, count in sorted(
-            result.arc_pattern_counts.items(), key=lambda x: -x[1]
+            result.arc_pattern_counts.items(), key=lambda x: -x[1],
         ):
             desc = descriptions.get(pattern, "")
             lines.append(f"| {pattern} | {count} | {desc} |")

@@ -2,8 +2,6 @@
 
 import argparse
 import json
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -95,7 +93,7 @@ def test_refresh_resolves_var_targets(workspace, capsys):
     manifest.write_text(
         f"targets:\n"
         f"  - root: \"{corpus}\"\n"
-        f"    files: [\"README.md\"]\n"
+        f"    files: [\"README.md\"]\n",
     )
 
     args = _make_args(reg_path, dry_run=False)

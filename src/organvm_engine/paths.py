@@ -10,54 +10,106 @@ Environment variables:
 
 from __future__ import annotations
 
+import argparse
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 _DEFAULT_WORKSPACE = Path.home() / "Workspace"
 _DEFAULT_CORPUS_SUBPATH = "meta-organvm/organvm-corpvs-testamentvm"
 
 
-def workspace_root() -> Path:
+@dataclass(frozen=True)
+class PathConfig:
+    """Explicit workspace/corpus path configuration.
+
+    When unset, values fall back to the environment and conventional defaults.
+    """
+
+    workspace_dir: Path | str | None = None
+    corpus_root: Path | str | None = None
+
+    def workspace_root(self) -> Path:
+        raw = self.workspace_dir
+        if raw is not None:
+            return _coerce_path(raw)
+        return _coerce_path(os.environ.get("ORGANVM_WORKSPACE_DIR", str(_DEFAULT_WORKSPACE)))
+
+    def corpus_dir(self) -> Path:
+        raw = self.corpus_root
+        if raw is not None:
+            return _coerce_path(raw)
+        env = os.environ.get("ORGANVM_CORPUS_DIR")
+        if env:
+            return _coerce_path(env)
+        return self.workspace_root() / _DEFAULT_CORPUS_SUBPATH
+
+    def registry_path(self) -> Path:
+        return self.corpus_dir() / "registry-v2.json"
+
+    def governance_rules_path(self) -> Path:
+        return self.corpus_dir() / "governance-rules.json"
+
+    def soak_dir(self) -> Path:
+        return self.corpus_dir() / "data" / "soak-test"
+
+    def atoms_dir(self) -> Path:
+        return self.corpus_dir() / "data" / "atoms"
+
+
+def _coerce_path(value: Path | str) -> Path:
+    return Path(value).expanduser()
+
+
+def resolve_path_config(config: PathConfig | None = None) -> PathConfig:
+    """Return an explicit path configuration object."""
+    return config if config is not None else PathConfig()
+
+
+def workspace_root(config: PathConfig | None = None) -> Path:
     """Return the workspace root directory."""
-    return Path(os.environ.get("ORGANVM_WORKSPACE_DIR", str(_DEFAULT_WORKSPACE)))
+    return resolve_path_config(config).workspace_root()
 
 
-def corpus_dir() -> Path:
+def corpus_dir(config: PathConfig | None = None) -> Path:
     """Return the path to organvm-corpvs-testamentvm."""
-    env = os.environ.get("ORGANVM_CORPUS_DIR")
-    if env:
-        return Path(env)
-    return workspace_root() / _DEFAULT_CORPUS_SUBPATH
+    return resolve_path_config(config).corpus_dir()
 
 
-def registry_path() -> Path:
+def registry_path(config: PathConfig | None = None) -> Path:
     """Return the path to registry-v2.json."""
-    return corpus_dir() / "registry-v2.json"
+    return resolve_path_config(config).registry_path()
 
 
-def governance_rules_path() -> Path:
+def governance_rules_path(config: PathConfig | None = None) -> Path:
     """Return the path to governance-rules.json."""
-    return corpus_dir() / "governance-rules.json"
+    return resolve_path_config(config).governance_rules_path()
 
 
-def soak_dir() -> Path:
+def soak_dir(config: PathConfig | None = None) -> Path:
     """Return the path to the soak-test data directory."""
-    return corpus_dir() / "data" / "soak-test"
+    return resolve_path_config(config).soak_dir()
 
 
-def atoms_dir() -> Path:
+def atoms_dir(config: PathConfig | None = None) -> Path:
     """Return the path to the centralized atoms output directory."""
-    return corpus_dir() / "data" / "atoms"
+    return resolve_path_config(config).atoms_dir()
 
 
-def resolve_workspace(args: "argparse.Namespace | None" = None) -> Path | None:
+def resolve_workspace(
+    args: "argparse.Namespace | None" = None,
+    config: PathConfig | None = None,
+) -> Path | None:
     """Resolve workspace from CLI args, env, or default."""
     if args is not None:
         raw = getattr(args, "workspace", None)
         if raw:
-            return Path(raw).expanduser().resolve()
+            return _coerce_path(raw).resolve()
+    cfg = resolve_path_config(config)
+    if cfg.workspace_dir is not None:
+        return cfg.workspace_root().resolve()
     env = os.environ.get("ORGANVM_WORKSPACE_DIR")
     if env:
-        return Path(env).expanduser().resolve()
-    default = Path.home() / "Workspace"
+        return _coerce_path(env).resolve()
+    default = _DEFAULT_WORKSPACE
     return default if default.is_dir() else None

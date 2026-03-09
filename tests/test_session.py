@@ -4,8 +4,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.session.parser import (
     SessionExport,
     SessionMeta,
@@ -210,7 +208,7 @@ class TestFindSession:
 
         proj = tmp_path / "proj"
         proj.mkdir()
-        f = _make_jsonl(proj, [_user_msg("hi")], name="abc-def-123.jsonl")
+        _make_jsonl(proj, [_user_msg("hi")], name="abc-def-123.jsonl")
 
         result = find_session("abc-def-123")
         assert result is not None

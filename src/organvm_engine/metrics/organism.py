@@ -274,10 +274,11 @@ _ORGANISM_CACHE: dict[str, object] = {
 _ORGANISM_CACHE_LOCK = Lock()
 
 
-def _get_registry_mtime() -> float | None:
+def _get_registry_mtime(path: Path | None = None) -> float | None:
     from organvm_engine.paths import registry_path
     try:
-        return registry_path().stat().st_mtime
+        target = path if path is not None else registry_path()
+        return target.stat().st_mtime
     except OSError:
         return None
 
@@ -287,6 +288,7 @@ def get_organism(
     workspace: Path | None = None,
     ttl: int = 30,
     include_omega: bool = False,
+    registry_file: Path | None = None,
 ) -> SystemOrganism:
     """Get a cached SystemOrganism, recomputing if stale.
 
@@ -300,11 +302,16 @@ def get_organism(
         SystemOrganism (possibly cached).
     """
     now = time.monotonic()
-    current_mtime = _get_registry_mtime()
+    current_mtime = _get_registry_mtime(registry_file)
 
     with _ORGANISM_CACHE_LOCK:
         cached = _ORGANISM_CACHE["organism"]
-        loaded_at = float(_ORGANISM_CACHE["loaded_at"])
+        loaded_at_raw = _ORGANISM_CACHE["loaded_at"]
+        loaded_at = (
+            float(loaded_at_raw)
+            if isinstance(loaded_at_raw, (float, int))
+            else 0.0
+        )
         cached_mtime = _ORGANISM_CACHE["registry_mtime"]
         if (
             isinstance(cached, SystemOrganism)
@@ -316,7 +323,8 @@ def get_organism(
     if registry is None:
         from organvm_engine.paths import registry_path
         from organvm_engine.registry.loader import load_registry
-        registry = load_registry(registry_path())
+        target_registry = registry_file if registry_file is not None else registry_path()
+        registry = load_registry(target_registry)
 
     organism = compute_organism(
         registry, workspace=workspace, include_omega=include_omega,

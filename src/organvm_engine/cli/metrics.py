@@ -9,8 +9,8 @@ from organvm_engine.registry.loader import load_registry
 
 
 def cmd_metrics_calculate(args: argparse.Namespace) -> int:
-    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.calculator import compute_metrics, write_metrics
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
     registry = load_registry(args.registry)
     workspace = _resolve_workspace(args)
@@ -118,8 +118,8 @@ def cmd_metrics_propagate(args: argparse.Namespace) -> int:
 
 
 def cmd_metrics_count_words(args: argparse.Namespace) -> int:
-    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.calculator import count_words, format_word_count
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
     workspace = _resolve_workspace(args)
     if workspace is None:
@@ -145,8 +145,8 @@ def cmd_metrics_count_words(args: argparse.Namespace) -> int:
 
 
 def cmd_metrics_refresh(args: argparse.Namespace) -> int:
-    from organvm_engine.paths import resolve_workspace as _resolve_workspace
     from organvm_engine.metrics.calculator import compute_metrics, write_metrics
+    from organvm_engine.paths import resolve_workspace as _resolve_workspace
 
     # Step 1: Calculate
     registry = load_registry(args.registry)

@@ -3,7 +3,6 @@
 from pathlib import Path
 
 from organvm_engine.sop.discover import (
-    SOPEntry,
     _derive_sop_name,
     _infer_scope,
     _parse_frontmatter,
@@ -24,10 +23,7 @@ def _make_sops_dir(
     tmp_path: Path, org: str, repo_or_none: str | None, filename: str, content: str = "",
 ) -> Path:
     """Create a .sops/ file at organ or repo level."""
-    if repo_or_none:
-        d = tmp_path / org / repo_or_none / ".sops"
-    else:
-        d = tmp_path / org / ".sops"
+    d = tmp_path / org / repo_or_none / ".sops" if repo_or_none else tmp_path / org / ".sops"
     d.mkdir(parents=True, exist_ok=True)
     f = d / filename
     f.write_text(content or f"# {filename}\n\nContent.\n")

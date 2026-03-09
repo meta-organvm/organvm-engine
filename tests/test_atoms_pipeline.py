@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 def test_atoms_dir_path():
@@ -105,7 +102,7 @@ class TestPipelineWrite:
             archetype_counts={}, status_counts={},
         )
 
-        result = run_pipeline(
+        run_pipeline(
             output_dir=tmp_path, skip_narrate=True, skip_link=True, dry_run=False,
         )
 
@@ -140,7 +137,7 @@ class TestPipelineQuality:
             status_counts={"pending": 1},
         )
 
-        result = run_pipeline(
+        run_pipeline(
             output_dir=tmp_path,
             skip_narrate=True,
             skip_link=True,

@@ -1,6 +1,5 @@
 """Tests for metrics/consilience.py."""
 
-import pytest
 from pathlib import Path
 
 from organvm_engine.metrics.consilience import (
@@ -9,7 +8,6 @@ from organvm_engine.metrics.consilience import (
     ResearchDoc,
     _infer_domains,
     _parse_sources,
-    compute_consilience,
     parse_derived_principles,
     scan_research_docs,
 )
@@ -136,7 +134,7 @@ class TestParseSources:
 
     def test_multiple_sources(self):
         result = _parse_sources(
-            "2026-03-07 four-branch synthesis (P2), 2026-03-06 materia-collider"
+            "2026-03-07 four-branch synthesis (P2), 2026-03-06 materia-collider",
         )
         assert len(result) == 2
         assert "2026-03-07 four-branch synthesis (P2)" in result
@@ -148,7 +146,7 @@ class TestParseSources:
 
     def test_three_sources(self):
         result = _parse_sources(
-            "2026-03-07 synthesis (P1), 2026-03-06 audit, 2025-12 manifesto"
+            "2026-03-07 synthesis (P1), 2026-03-06 audit, 2025-12 manifesto",
         )
         assert len(result) == 3
 

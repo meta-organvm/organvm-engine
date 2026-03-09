@@ -125,9 +125,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             from organvm_engine.contextmd.sync import sync_all
 
             if workspace:
-                sync_all(
-                    registry, workspace, dry_run=dry_run, write=not dry_run,
-                )
+                sync_all(workspace=workspace, dry_run=dry_run)
                 print(f"{prefix}[6/10] Context sync complete")
             else:
                 print(f"{prefix}[6/10] Context sync skipped (no workspace)")
@@ -141,7 +139,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         try:
             from organvm_engine.metrics.organism import compute_organism
 
-            compute_organism(registry, metrics, workspace=workspace)
+            compute_organism(registry, workspace=workspace)
             print(
                 f"{prefix}[7/10] Organism computed "
                 f"(use 'organvm organism snapshot --write' to persist)",
@@ -215,8 +213,11 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
             if not dry_run:
                 rollups = build_rollups(atoms_dir())
-                write_rollups(rollups, workspace, dry_run=False)
-                print(f"  Fanout: {len(rollups)} organ rollups written")
+                if workspace is not None:
+                    write_rollups(rollups, workspace, dry_run=False)
+                    print(f"  Fanout: {len(rollups)} organ rollups written")
+                else:
+                    print("  Fanout skipped (no workspace)")
         except Exception as e:
             print(f"{prefix}[10/10] Atoms error: {e}", file=sys.stderr)
     else:

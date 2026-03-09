@@ -7,6 +7,7 @@ partially covered, or uncovered by existing SOPs.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Mapping, Sequence
 
 from organvm_engine.distill.taxonomy import OPERATIONAL_PATTERNS, OperationalPattern
 from organvm_engine.prompts.clipboard.schema import ClipboardPrompt
@@ -64,7 +65,7 @@ def _sop_matches_pattern(sop: SOPEntry, pattern: OperationalPattern) -> bool:
 
 
 def analyze_coverage(
-    matched_patterns: dict[str, list[tuple[ClipboardPrompt, object]]],
+    matched_patterns: Mapping[str, Sequence[tuple[ClipboardPrompt, object]]],
     prompts: list[ClipboardPrompt],
     sop_entries: list[SOPEntry],
     patterns: dict[str, OperationalPattern] | None = None,

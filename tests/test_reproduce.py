@@ -1,6 +1,5 @@
 """Tests for workspace reproduction from superprojects."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

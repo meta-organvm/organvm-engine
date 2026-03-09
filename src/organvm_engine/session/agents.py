@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 # ── Storage locations ──────────────────────────────────────────────
 
 CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"

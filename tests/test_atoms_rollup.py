@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.atoms.rollup import (
     OrganRollup,
     build_rollups,
@@ -13,7 +11,6 @@ from organvm_engine.atoms.rollup import (
     organ_key_from_slug,
     write_rollups,
 )
-
 
 # ── organ_key_from_slug ──────────────────────────────────────────
 
@@ -325,6 +322,7 @@ class TestCliFanout:
         organ_dir.mkdir(parents=True)
 
         import argparse
+
         from organvm_engine.cli.atoms import cmd_atoms_fanout
 
         args = argparse.Namespace(
@@ -351,6 +349,7 @@ class TestCliFanout:
         organ_dir.mkdir(parents=True)
 
         import argparse
+
         from organvm_engine.cli.atoms import cmd_atoms_fanout
 
         args = argparse.Namespace(

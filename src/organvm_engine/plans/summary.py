@@ -37,7 +37,7 @@ def generate_summary(tasks: list[dict], plans_parsed: int) -> str:
         lines.append(
             f"| {slug} | {len(s['plans'])} | {s['tasks']} | "
             f"{s.get('completed', 0)} | {s.get('pending', 0)} | "
-            f"{s.get('in_progress', 0)} |"
+            f"{s.get('in_progress', 0)} |",
         )
     lines.append("")
 
@@ -82,9 +82,9 @@ def generate_summary(tasks: list[dict], plans_parsed: int) -> str:
     lines.append("| Plan | Project | Tasks | Completed % |")
     lines.append("|------|---------|-------|-------------|")
     top_plans = sorted(
-        plan_task_counts.items(), key=lambda x: x[1]["total"], reverse=True
+        plan_task_counts.items(), key=lambda x: x[1]["total"], reverse=True,
     )[:20]
-    for plan_file, info in top_plans:
+    for _plan_file, info in top_plans:
         pct = (
             f"{info['completed'] * 100 // info['total']}%"
             if info["total"] > 0
@@ -92,7 +92,7 @@ def generate_summary(tasks: list[dict], plans_parsed: int) -> str:
         )
         title_short = info["title"][:50]
         lines.append(
-            f"| {title_short} | {info['project']} | {info['total']} | {pct} |"
+            f"| {title_short} | {info['project']} | {info['total']} | {pct} |",
         )
     lines.append("")
 
@@ -134,7 +134,7 @@ def generate_summary(tasks: list[dict], plans_parsed: int) -> str:
                 seen_plans.add(key)
                 lines.append(
                     f"| {t['source']['plan_title'][:50]} | "
-                    f"{t['project']['slug']} | {t['task_type']} |"
+                    f"{t['project']['slug']} | {t['task_type']} |",
                 )
         lines.append("")
 

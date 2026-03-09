@@ -1,0 +1,37 @@
+schema_version: "1.0"
+repo: test-product
+organ: III
+display_name: "Test Product"
+
+delivery:
+  - platform: web_app
+    status: in_progress
+    url: "https://test.example.com"
+    priority: critical
+    next_action: "Deploy to production"
+  - platform: mobile_app_ios
+    status: planned
+    priority: high
+
+revenue:
+  - platform: subscription
+    status: planned
+    priority: critical
+    next_action: "Stripe integration"
+  - platform: freemium
+    status: not_started
+
+marketing:
+  - platform: producthunt
+    status: not_started
+    priority: high
+    next_action: "Prepare launch page"
+  - platform: seo
+    status: not_started
+
+community:
+  - platform: discord
+    status: planned
+    ref: "kerygma:test-product"
+  - platform: github_discussions
+    status: live
