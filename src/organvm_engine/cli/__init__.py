@@ -87,6 +87,7 @@ from organvm_engine.cli.git_cmds import (
 from organvm_engine.cli.governance import (
     cmd_governance_audit,
     cmd_governance_checkdeps,
+    cmd_governance_dictums,
     cmd_governance_impact,
     cmd_governance_promote,
 )
@@ -262,6 +263,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Calculate blast radius of a repo change",
     )
     imp.add_argument("repo", help="Repository name")
+
+    dictums_p = gov_sub.add_parser("dictums", help="List or check constitutional dictums")
+    dictums_p.add_argument("--check", action="store_true", help="Run compliance checks")
+    dictums_p.add_argument("--id", default=None, help="Show a specific dictum by ID")
+    dictums_p.add_argument("--json", action="store_true", help="JSON output")
+    dictums_p.add_argument(
+        "--level",
+        default=None,
+        choices=["axiom", "organ", "repo"],
+        help="Filter by dictum tier",
+    )
+    dictums_p.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root for filesystem checks",
+    )
 
     # seed
     seed = sub.add_parser("seed", help="Seed.yaml operations")
@@ -1568,6 +1585,7 @@ def main() -> int:
         ("governance", "check-deps"): cmd_governance_checkdeps,
         ("governance", "promote"): cmd_governance_promote,
         ("governance", "impact"): cmd_governance_impact,
+        ("governance", "dictums"): cmd_governance_dictums,
         ("seed", "discover"): cmd_seed_discover,
         ("seed", "validate"): cmd_seed_validate,
         ("seed", "graph"): cmd_seed_graph,

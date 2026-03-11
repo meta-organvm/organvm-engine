@@ -20,6 +20,7 @@ class AuditResult:
     info: list[str] = field(default_factory=list)
     dependency_result: object = None
     ci_mandate: object = None  # CIMandateReport when verify_ci=True
+    dictum_report: object = None  # DictumReport when check_dictums=True
 
     @property
     def passed(self) -> bool:
@@ -49,6 +50,7 @@ def run_audit(
     registry: dict,
     rules: dict | None = None,
     verify_ci: bool = False,
+    check_dictums: bool = True,
 ) -> AuditResult:
     """Run a full governance audit.
 
@@ -162,6 +164,34 @@ def run_audit(
                     result.warnings.append(
                         f"{organ_key}/{name}: malformed last_validated date '{last_validated}'",
                     )
+
+    # Dictum compliance check (when dictums section exists in rules)
+    if check_dictums and rules.get("dictums"):
+        try:
+            from organvm_engine.governance.dictums import check_all_dictums
+
+            dictum_report = check_all_dictums(registry, rules)
+            result.dictum_report = dictum_report
+            for v in dictum_report.violations:
+                msg = f"[{v.dictum_id}] "
+                if v.organ:
+                    msg += f"{v.organ}/"
+                if v.repo:
+                    msg += f"{v.repo}: "
+                msg += v.message
+                if v.severity == "critical":
+                    result.critical.append(msg)
+                elif v.severity == "warning":
+                    result.warnings.append(msg)
+                else:
+                    result.info.append(msg)
+            result.info.append(
+                f"Dictums: {dictum_report.checked} checked, "
+                f"{dictum_report.passed} passed, "
+                f"{len(dictum_report.violations)} violation(s)",
+            )
+        except Exception as exc:
+            result.info.append(f"Dictum check skipped: {exc}")
 
     # CI mandate: filesystem verification (optional, IO-heavy)
     if verify_ci:

@@ -42,5 +42,94 @@
     "ORGAN-I": { "min_repos": 1, "requires_readme": true },
     "ORGAN-II": { "min_repos": 1, "requires_readme": true },
     "ORGAN-III": { "min_repos": 1, "requires_readme": true }
+  },
+  "dictums": {
+    "schema_version": "1",
+    "preamble": "Test dictums.",
+    "axioms": [
+      {
+        "id": "AX-1",
+        "name": "DAG Invariant",
+        "statement": "Strict DAG: I→II→III.",
+        "enforcement": "automated",
+        "validator": "validate_dag_invariant",
+        "references": ["governance/dependency_graph.py"],
+        "severity": "critical"
+      },
+      {
+        "id": "AX-2",
+        "name": "Epistemic Membranes",
+        "statement": "Cross-organ edges must be declared in seed.yaml.",
+        "enforcement": "audit",
+        "validator": "validate_epistemic_membranes",
+        "references": ["seed/graph.py"],
+        "severity": "critical"
+      },
+      {
+        "id": "AX-3",
+        "name": "TTL Eviction",
+        "statement": "90-day staleness, 14-day INCUBATOR TTL.",
+        "enforcement": "automated",
+        "validator": "validate_ttl_eviction",
+        "references": ["governance/audit.py"],
+        "severity": "warning"
+      }
+    ],
+    "organ_dictums": {
+      "ORGAN-III": [
+        {
+          "id": "OD-III",
+          "name": "Ergon Factory Gate",
+          "statement": "ORGAN-III repos must have revenue_model and CI.",
+          "constraints": { "requires_revenue_model": true, "requires_ci": true },
+          "enforcement": "automated",
+          "validator": "validate_organ_iii_factory",
+          "severity": "warning"
+        }
+      ],
+      "ORGAN-IV": [
+        {
+          "id": "OD-IV",
+          "name": "Taxis Orchestration",
+          "statement": "ORGAN-IV orchestrates.",
+          "constraints": {},
+          "enforcement": "manual",
+          "validator": null,
+          "severity": "info"
+        }
+      ]
+    },
+    "repo_rules": [
+      {
+        "id": "RR-1",
+        "name": "Seed Contract Mandate",
+        "statement": "Every non-archived repo must have seed.yaml.",
+        "enforcement": "automated",
+        "validator": "validate_seed_mandate",
+        "references": ["seed/discover.py"],
+        "severity": "warning",
+        "applies_to": "all non-archived repos"
+      },
+      {
+        "id": "RR-2",
+        "name": "Single Responsibility",
+        "statement": "Each repo should have a single responsibility.",
+        "enforcement": "manual",
+        "validator": null,
+        "references": [],
+        "severity": "info",
+        "applies_to": "all repos"
+      },
+      {
+        "id": "RR-3",
+        "name": "Event Handshake",
+        "statement": "Event edges must reference existing events.",
+        "enforcement": "audit",
+        "validator": "validate_event_handshake",
+        "references": ["seed/graph.py"],
+        "severity": "warning",
+        "applies_to": "repos with event edges"
+      }
+    ]
   }
 }

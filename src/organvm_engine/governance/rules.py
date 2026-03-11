@@ -38,3 +38,8 @@ def get_audit_thresholds(rules: dict) -> dict:
 def get_organ_requirements(rules: dict, organ_key: str) -> dict:
     """Get requirements for a specific organ."""
     return rules.get("organ_requirements", {}).get(organ_key, {})
+
+
+def get_dictums(rules: dict) -> dict:
+    """Extract the dictums section from governance rules."""
+    return rules.get("dictums", {})
