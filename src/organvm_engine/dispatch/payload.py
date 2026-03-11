@@ -88,3 +88,27 @@ def validate_payload(payload: dict) -> tuple[bool, list[str]]:
             errors.append(f"Invalid priority: {priority}")
 
     return len(errors) == 0, errors
+
+
+def validate_payload_with_contract(
+    payload: dict,
+) -> tuple[bool, list[str], bool]:
+    """Validate structure AND contract (if registered).
+
+    Returns:
+        (valid, errors, contract_found) tuple.
+    """
+    ok, errors = validate_payload(payload)
+    if not ok:
+        return False, errors, False
+
+    event_type = payload.get("event", "")
+    payload_data = payload.get("payload", {})
+
+    from organvm_engine.verification.contracts import verify_contract
+
+    result = verify_contract(event_type, payload_data)
+    if not result.passed:
+        errors.extend(result.errors)
+
+    return len(errors) == 0, errors, result.contract_found

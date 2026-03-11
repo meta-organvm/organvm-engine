@@ -47,6 +47,13 @@ from organvm_engine.cli.atoms import (
     cmd_atoms_pipeline,
     cmd_atoms_reconcile,
 )
+from organvm_engine.cli.cmd_audit import (
+    cmd_audit_absorption,
+    cmd_audit_full,
+    cmd_audit_layer,
+    cmd_audit_organ,
+    cmd_audit_repo,
+)
 from organvm_engine.cli.ci import cmd_ci_triage
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
@@ -143,6 +150,12 @@ from organvm_engine.cli.study import (
     cmd_study_audit_report,
     cmd_study_consilience,
     cmd_study_feedback,
+)
+from organvm_engine.cli.verify import (
+    cmd_verify_contracts,
+    cmd_verify_ledger,
+    cmd_verify_system,
+    cmd_verify_temporal,
 )
 from organvm_engine.paths import registry_path as _default_registry_path
 
@@ -1289,6 +1302,80 @@ def build_parser() -> argparse.ArgumentParser:
     eco_lifecycle.add_argument("repo", help="Repository name")
     eco_lifecycle.add_argument("--json", action="store_true", help="Output JSON")
 
+    # audit
+    aud = sub.add_parser(
+        "audit",
+        help="Infrastructure wiring audit — 6-layer verification",
+    )
+    aud.add_argument("--workspace", default=None, help="Workspace root directory")
+    aud_sub = aud.add_subparsers(dest="subcommand")
+
+    aud_full = aud_sub.add_parser("full", help="Run all 6 audit layers")
+    aud_full.add_argument("--organ", default=None, help="Filter to specific organ")
+    aud_full.add_argument("--json", action="store_true", help="Output JSON")
+    aud_full.add_argument("--output", default=None, help="Write report to file")
+
+    aud_layer = aud_sub.add_parser("layer", help="Run a single audit layer")
+    aud_layer.add_argument(
+        "layer",
+        choices=["filesystem", "reconcile", "seeds", "edges", "content", "absorption"],
+        help="Layer name",
+    )
+    aud_layer.add_argument("--organ", default=None, help="Filter to specific organ")
+    aud_layer.add_argument("--json", action="store_true", help="Output JSON")
+
+    aud_repo = aud_sub.add_parser("repo", help="Audit a single repo")
+    aud_repo.add_argument("repo", help="Repository name")
+    aud_repo.add_argument("--json", action="store_true", help="Output JSON")
+
+    aud_organ = aud_sub.add_parser("organ", help="Audit a single organ")
+    aud_organ.add_argument("organ_key", help="Organ key (I, II, ..., META)")
+    aud_organ.add_argument("--json", action="store_true", help="Output JSON")
+
+    aud_abs = aud_sub.add_parser("absorption", help="Scan deposit locations only")
+    aud_abs.add_argument("--json", action="store_true", help="Output JSON")
+    aud_abs.add_argument("--verbose", action="store_true", help="Include per-deposit detail")
+
+    # verify
+    vfy = sub.add_parser(
+        "verify",
+        help="Formal verification of the dispatch pipeline",
+    )
+    vfy.add_argument("--workspace", default=None, help="Workspace root directory")
+    vfy_sub = vfy.add_subparsers(dest="subcommand")
+
+    vfy_contracts = vfy_sub.add_parser(
+        "contracts",
+        help="Check registered dispatch contracts",
+    )
+    vfy_contracts.add_argument(
+        "--event",
+        default=None,
+        help="Check a specific event type only",
+    )
+
+    vfy_temporal = vfy_sub.add_parser(
+        "temporal",
+        help="Check temporal ordering of dispatch events",
+    )
+    vfy_temporal.add_argument(
+        "--event",
+        default=None,
+        help="Check a specific event type only",
+    )
+
+    vfy_ledger = vfy_sub.add_parser(
+        "ledger",
+        help="Show dispatch ledger state",
+    )
+    vfy_ledger.add_argument("--json", action="store_true", help="Output JSON")
+
+    vfy_system = vfy_sub.add_parser(
+        "system",
+        help="Full system verification (all layers)",
+    )
+    vfy_system.add_argument("--json", action="store_true", help="Output JSON")
+
     # study
     study = sub.add_parser(
         "study",
@@ -1556,6 +1643,31 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["plans", "--help"])
+        return 0
+    if args.command == "audit":
+        audit_dispatch = {
+            "full": cmd_audit_full,
+            "layer": cmd_audit_layer,
+            "repo": cmd_audit_repo,
+            "organ": cmd_audit_organ,
+            "absorption": cmd_audit_absorption,
+        }
+        handler = audit_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["audit", "--help"])
+        return 0
+    if args.command == "verify":
+        verify_dispatch = {
+            "contracts": cmd_verify_contracts,
+            "temporal": cmd_verify_temporal,
+            "ledger": cmd_verify_ledger,
+            "system": cmd_verify_system,
+        }
+        handler = verify_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["verify", "--help"])
         return 0
     if args.command == "study":
         study_dispatch = {

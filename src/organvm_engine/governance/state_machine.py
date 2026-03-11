@@ -2,6 +2,7 @@
 
 # Canonical transitions from governance-rules.json
 TRANSITIONS = {
+    "INCUBATOR": ["LOCAL", "ARCHIVED"],
     "LOCAL": ["CANDIDATE", "ARCHIVED"],
     "CANDIDATE": ["PUBLIC_PROCESS", "LOCAL", "ARCHIVED"],
     "PUBLIC_PROCESS": ["GRADUATED", "CANDIDATE", "ARCHIVED"],

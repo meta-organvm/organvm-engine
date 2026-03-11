@@ -121,6 +121,23 @@ def run_audit(
             if (not doc_status or doc_status == "EMPTY") and critical_config.get("missing_readme"):
                 result.critical.append(f"{organ_key}/{name}: missing README")
 
+            # INCUBATOR TTL check (14 days)
+            promo_status = repo.get("promotion_status", "LOCAL")
+            last_validated = repo.get("last_validated", "")
+            if promo_status == "INCUBATOR" and last_validated:
+                try:
+                    lv = datetime.fromisoformat(last_validated)
+                    if lv.tzinfo is None:
+                        lv = lv.replace(tzinfo=timezone.utc)
+                    days_in_incubation = (now - lv).days
+                    if days_in_incubation > 14:
+                        result.critical.append(
+                            f"{organ_key}/{name}: incubation expired ({days_in_incubation} days, max 14). "
+                            "Graduate or Archive immediately."
+                        )
+                except ValueError:
+                    pass  # Handled by staleness check below
+
             # Missing CI
             if not repo.get("ci_workflow") and warning_config.get("missing_ci_workflow"):
                 result.warnings.append(f"{organ_key}/{name}: no CI workflow")

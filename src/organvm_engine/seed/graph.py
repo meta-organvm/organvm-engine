@@ -91,3 +91,57 @@ def build_seed_graph(
                 graph.edges.append((producer, identity, ctype))
 
     return graph
+
+
+def validate_edge_resolution(graph: SeedGraph | None = None) -> list[dict]:
+    """Find consumes declarations that have no matching producer.
+
+    Args:
+        graph: A pre-built SeedGraph. If None, builds from defaults.
+
+    Returns:
+        List of dicts with keys: consumer, type, source (if declared).
+    """
+    if graph is None:
+        graph = build_seed_graph()
+
+    # Index all produced types by (type, identity)
+    produced: set[tuple[str, str]] = set()
+    produced_types: set[str] = set()
+    for identity, produces_list in graph.produces.items():
+        for p in produces_list:
+            ptype = p if isinstance(p, str) else p.get("type", "unknown")
+            produced.add((ptype, identity))
+            produced_types.add(ptype)
+
+    unresolved: list[dict] = []
+    for identity, consumes_list in graph.consumes.items():
+        for c in consumes_list:
+            if isinstance(c, str):
+                ctype = c
+                source = ""
+            else:
+                ctype = c.get("type", "unknown")
+                source = c.get("source", "")
+
+            # Check if any producer matches
+            matched = False
+            for prod_type, prod_identity in produced:
+                if prod_type != ctype:
+                    continue
+                if prod_identity == identity:
+                    continue
+                if source:
+                    prod_org = prod_identity.split("/")[0] if "/" in prod_identity else ""
+                    if source not in (prod_identity, prod_org):
+                        continue
+                matched = True
+                break
+
+            if not matched:
+                entry: dict = {"consumer": identity, "type": ctype}
+                if source:
+                    entry["source"] = source
+                unresolved.append(entry)
+
+    return unresolved
