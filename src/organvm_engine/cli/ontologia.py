@@ -195,3 +195,266 @@ def cmd_ontologia_status(args: argparse.Namespace) -> int:
     if events:
         print(f"  Last event: {events[-1].timestamp} ({events[-1].event_type})")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Systema Sentiens commands — sensors, tensions, policies, snapshots, health
+# ---------------------------------------------------------------------------
+
+def cmd_ontologia_sense(args: argparse.Namespace) -> int:
+    """Run sensors and show detected changes."""
+    from organvm_engine.ontologia.sensors import scan_all
+
+    sensor_filter = getattr(args, "sensor", None)
+    results = scan_all(sensor_filter=sensor_filter)
+
+    if getattr(args, "json", False):
+        # Serialize signals to dicts
+        out: dict[str, list] = {}
+        for name, signals in results.items():
+            out[name] = [_signal_to_dict(s) for s in signals]
+        print(json.dumps(out, indent=2, default=str))
+        return 0
+
+    total = 0
+    for sensor_name, signals in sorted(results.items()):
+        if not signals:
+            print(f"  {sensor_name}: no signals")
+            continue
+        print(f"  {sensor_name}: {len(signals)} signals")
+        for s in signals:
+            sig_type = s.signal_type if hasattr(s, "signal_type") else s.get("type", "")
+            entity = s.entity_id if hasattr(s, "entity_id") else s.get("entity", "")
+            print(f"    {sig_type:<25} {entity}")
+        total += len(signals)
+    print(f"\n  Total: {total} signals")
+    return 0
+
+
+def cmd_ontologia_tensions(args: argparse.Namespace) -> int:
+    """Run tension detection across all entities."""
+    from organvm_engine.ontologia.inference_bridge import detect_tensions
+
+    result = detect_tensions()
+
+    if "error" in result:
+        print(f"Error: {result['error']}", file=sys.stderr)
+        return 1
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+
+    print(f"  Tensions: {result['summary']}")
+    for category in ("orphans", "naming_conflicts", "overcoupled"):
+        items = result.get(category, [])
+        if items:
+            print(f"\n  {category.replace('_', ' ').title()} ({len(items)}):")
+            for t in items:
+                names = ", ".join(t.get("entity_names", t.get("entity_ids", [])))
+                print(f"    [{t['severity']:.1f}] {t['description']}  ({names})")
+    return 0
+
+
+def cmd_ontologia_policies(args: argparse.Namespace) -> int:
+    """List or evaluate governance policies."""
+    from organvm_engine.ontologia.policies import (
+        evaluate_all_policies,
+        load_policies,
+    )
+
+    if getattr(args, "evaluate", False):
+        result = evaluate_all_policies(
+            write_revisions=getattr(args, "write", False),
+        )
+        if "error" in result:
+            print(f"Error: {result['error']}", file=sys.stderr)
+            return 1
+
+        if getattr(args, "json", False):
+            print(json.dumps(result, indent=2, default=str))
+            return 0
+
+        print(f"  Evaluated: {result['evaluated']} entities")
+        print(f"  Triggered: {len(result['triggered'])} policy matches")
+        if result.get("revisions_created"):
+            print(f"  Revisions: {result['revisions_created']} created")
+        for t in result["triggered"]:
+            print(f"    [{t['action']:<8}] {t['policy_name']}: {t['entity']}")
+        return 0
+
+    # List policies
+    policies = load_policies()
+    if getattr(args, "json", False):
+        print(json.dumps(policies, indent=2))
+        return 0
+
+    print(f"  Governance Policies ({len(policies)}):")
+    for p in policies:
+        enabled = "ON" if p.get("enabled", True) else "OFF"
+        print(f"    [{enabled}] {p['policy_id']}: {p['name']} → {p['action']}")
+    return 0
+
+
+def cmd_ontologia_snapshot(args: argparse.Namespace) -> int:
+    """Create a state snapshot, optionally compare with previous."""
+    from organvm_engine.ontologia.snapshots import (
+        create_system_snapshot,
+        detect_drift,
+    )
+
+    if getattr(args, "compare", False):
+        result = detect_drift()
+        if "error" in result:
+            print(f"Error: {result['error']}", file=sys.stderr)
+            return 1
+
+        if getattr(args, "json", False):
+            print(json.dumps(result, indent=2, default=str))
+            return 0
+
+        if result["has_drift"]:
+            print(f"  Drift detected ({result['from_date']} → {result['to_date']}):")
+            for c in result["changed_entities"]:
+                fields = ", ".join(c.get("fields", [])) if c.get("fields") else ""
+                print(f"    {c['change']:<10} {c['entity_id']}  {fields}")
+        else:
+            print("  No drift detected.")
+        return 0
+
+    # Create snapshot
+    result = create_system_snapshot()
+    if "error" in result:
+        print(f"Error: {result['error']}", file=sys.stderr)
+        return 1
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+
+    print(f"  Snapshot created: {result['date']}")
+    print(f"  Entities: {result['entity_count']}")
+    print(f"  Path: {result['snapshot_path']}")
+    return 0
+
+
+def cmd_ontologia_revisions(args: argparse.Namespace) -> int:
+    """Show the revision log."""
+    from organvm_engine.ontologia.policies import load_revisions
+
+    status_filter = getattr(args, "status", None)
+    revisions = load_revisions(status=status_filter)
+
+    if getattr(args, "json", False):
+        print(json.dumps(revisions, indent=2, default=str))
+        return 0
+
+    if not revisions:
+        print("  No revisions recorded.")
+        return 0
+
+    print(f"  Revisions ({len(revisions)}):")
+    for r in revisions:
+        print(
+            f"    [{r.get('status', '?'):<12}] "
+            f"{r.get('title', '?'):<40} "
+            f"by {r.get('triggered_by', '?')}",
+        )
+    return 0
+
+
+def cmd_ontologia_health(args: argparse.Namespace) -> int:
+    """Show composite entity health view."""
+    from organvm_engine.ontologia.inference_bridge import infer_health
+
+    entity = getattr(args, "entity", None)
+    result = infer_health(entity_query=entity)
+
+    if "error" in result:
+        print(f"Error: {result['error']}", file=sys.stderr)
+        return 1
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+
+    print(f"  Entities: {result.get('entity_count', '?')}")
+
+    tensions = result.get("tensions", {})
+    if isinstance(tensions, dict) and "summary" in tensions:
+        print(f"  Tensions: {tensions['summary']}")
+
+    clusters = result.get("clusters", {})
+    if isinstance(clusters, dict):
+        print(f"  Clusters: {clusters.get('total_clusters', 0)}")
+
+    if "entity" in result and isinstance(result["entity"], dict):
+        e = result["entity"]
+        if "error" not in e:
+            print(f"\n  Entity: {e.get('name', e.get('uid', '?'))}")
+            print(f"  Type: {e.get('type', '?')}")
+            print(f"  Status: {e.get('status', '?')}")
+
+    blast = result.get("blast_radius", {})
+    if blast and "total_affected" in blast:
+        print(f"  Blast radius: {blast['total_affected']} entities")
+    return 0
+
+
+def cmd_ontologia_runbooks(args: argparse.Namespace) -> int:
+    """Generate or verify operational runbooks."""
+    from organvm_engine.ontologia.runbooks import (
+        generate_all_runbooks,
+        verify_runbooks,
+    )
+
+    output_dir = Path(args.output) if getattr(args, "output", None) else None
+
+    if getattr(args, "verify", False):
+        result = verify_runbooks(output_dir)
+        if getattr(args, "json", False):
+            print(json.dumps(result, indent=2))
+            return 0
+        if result["valid"]:
+            print(f"  All {result['total_expected']} runbooks present.")
+        else:
+            print(f"  Missing: {', '.join(result['missing'])}")
+        if result.get("stale"):
+            print(f"  Stale (>30d): {', '.join(result['stale'])}")
+        return 0 if result["valid"] else 1
+
+    if getattr(args, "generate", False):
+        result = generate_all_runbooks(output_dir)
+        if getattr(args, "json", False):
+            print(json.dumps(result, indent=2, default=str))
+            return 0
+        print(f"  Generated {result['count']} runbooks:")
+        for rb in result["runbooks"]:
+            print(f"    {rb['id']}: {rb['title']}")
+        return 0
+
+    # Default: verify
+    result = verify_runbooks(output_dir)
+    if result["valid"]:
+        print(f"  All {result['total_expected']} runbooks present.")
+    else:
+        print(f"  Missing: {', '.join(result['missing'])}")
+        print("  Run `organvm ontologia runbooks --generate` to create them.")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+def _signal_to_dict(signal) -> dict:
+    """Convert a signal (RawSignal or dict) to a plain dict."""
+    if hasattr(signal, "sensor_name"):
+        return {
+            "sensor": signal.sensor_name,
+            "type": signal.signal_type,
+            "entity": signal.entity_id,
+            "details": signal.details,
+            "timestamp": signal.timestamp,
+        }
+    return signal

@@ -114,10 +114,17 @@ from organvm_engine.cli.omega import cmd_omega_check, cmd_omega_status, cmd_omeg
 from organvm_engine.cli.ontologia import (
     cmd_ontologia_bootstrap,
     cmd_ontologia_events,
+    cmd_ontologia_health,
     cmd_ontologia_history,
     cmd_ontologia_list,
+    cmd_ontologia_policies,
     cmd_ontologia_resolve,
+    cmd_ontologia_revisions,
+    cmd_ontologia_runbooks,
+    cmd_ontologia_sense,
+    cmd_ontologia_snapshot,
     cmd_ontologia_status,
+    cmd_ontologia_tensions,
 )
 from organvm_engine.cli.organism import cmd_organism, cmd_organism_snapshot
 from organvm_engine.cli.pitch import cmd_pitch_generate, cmd_pitch_sync
@@ -1608,6 +1615,36 @@ def build_parser() -> argparse.ArgumentParser:
 
     ont_sub.add_parser("status", help="Show ontologia store status")
 
+    ont_sense = ont_sub.add_parser("sense", help="Run sensors, show detected changes")
+    ont_sense.add_argument("--sensor", default=None, help="Run only this sensor")
+    ont_sense.add_argument("--json", action="store_true", help="JSON output")
+
+    ont_tensions = ont_sub.add_parser("tensions", help="Run tension detection")
+    ont_tensions.add_argument("--json", action="store_true", help="JSON output")
+
+    ont_policies = ont_sub.add_parser("policies", help="List or evaluate governance policies")
+    ont_policies.add_argument("--evaluate", action="store_true", help="Evaluate policies")
+    ont_policies.add_argument("--write", action="store_true", help="Write revisions")
+    ont_policies.add_argument("--json", action="store_true", help="JSON output")
+
+    ont_snapshot = ont_sub.add_parser("snapshot", help="Create or compare state snapshots")
+    ont_snapshot.add_argument("--compare", action="store_true", help="Compare with previous")
+    ont_snapshot.add_argument("--json", action="store_true", help="JSON output")
+
+    ont_revisions = ont_sub.add_parser("revisions", help="Show revision log")
+    ont_revisions.add_argument("--status", default=None, help="Filter by status")
+    ont_revisions.add_argument("--json", action="store_true", help="JSON output")
+
+    ont_health = ont_sub.add_parser("health", help="Composite entity health view")
+    ont_health.add_argument("--entity", default=None, help="Specific entity to check")
+    ont_health.add_argument("--json", action="store_true", help="JSON output")
+
+    ont_runbooks = ont_sub.add_parser("runbooks", help="Generate or verify operational runbooks")
+    ont_runbooks.add_argument("--generate", action="store_true", help="Generate runbooks")
+    ont_runbooks.add_argument("--verify", action="store_true", help="Verify runbooks exist")
+    ont_runbooks.add_argument("--output", default=None, help="Output directory")
+    ont_runbooks.add_argument("--json", action="store_true", help="JSON output")
+
     # pulse — system nervous system and self-awareness
     pulse = sub.add_parser(
         "pulse",
@@ -1935,6 +1972,13 @@ def main() -> int:
             "history": cmd_ontologia_history,
             "events": cmd_ontologia_events,
             "status": cmd_ontologia_status,
+            "sense": cmd_ontologia_sense,
+            "tensions": cmd_ontologia_tensions,
+            "policies": cmd_ontologia_policies,
+            "snapshot": cmd_ontologia_snapshot,
+            "revisions": cmd_ontologia_revisions,
+            "health": cmd_ontologia_health,
+            "runbooks": cmd_ontologia_runbooks,
         }
         handler = ontologia_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:
