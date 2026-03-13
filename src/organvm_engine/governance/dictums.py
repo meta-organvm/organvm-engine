@@ -295,6 +295,9 @@ def validate_organ_iii_factory(registry: dict) -> list[DictumViolation]:
     for repo in organ_data.get("repositories", []):
         if repo.get("implementation_status") == "ARCHIVED":
             continue
+        # LOCAL repos cannot have CI yet — skip factory gate checks
+        if repo.get("promotion_status") == "LOCAL":
+            continue
         name = repo.get("name", "?")
 
         if not repo.get("revenue_model"):

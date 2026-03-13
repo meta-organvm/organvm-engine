@@ -205,7 +205,8 @@ class TestAxiomValidators:
 
 class TestOrganDictumValidators:
     def test_od_iii_pass(self, registry):
-        """ORGAN-III repo with revenue_model passes."""
+        """ORGAN-III repo with revenue_model passes (non-LOCAL)."""
+        registry["organs"]["ORGAN-III"]["repositories"][0]["promotion_status"] = "CANDIDATE"
         violations = validate_organ_iii_factory(registry)
         # product-app has revenue_model but no ci_workflow
         ci_violations = [v for v in violations if "CI" in v.message]
@@ -214,7 +215,8 @@ class TestOrganDictumValidators:
         assert len(ci_violations) >= 1  # Missing CI
 
     def test_od_iii_missing_revenue(self, registry):
-        """ORGAN-III repo without revenue_model fails."""
+        """ORGAN-III repo without revenue_model fails (non-LOCAL)."""
+        registry["organs"]["ORGAN-III"]["repositories"][0]["promotion_status"] = "CANDIDATE"
         del registry["organs"]["ORGAN-III"]["repositories"][0]["revenue_model"]
         violations = validate_organ_iii_factory(registry)
         rev = [v for v in violations if "revenue" in v.message]
@@ -224,6 +226,13 @@ class TestOrganDictumValidators:
     def test_od_iii_archived_skip(self, registry):
         """Archived ORGAN-III repos are skipped."""
         registry["organs"]["ORGAN-III"]["repositories"][0]["implementation_status"] = "ARCHIVED"
+        violations = validate_organ_iii_factory(registry)
+        assert violations == []
+
+    def test_od_iii_local_skip(self, registry):
+        """LOCAL promotion_status repos are skipped (no CI possible yet)."""
+        registry["organs"]["ORGAN-III"]["repositories"][0]["promotion_status"] = "LOCAL"
+        registry["organs"]["ORGAN-III"]["repositories"][0]["ci_workflow"] = None
         violations = validate_organ_iii_factory(registry)
         assert violations == []
 
