@@ -10,6 +10,9 @@ One pulse cycle:
 
 from __future__ import annotations
 
+import signal
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +81,172 @@ def pulse_once(
         pass
 
     return ammoi
+
+
+def pulse_daemon(
+    interval: int = 900,
+    workspace: Path | None = None,
+    max_cycles: int = 0,
+) -> None:
+    """Run continuous pulse loop.
+
+    Args:
+        interval: Seconds between pulses (default 900 = 15 minutes).
+        workspace: Workspace root. Defaults to ~/Workspace.
+        max_cycles: Stop after N cycles (0 = unlimited, for production).
+    """
+    ws = workspace or Path.home() / "Workspace"
+    running = True
+
+    def _handle_signal(signum: int, frame: object) -> None:
+        nonlocal running
+        running = False
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
+    cycle = 0
+    while running:
+        cycle += 1
+        try:
+            ammoi = pulse_once(workspace=ws)
+            print(
+                f"[pulse] cycle={cycle} density={ammoi.system_density:.1%}"
+                f" entities={ammoi.total_entities} edges={ammoi.active_edges}",
+                flush=True,
+            )
+        except Exception as exc:
+            print(f"[pulse] cycle={cycle} error: {exc}", file=sys.stderr, flush=True)
+
+        if max_cycles and cycle >= max_cycles:
+            break
+
+        # Sleep in 1-second increments for responsive shutdown
+        for _ in range(interval):
+            if not running:
+                break
+            time.sleep(1)
+
+    print(f"[pulse] stopped after {cycle} cycles", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# LaunchAgent management
+# ---------------------------------------------------------------------------
+
+PLIST_LABEL = "com.4jp.organvm.pulse"
+PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{PLIST_LABEL}.plist"
+LOG_PATH = Path.home() / "System" / "Logs" / "organvm-pulse.log"
+ERR_LOG_PATH = Path.home() / "System" / "Logs" / "organvm-pulse-stderr.log"
+
+
+def _generate_plist(interval: int = 900) -> str:
+    """Generate the LaunchAgent plist XML."""
+    # Find the organvm executable — prefer venv, fall back to PATH
+    venv_bin = Path.home() / "Workspace" / "meta-organvm" / ".venv" / "bin" / "organvm"
+    organvm_bin = str(venv_bin) if venv_bin.exists() else "/opt/homebrew/bin/organvm"
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{PLIST_LABEL}</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{organvm_bin}</string>
+        <string>pulse</string>
+        <string>scan</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/4jp/Workspace/meta-organvm</string>
+
+    <key>StartInterval</key>
+    <integer>{interval}</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>Nice</key>
+    <integer>10</integer>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/4jp/.local/bin</string>
+        <key>HOME</key>
+        <string>/Users/4jp</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{LOG_PATH}</string>
+    <key>StandardErrorPath</key>
+    <string>{ERR_LOG_PATH}</string>
+</dict>
+</plist>
+"""
+
+
+def install_launchagent(interval: int = 900) -> str:
+    """Install the pulse LaunchAgent plist. Returns the plist path."""
+    PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PLIST_PATH.write_text(_generate_plist(interval))
+    return str(PLIST_PATH)
+
+
+def uninstall_launchagent() -> bool:
+    """Remove the plist file. Returns True if it existed."""
+    if PLIST_PATH.exists():
+        PLIST_PATH.unlink()
+        return True
+    return False
+
+
+def launchagent_status() -> dict[str, Any]:
+    """Query LaunchAgent status via launchctl."""
+    import subprocess
+
+    result: dict[str, Any] = {
+        "installed": PLIST_PATH.exists(),
+        "plist_path": str(PLIST_PATH),
+        "log_path": str(LOG_PATH),
+    }
+
+    if not PLIST_PATH.exists():
+        result["running"] = False
+        return result
+
+    try:
+        proc = subprocess.run(
+            ["launchctl", "list", PLIST_LABEL],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        result["running"] = proc.returncode == 0
+        if proc.returncode == 0:
+            for line in proc.stdout.splitlines():
+                if "PID" in line and "=" in line:
+                    result["pid"] = line.split("=")[-1].strip().rstrip(";")
+    except Exception:
+        result["running"] = False
+
+    # Last log lines
+    if LOG_PATH.exists():
+        try:
+            lines = LOG_PATH.read_text().strip().splitlines()
+            result["last_log"] = lines[-1] if lines else ""
+            result["log_lines"] = len(lines)
+        except Exception:
+            pass
+
+    return result
 
 
 def pulse_history(days: int = 30, limit: int = 200) -> list[dict[str, Any]]:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from argparse import Namespace
 from dataclasses import asdict
@@ -832,6 +833,157 @@ def cmd_pulse_history(args: Namespace) -> int:
         sign = "+" if delta > 0 else ""
         print()
         print(f"  Trend: {direction} {sign}{delta:.1%} over {len(snapshots)} snapshots")
+
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# LaunchAgent management: start / stop / status
+# ---------------------------------------------------------------------------
+
+
+def cmd_pulse_start(args: Namespace) -> int:
+    """Install and start the pulse LaunchAgent."""
+    from organvm_engine.pulse.rhythm import (
+        PLIST_LABEL,
+        install_launchagent,
+        launchagent_status,
+    )
+
+    interval = getattr(args, "interval", 900)
+    use_json = getattr(args, "json", False)
+
+    # Install plist
+    plist_path = install_launchagent(interval=interval)
+
+    # Load via launchctl
+    try:
+        # Unload first if already loaded (idempotent)
+        subprocess.run(
+            ["launchctl", "unload", plist_path],
+            capture_output=True,
+            timeout=5,
+        )
+        result = subprocess.run(
+            ["launchctl", "load", plist_path],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            msg = result.stderr.strip() or "unknown error"
+            if use_json:
+                json.dump({"error": msg}, sys.stdout)
+                sys.stdout.write("\n")
+            else:
+                print(f"  Error loading LaunchAgent: {msg}", file=sys.stderr)
+            return 1
+    except Exception as exc:
+        if use_json:
+            json.dump({"error": str(exc)}, sys.stdout)
+            sys.stdout.write("\n")
+        else:
+            print(f"  Error: {exc}", file=sys.stderr)
+        return 1
+
+    if use_json:
+        json.dump(launchagent_status(), sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print()
+        print(f"  Pulse LaunchAgent installed and started.")
+        print(f"  Label:    {PLIST_LABEL}")
+        print(f"  Interval: {interval}s ({interval // 60}m)")
+        print(f"  Plist:    {plist_path}")
+        print()
+
+    return 0
+
+
+def cmd_pulse_stop(args: Namespace) -> int:
+    """Stop and uninstall the pulse LaunchAgent."""
+    from organvm_engine.pulse.rhythm import (
+        PLIST_LABEL,
+        PLIST_PATH,
+        uninstall_launchagent,
+    )
+
+    use_json = getattr(args, "json", False)
+
+    # Unload if running
+    if PLIST_PATH.exists():
+        try:
+            subprocess.run(
+                ["launchctl", "unload", str(PLIST_PATH)],
+                capture_output=True,
+                timeout=5,
+            )
+        except Exception:
+            pass
+
+    removed = uninstall_launchagent()
+
+    if use_json:
+        json.dump({"stopped": True, "removed": removed}, sys.stdout)
+        sys.stdout.write("\n")
+    else:
+        print()
+        if removed:
+            print(f"  Pulse LaunchAgent stopped and removed.")
+        else:
+            print(f"  Pulse LaunchAgent was not installed.")
+        print()
+
+    return 0
+
+
+def cmd_pulse_status(args: Namespace) -> int:
+    """Show pulse LaunchAgent status and recent log output."""
+    from organvm_engine.pulse.rhythm import launchagent_status
+
+    use_json = getattr(args, "json", False)
+    status = launchagent_status()
+
+    if use_json:
+        json.dump(status, sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
+
+    print()
+    installed = status.get("installed", False)
+    running = status.get("running", False)
+
+    state = "RUNNING" if running else ("STOPPED" if installed else "NOT INSTALLED")
+    color = "\033[32m" if running else ("\033[33m" if installed else "\033[31m")
+    reset = "\033[0m"
+
+    print(f"  Pulse Daemon: {color}{state}{reset}")
+    print(f"  Plist:        {status.get('plist_path', 'N/A')}")
+    print(f"  Log:          {status.get('log_path', 'N/A')}")
+
+    if status.get("pid"):
+        print(f"  PID:          {status['pid']}")
+
+    if status.get("log_lines"):
+        print(f"  Log entries:  {status['log_lines']}")
+
+    if status.get("last_log"):
+        print(f"  Last log:     {status['last_log']}")
+
+    # Show last AMMOI snapshot
+    try:
+        from organvm_engine.pulse.ammoi import _read_history
+
+        history = _read_history(limit=1)
+        if history:
+            last = history[-1]
+            print()
+            print(f"  Last pulse:   {last.timestamp[:19]}")
+            print(f"  Density:      {last.system_density:.1%}")
+            print(f"  Entities:     {last.total_entities}")
+    except Exception:
+        pass
 
     print()
     return 0

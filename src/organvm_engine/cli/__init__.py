@@ -69,6 +69,9 @@ from organvm_engine.cli.cmd_pulse import (
     cmd_pulse_nerve,
     cmd_pulse_scan,
     cmd_pulse_show,
+    cmd_pulse_start,
+    cmd_pulse_status,
+    cmd_pulse_stop,
 )
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
@@ -1808,6 +1811,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pulse_history.add_argument("--json", action="store_true", help="Output JSON")
 
+    pulse_start = pulse_sub.add_parser(
+        "start",
+        help="Install and start the pulse LaunchAgent (15-min heartbeat)",
+    )
+    pulse_start.add_argument(
+        "--interval",
+        type=int,
+        default=900,
+        help="Seconds between pulses (default 900 = 15 min)",
+    )
+    pulse_start.add_argument("--json", action="store_true", help="Output JSON")
+
+    pulse_stop = pulse_sub.add_parser(
+        "stop",
+        help="Stop and uninstall the pulse LaunchAgent",
+    )
+    pulse_stop.add_argument("--json", action="store_true", help="Output JSON")
+
+    pulse_status = pulse_sub.add_parser(
+        "status",
+        help="Show pulse daemon status and last heartbeat",
+    )
+    pulse_status.add_argument("--json", action="store_true", help="Output JSON")
+
     return parser
 
 
@@ -2037,6 +2064,9 @@ def main() -> int:
             "scan": cmd_pulse_scan,
             "ammoi": cmd_pulse_ammoi,
             "history": cmd_pulse_history,
+            "start": cmd_pulse_start,
+            "stop": cmd_pulse_stop,
+            "status": cmd_pulse_status,
         }
         sub_cmd = getattr(args, "subcommand", "") or ""
         handler = pulse_dispatch.get(sub_cmd)
