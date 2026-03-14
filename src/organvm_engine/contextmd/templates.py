@@ -209,8 +209,8 @@ AMMOI_SECTION = """\
 
 ## System Density (auto-generated)
 
-AMMOI: {density_pct} | Edges: {edges} | Tensions: {tensions} | Events(24h): {events_24h}
-Organ density: {organ_density_line}
+AMMOI: {density_pct} | Edges: {edges} | Tensions: {tensions} | Clusters: {clusters} | Adv: {advisories} | Events(24h): {events_24h}
+Inference score: {inference_score} | Organ density: {organ_density_line}
 Last pulse: {last_pulse} | Δ24h: {delta_24h} | Δ7d: {delta_7d}
 """
 

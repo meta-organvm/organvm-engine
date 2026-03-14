@@ -48,6 +48,37 @@ def pulse_once(
         except Exception:
             pass
 
+    # 1b. Sync seed edges into ontologia (best-effort)
+    edge_sync_result = None
+    try:
+        from organvm_engine.pulse.edge_bridge import sync_seed_edges
+
+        # Auto-bootstrap: if ontologia has entities but no edges, bootstrap first
+        try:
+            from ontologia.registry.store import open_store as _open_store
+
+            _store = _open_store()
+            if (
+                _store.entity_count > 0
+                and not _store.edge_index.all_hierarchy_edges()
+                and not _store.edge_index.all_relation_edges()
+            ):
+                from ontologia.bootstrap import bootstrap_from_registry
+                from organvm_engine.paths import registry_path as _reg_path
+
+                rp = _reg_path()
+                if rp.is_file():
+                    # Re-bootstrap triggers hierarchy edge creation
+                    bootstrap_from_registry(_store, rp)
+        except ImportError:
+            pass
+
+        edge_sync_result = sync_seed_edges(ws)
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
     # 2. Compute AMMOI
     ammoi = compute_ammoi(registry=registry, workspace=ws)
 
@@ -57,7 +88,12 @@ def pulse_once(
     # 4. Emit heartbeat event
     try:
         from organvm_engine.pulse.emitter import emit_engine_event
-        from organvm_engine.pulse.types import AMMOI_COMPUTED, PULSE_HEARTBEAT
+        from organvm_engine.pulse.types import (
+            AMMOI_COMPUTED,
+            EDGES_SYNCED,
+            INFERENCE_COMPLETED,
+            PULSE_HEARTBEAT,
+        )
 
         emit_engine_event(
             event_type=AMMOI_COMPUTED,
@@ -69,6 +105,16 @@ def pulse_once(
                 "pulse_count": ammoi.pulse_count + 1,
             },
         )
+        if ammoi.tension_count > 0 or ammoi.cluster_count > 0:
+            emit_engine_event(
+                event_type=INFERENCE_COMPLETED,
+                source="pulse",
+                payload={
+                    "tension_count": ammoi.tension_count,
+                    "cluster_count": ammoi.cluster_count,
+                    "inference_score": ammoi.inference_score,
+                },
+            )
         emit_engine_event(
             event_type=PULSE_HEARTBEAT,
             source="pulse",
@@ -77,6 +123,35 @@ def pulse_once(
                 "density": ammoi.system_density,
             },
         )
+        if edge_sync_result and edge_sync_result.created > 0:
+            emit_engine_event(
+                event_type=EDGES_SYNCED,
+                source="pulse",
+                payload={
+                    "created": edge_sync_result.created,
+                    "skipped": edge_sync_result.skipped,
+                    "unresolved": edge_sync_result.unresolved,
+                },
+            )
+    except Exception:
+        pass
+
+    # 5. Evaluate governance policies and store advisories (best-effort)
+    try:
+        from organvm_engine.pulse.advisories import evaluate_all_policies, store_advisories
+        from organvm_engine.pulse.types import ADVISORY_GENERATED
+
+        advisories = evaluate_all_policies(ws)
+        if advisories:
+            store_advisories(advisories)
+            emit_engine_event(
+                event_type=ADVISORY_GENERATED,
+                source="pulse",
+                payload={
+                    "advisory_count": len(advisories),
+                    "severities": [a.severity for a in advisories],
+                },
+            )
     except Exception:
         pass
 

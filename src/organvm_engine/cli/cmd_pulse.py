@@ -839,6 +839,215 @@ def cmd_pulse_history(args: Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# cmd_pulse_tensions
+# ---------------------------------------------------------------------------
+
+def cmd_pulse_tensions(args: Namespace) -> int:
+    """Show current tensions: orphans, naming conflicts, overcoupling."""
+    from organvm_engine.pulse.inference_bridge import run_inference
+
+    workspace = _resolve_workspace_path(args)
+    use_json = getattr(args, "json", False)
+
+    try:
+        summary = run_inference(workspace)
+    except Exception as exc:
+        print(f"Error running inference: {exc}", file=sys.stderr)
+        return 1
+
+    if use_json:
+        json.dump(summary.to_dict(), sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
+
+    if not summary.tensions:
+        print("  No tensions detected.")
+        return 0
+
+    print()
+    print(f"  Tensions: {summary.tension_count} detected")
+    print(f"  Inference score: {summary.inference_score:.0%}")
+    print(f"  {'─' * 50}")
+
+    for t in summary.tensions:
+        severity = t.get("severity", 0.0)
+        ttype = t.get("type", "unknown")
+        desc = t.get("description", "")
+        bar = "!" * int(severity * 5)
+        print(f"  [{ttype:<18}] {bar:<5} {desc}")
+
+    if summary.orphaned_entities:
+        print()
+        print(f"  Orphaned entities ({len(summary.orphaned_entities)}):")
+        for eid in summary.orphaned_entities[:10]:
+            print(f"     {eid}")
+        if len(summary.orphaned_entities) > 10:
+            print(f"     ... and {len(summary.orphaned_entities) - 10} more")
+
+    if summary.overcoupled_entities:
+        print()
+        print(f"  Overcoupled entities ({len(summary.overcoupled_entities)}):")
+        for eid in summary.overcoupled_entities[:10]:
+            print(f"     {eid}")
+
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# cmd_pulse_clusters
+# ---------------------------------------------------------------------------
+
+def cmd_pulse_clusters(args: Namespace) -> int:
+    """Show detected entity clusters with cohesion scores."""
+    from organvm_engine.pulse.inference_bridge import run_inference
+
+    workspace = _resolve_workspace_path(args)
+    use_json = getattr(args, "json", False)
+
+    try:
+        summary = run_inference(workspace)
+    except Exception as exc:
+        print(f"Error running inference: {exc}", file=sys.stderr)
+        return 1
+
+    if use_json:
+        json.dump({"clusters": summary.clusters, "count": summary.cluster_count},
+                  sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
+
+    if not summary.clusters:
+        print("  No clusters detected.")
+        return 0
+
+    print()
+    print(f"  Entity Clusters: {summary.cluster_count} detected")
+    print(f"  {'─' * 50}")
+
+    for i, cluster in enumerate(summary.clusters, 1):
+        size = cluster.get("size", len(cluster.get("entity_ids", [])))
+        cohesion = cluster.get("cohesion", 0.0)
+        print(f"\n  Cluster {i}: {size} entities, cohesion {cohesion:.2f}")
+        for eid in cluster.get("entity_ids", [])[:8]:
+            print(f"     {eid}")
+        remaining = size - 8
+        if remaining > 0:
+            print(f"     ... and {remaining} more")
+
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# cmd_pulse_advisories
+# ---------------------------------------------------------------------------
+
+def cmd_pulse_advisories(args: Namespace) -> int:
+    """Show governance advisories, or acknowledge one."""
+    from organvm_engine.pulse.advisories import acknowledge_advisory, read_advisories
+
+    use_json = getattr(args, "json", False)
+
+    # Handle "ack" sub-subcommand
+    ack_id = getattr(args, "ack_id", None)
+    if ack_id:
+        ok = acknowledge_advisory(ack_id)
+        if use_json:
+            json.dump({"acknowledged": ok, "advisory_id": ack_id}, sys.stdout)
+            sys.stdout.write("\n")
+        else:
+            if ok:
+                print(f"  Advisory {ack_id} acknowledged.")
+            else:
+                print(f"  Advisory {ack_id} not found.")
+        return 0 if ok else 1
+
+    limit = getattr(args, "limit", 20)
+    unacked = getattr(args, "unacked", False)
+
+    try:
+        advisories = read_advisories(limit=limit, unacked_only=unacked)
+    except Exception as exc:
+        print(f"Error reading advisories: {exc}", file=sys.stderr)
+        return 1
+
+    if use_json:
+        json.dump([a.to_dict() for a in advisories], sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
+
+    if not advisories:
+        print("  No advisories found.")
+        return 0
+
+    print()
+    print(f"  Governance Advisories ({len(advisories)} shown)")
+    print(f"  {'─' * 60}")
+    print(f"  {'ID':<14} {'Severity':<10} {'Action':<10} {'Entity':<20} Description")
+    print(f"  {'─' * 14} {'─' * 10} {'─' * 10} {'─' * 20} {'─' * 20}")
+
+    for adv in advisories:
+        ack_mark = " [ack]" if adv.acknowledged else ""
+        print(
+            f"  {adv.advisory_id:<14} "
+            f"{adv.severity:<10} "
+            f"{adv.action:<10} "
+            f"{adv.entity_name:<20} "
+            f"{adv.description}{ack_mark}"
+        )
+
+    print()
+    print("  Use `organvm pulse advisories --ack <id>` to acknowledge.")
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# cmd_pulse_blast
+# ---------------------------------------------------------------------------
+
+def cmd_pulse_blast(args: Namespace) -> int:
+    """Show blast radius for a specific entity."""
+    from organvm_engine.pulse.inference_bridge import blast_radius
+
+    entity = args.entity
+    use_json = getattr(args, "json", False)
+
+    result = blast_radius(entity)
+
+    if use_json:
+        json.dump(result, sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
+
+    if "error" in result:
+        print(f"  Error: {result['error']}")
+        return 1
+
+    print()
+    print(f"  Blast Radius: {result.get('entity_name', entity)}")
+    print(f"  UID: {result.get('entity_uid', '?')}")
+    print(f"  Total affected: {result.get('total_affected', 0)}")
+    print(f"  {'─' * 50}")
+    print(f"  Upward:   {result.get('upward', 0)}")
+    print(f"  Downward: {result.get('downward', 0)}")
+    print(f"  Lateral:  {result.get('lateral', 0)}")
+
+    paths = result.get("paths", [])
+    if paths:
+        print()
+        for p in paths:
+            direction = p.get("direction", "?")
+            target = p.get("target_id", "?")
+            distance = p.get("distance", 0)
+            print(f"  [{direction:<10}] d={distance} → {target}")
+
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # LaunchAgent management: start / stop / status
 # ---------------------------------------------------------------------------
 
@@ -985,5 +1194,126 @@ def cmd_pulse_status(args: Namespace) -> int:
     except Exception:
         pass
 
+    print()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# cmd_pulse_edges
+# ---------------------------------------------------------------------------
+
+def cmd_pulse_edges(args: Namespace) -> int:
+    """Show structural edge counts or sync seed edges into ontologia."""
+    sub_action = getattr(args, "edges_action", None)
+    use_json = getattr(args, "json", False)
+
+    if sub_action == "sync":
+        return _cmd_pulse_edges_sync(args)
+
+    # Default: show edge counts
+    try:
+        from ontologia.registry.store import open_store
+
+        store = open_store()
+        ei = store.edge_index
+        hierarchy = ei.all_hierarchy_edges()
+        relations = ei.all_relation_edges()
+        active_h = [e for e in hierarchy if e.is_active()]
+        active_r = [e for e in relations if e.is_active()]
+
+        # Relation type breakdown
+        by_type: dict[str, int] = {}
+        for e in active_r:
+            by_type[e.relation_type] = by_type.get(e.relation_type, 0) + 1
+
+        # Cross-organ edge count
+        cross_organ = 0
+        from ontologia.entity.identity import EntityType
+
+        # Build child→parent mapping for organ resolution
+        child_to_organ: dict[str, str] = {}
+        for edge in active_h:
+            child_to_organ[edge.child_id] = edge.parent_id
+
+        for edge in active_r:
+            src_organ = child_to_organ.get(edge.source_id, "")
+            tgt_organ = child_to_organ.get(edge.target_id, "")
+            if src_organ and tgt_organ and src_organ != tgt_organ:
+                cross_organ += 1
+
+    except ImportError:
+        if use_json:
+            json.dump({"error": "ontologia not available"}, sys.stdout)
+            sys.stdout.write("\n")
+        else:
+            print("  Error: ontologia not available.")
+        return 1
+    except Exception as exc:
+        if use_json:
+            json.dump({"error": str(exc)}, sys.stdout)
+            sys.stdout.write("\n")
+        else:
+            print(f"  Error: {exc}", file=sys.stderr)
+        return 1
+
+    if use_json:
+        data = {
+            "hierarchy_edges": len(active_h),
+            "relation_edges": len(active_r),
+            "total_edges": len(active_h) + len(active_r),
+            "cross_organ_edges": cross_organ,
+            "by_relation_type": by_type,
+        }
+        json.dump(data, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    print()
+    print(f"  Structural Edges")
+    print(f"  {'─' * 40}")
+    print(f"  Hierarchy (organ→repo): {len(active_h)}")
+    print(f"  Relations (repo→repo):  {len(active_r)}")
+    print(f"  Total:                  {len(active_h) + len(active_r)}")
+    print(f"  Cross-organ:            {cross_organ}")
+
+    if by_type:
+        print()
+        print(f"  By relation type:")
+        for rtype, count in sorted(by_type.items()):
+            print(f"     {rtype:<20} {count}")
+
+    print()
+    return 0
+
+
+def _cmd_pulse_edges_sync(args: Namespace) -> int:
+    """Sync seed.yaml edges into ontologia."""
+    from organvm_engine.pulse.edge_bridge import sync_seed_edges
+
+    use_json = getattr(args, "json", False)
+    workspace = _resolve_workspace_path(args)
+
+    try:
+        result = sync_seed_edges(workspace)
+    except Exception as exc:
+        if use_json:
+            json.dump({"error": str(exc)}, sys.stdout)
+            sys.stdout.write("\n")
+        else:
+            print(f"  Error syncing edges: {exc}", file=sys.stderr)
+        return 1
+
+    if use_json:
+        json.dump(result.to_dict(), sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    print()
+    print(f"  Edge Sync Result")
+    print(f"  {'─' * 40}")
+    print(f"  Created:    {result.created}")
+    print(f"  Skipped:    {result.skipped}")
+    print(f"  Unresolved: {result.unresolved}")
+    print(f"  Total:      {result.created + result.skipped + result.unresolved}")
     print()
     return 0

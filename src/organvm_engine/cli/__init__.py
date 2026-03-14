@@ -56,10 +56,14 @@ from organvm_engine.cli.cmd_audit import (
     cmd_audit_repo,
 )
 from organvm_engine.cli.cmd_pulse import (
+    cmd_pulse_advisories,
     cmd_pulse_ammoi,
+    cmd_pulse_blast,
     cmd_pulse_briefing,
+    cmd_pulse_clusters,
     cmd_pulse_density,
     cmd_pulse_ecosystem,
+    cmd_pulse_edges,
     cmd_pulse_emit,
     cmd_pulse_events,
     cmd_pulse_flow,
@@ -72,6 +76,7 @@ from organvm_engine.cli.cmd_pulse import (
     cmd_pulse_start,
     cmd_pulse_status,
     cmd_pulse_stop,
+    cmd_pulse_tensions,
 )
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
@@ -1835,6 +1840,60 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pulse_status.add_argument("--json", action="store_true", help="Output JSON")
 
+    pulse_tensions = pulse_sub.add_parser(
+        "tensions",
+        help="Show structural tensions (orphans, naming conflicts, overcoupling)",
+    )
+    pulse_tensions.add_argument("--json", action="store_true", help="Output JSON")
+
+    pulse_clusters = pulse_sub.add_parser(
+        "clusters",
+        help="Show detected entity clusters with cohesion scores",
+    )
+    pulse_clusters.add_argument("--json", action="store_true", help="Output JSON")
+
+    pulse_advisories = pulse_sub.add_parser(
+        "advisories",
+        help="Show governance advisories (recommendations from policy evaluation)",
+    )
+    pulse_advisories.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Max advisories to show (default 20)",
+    )
+    pulse_advisories.add_argument(
+        "--unacked",
+        action="store_true",
+        help="Show only unacknowledged advisories",
+    )
+    pulse_advisories.add_argument(
+        "--ack",
+        dest="ack_id",
+        default=None,
+        help="Acknowledge an advisory by ID",
+    )
+    pulse_advisories.add_argument("--json", action="store_true", help="Output JSON")
+
+    pulse_blast = pulse_sub.add_parser(
+        "blast",
+        help="Show blast radius for a specific entity",
+    )
+    pulse_blast.add_argument("entity", help="Entity name or UID")
+    pulse_blast.add_argument("--json", action="store_true", help="Output JSON")
+
+    pulse_edges = pulse_sub.add_parser(
+        "edges",
+        help="Show structural edge counts or sync seed edges",
+    )
+    pulse_edges.add_argument("--json", action="store_true", help="Output JSON")
+    pulse_edges_sub = pulse_edges.add_subparsers(dest="edges_action")
+    pulse_edges_sync = pulse_edges_sub.add_parser(
+        "sync",
+        help="Sync seed.yaml edges into ontologia",
+    )
+    pulse_edges_sync.add_argument("--json", action="store_true", help="Output JSON")
+
     return parser
 
 
@@ -2067,6 +2126,11 @@ def main() -> int:
             "start": cmd_pulse_start,
             "stop": cmd_pulse_stop,
             "status": cmd_pulse_status,
+            "tensions": cmd_pulse_tensions,
+            "clusters": cmd_pulse_clusters,
+            "advisories": cmd_pulse_advisories,
+            "blast": cmd_pulse_blast,
+            "edges": cmd_pulse_edges,
         }
         sub_cmd = getattr(args, "subcommand", "") or ""
         handler = pulse_dispatch.get(sub_cmd)

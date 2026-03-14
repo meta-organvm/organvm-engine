@@ -553,11 +553,23 @@ def _build_ammoi_context() -> str:
     d7d_str = f"{'+' if d7d > 0 else ''}{d7d:.1%}" if d7d else "n/a"
     ts = ammoi.timestamp[:19] if len(ammoi.timestamp) >= 19 else ammoi.timestamp
 
+    # Advisory count (best-effort)
+    adv_count = 0
+    try:
+        from organvm_engine.pulse.advisories import read_advisories
+
+        adv_count = len(read_advisories(limit=100, unacked_only=True))
+    except Exception:
+        pass
+
     return AMMOI_SECTION.format(
         density_pct=f"{ammoi.system_density:.0%}",
         edges=ammoi.active_edges,
         tensions=ammoi.tension_count,
+        clusters=ammoi.cluster_count,
+        advisories=adv_count,
         events_24h=ammoi.event_frequency_24h,
+        inference_score=f"{ammoi.inference_score:.0%}",
         organ_density_line=organ_line,
         last_pulse=ts,
         delta_24h=d24h_str,

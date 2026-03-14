@@ -1,6 +1,6 @@
 """Pulse module — the system's nervous system and self-awareness layer.
 
-Twelve sub-layers:
+Fifteen sub-layers:
     events      File-based event bus (append-only JSONL)
     types       Engine-specific event type constants
     emitter     Unified bridge to ontologia's event bus
@@ -14,8 +14,18 @@ Twelve sub-layers:
     continuity  Session briefing (what happened recently)
     shared_memory  Cross-agent knowledge store
     flow        Dependency flow visualization (active/warm/dormant edges)
+    inference_bridge  Bridge to ontologia inference (tensions, clusters)
+    advisories  Governance advisory system (policy evaluation → recommendations)
+    default_policies  Built-in governance policies
 """
 
+from organvm_engine.pulse.advisories import (
+    Advisory,
+    acknowledge_advisory,
+    evaluate_all_policies,
+    read_advisories,
+    store_advisories,
+)
 from organvm_engine.pulse.affective import (
     MoodFactors,
     MoodReading,
@@ -31,8 +41,6 @@ from organvm_engine.pulse.density import (
     DensityProfile,
     compute_density,
 )
-from organvm_engine.pulse.emitter import emit_engine_event
-from organvm_engine.pulse.types import ALL_ENGINE_EVENT_TYPES
 from organvm_engine.pulse.ecosystem_bridge import (
     ORGAN_ARCHETYPES,
     EcosystemCoverage,
@@ -40,6 +48,7 @@ from organvm_engine.pulse.ecosystem_bridge import (
     compute_ecosystem_coverage,
     infer_repo_context,
 )
+from organvm_engine.pulse.emitter import emit_engine_event
 from organvm_engine.pulse.events import (
     ALL_EVENT_TYPES,
     DENSITY_COMPUTED,
@@ -70,6 +79,11 @@ from organvm_engine.pulse.heartbeat import (
     RepoDelta,
     compute_pulse,
 )
+from organvm_engine.pulse.inference_bridge import (
+    InferenceSummary,
+    blast_radius,
+    run_inference,
+)
 from organvm_engine.pulse.nerve import (
     NerveBundle,
     Subscription,
@@ -91,8 +105,19 @@ from organvm_engine.pulse.temporal import (
     compute_temporal_profile,
     compute_velocity,
 )
+from organvm_engine.pulse.types import ALL_ENGINE_EVENT_TYPES
 
 __all__ = [
+    # inference_bridge
+    "InferenceSummary",
+    "blast_radius",
+    "run_inference",
+    # advisories
+    "Advisory",
+    "acknowledge_advisory",
+    "evaluate_all_policies",
+    "read_advisories",
+    "store_advisories",
     # events
     "ALL_EVENT_TYPES",
     "DENSITY_COMPUTED",

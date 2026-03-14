@@ -28,6 +28,8 @@ class SessionBriefing:
     last_mood: object | None = None  # MoodReading | None
     system_delta: str = "stable"  # "improving" / "declining" / "stable"
     key_changes: list[str] = field(default_factory=list)
+    active_tensions: list[dict] = field(default_factory=list)
+    pending_advisories: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         from dataclasses import asdict
@@ -48,6 +50,8 @@ class SessionBriefing:
             "last_mood": mood_dict,
             "system_delta": self.system_delta,
             "key_changes": self.key_changes,
+            "active_tensions": self.active_tensions,
+            "pending_advisories": self.pending_advisories,
         }
 
 
@@ -208,6 +212,26 @@ def build_briefing(hours: int = 24) -> SessionBriefing:
     delta = _compute_system_delta(events)
     key_changes = _extract_key_changes(events)
 
+    # Inference tensions (best-effort)
+    tensions: list[dict] = []
+    try:
+        from organvm_engine.pulse.inference_bridge import run_inference
+
+        summary = run_inference()
+        tensions = summary.tensions
+    except Exception:
+        pass
+
+    # Pending advisories (best-effort)
+    advisories: list[dict] = []
+    try:
+        from organvm_engine.pulse.advisories import read_advisories
+
+        recent_advisories = read_advisories(limit=10, unacked_only=True)
+        advisories = [a.to_dict() for a in recent_advisories]
+    except Exception:
+        pass
+
     return SessionBriefing(
         recent_events=events,
         recent_claims=claims,
@@ -215,6 +239,8 @@ def build_briefing(hours: int = 24) -> SessionBriefing:
         last_mood=last_mood,
         system_delta=delta,
         key_changes=key_changes,
+        active_tensions=tensions,
+        pending_advisories=advisories,
     )
 
 
@@ -267,6 +293,31 @@ def briefing_to_markdown(briefing: SessionBriefing) -> str:
             lines.append(f"- `{ts}` {e.event_type} ({e.source})")
         if len(briefing.recent_events) > 10:
             lines.append(f"- ... and {len(briefing.recent_events) - 10} more")
+        lines.append("")
+
+    # Tensions
+    if briefing.active_tensions:
+        lines.append(f"### Active Tensions ({len(briefing.active_tensions)})")
+        lines.append("")
+        for t in briefing.active_tensions[:5]:
+            ttype = t.get("type", "unknown")
+            desc = t.get("description", "")
+            lines.append(f"- [{ttype}] {desc}")
+        if len(briefing.active_tensions) > 5:
+            lines.append(f"- ... and {len(briefing.active_tensions) - 5} more")
+        lines.append("")
+
+    # Advisories
+    if briefing.pending_advisories:
+        lines.append(f"### Pending Advisories ({len(briefing.pending_advisories)})")
+        lines.append("")
+        for a in briefing.pending_advisories[:5]:
+            action = a.get("action", "?")
+            entity = a.get("entity_name", "?")
+            desc = a.get("description", "")
+            lines.append(f"- [{action}] {entity}: {desc}")
+        if len(briefing.pending_advisories) > 5:
+            lines.append(f"- ... and {len(briefing.pending_advisories) - 5} more")
         lines.append("")
 
     # Claims summary

@@ -40,6 +40,13 @@ SENSOR_CHANGE_DETECTED = "sensor.change_detected"
 PULSE_HEARTBEAT = "pulse.heartbeat"
 AMMOI_COMPUTED = "pulse.ammoi_computed"
 
+# Inference / Advisories
+INFERENCE_COMPLETED = "pulse.inference_completed"
+ADVISORY_GENERATED = "pulse.advisory_generated"
+
+# Edge sync
+EDGES_SYNCED = "pulse.edges_synced"
+
 ALL_ENGINE_EVENT_TYPES: list[str] = [
     PROMOTION_CHANGED,
     GATE_EVALUATED,
@@ -61,4 +68,7 @@ ALL_ENGINE_EVENT_TYPES: list[str] = [
     SENSOR_CHANGE_DETECTED,
     PULSE_HEARTBEAT,
     AMMOI_COMPUTED,
+    INFERENCE_COMPLETED,
+    ADVISORY_GENERATED,
+    EDGES_SYNCED,
 ]

@@ -74,6 +74,12 @@ class AMMOI:
     tension_count: int = 0
     event_frequency_24h: int = 0
 
+    # Inference
+    cluster_count: int = 0
+    orphan_count: int = 0
+    overcoupled_count: int = 0
+    inference_score: float = 0.0
+
     # Temporal vectors
     density_delta_24h: float = 0.0
     density_delta_7d: float = 0.0
@@ -98,6 +104,10 @@ class AMMOI:
             "active_loops": self.active_loops,
             "tension_count": self.tension_count,
             "event_frequency_24h": self.event_frequency_24h,
+            "cluster_count": self.cluster_count,
+            "orphan_count": self.orphan_count,
+            "overcoupled_count": self.overcoupled_count,
+            "inference_score": self.inference_score,
             "density_delta_24h": self.density_delta_24h,
             "density_delta_7d": self.density_delta_7d,
             "density_delta_30d": self.density_delta_30d,
@@ -121,6 +131,10 @@ class AMMOI:
             active_loops=data.get("active_loops", 0),
             tension_count=data.get("tension_count", 0),
             event_frequency_24h=data.get("event_frequency_24h", 0),
+            cluster_count=data.get("cluster_count", 0),
+            orphan_count=data.get("orphan_count", 0),
+            overcoupled_count=data.get("overcoupled_count", 0),
+            inference_score=data.get("inference_score", 0.0),
             density_delta_24h=data.get("density_delta_24h", 0.0),
             density_delta_7d=data.get("density_delta_7d", 0.0),
             density_delta_30d=data.get("density_delta_30d", 0.0),
@@ -241,11 +255,15 @@ def _build_compressed_text(ammoi: AMMOI) -> str:
         sign = "+" if ammoi.density_delta_24h > 0 else ""
         delta_str = f" | d24h:{sign}{ammoi.density_delta_24h:.1%}"
 
+    score_str = f" IS:{ammoi.inference_score:.0%}" if ammoi.inference_score else ""
+
     return (
         f"AMMOI:{ammoi.system_density:.0%} "
         f"E:{ammoi.active_edges} "
         f"T:{ammoi.tension_count} "
-        f"Ev24h:{ammoi.event_frequency_24h} "
+        f"C:{ammoi.cluster_count} "
+        f"Ev24h:{ammoi.event_frequency_24h}"
+        f"{score_str} "
         f"[{top_organs}]"
         f"{delta_str}"
     )
@@ -316,12 +334,35 @@ def compute_ammoi(
     # Pulse count from history
     pulse_count = len(history)
 
+    # Run inference (best-effort)
+    inference_data: dict = {}
+    try:
+        from organvm_engine.pulse.inference_bridge import run_inference
+
+        summary = run_inference(ws)
+        inference_data = {
+            "tension_count": summary.tension_count,
+            "cluster_count": summary.cluster_count,
+            "orphan_count": len(summary.orphaned_entities),
+            "overcoupled_count": len(summary.overcoupled_entities),
+            "inference_score": summary.inference_score,
+            "active_loops": summary.cluster_count,
+        }
+    except Exception:
+        pass
+
     ammoi = AMMOI(
         timestamp=datetime.now(timezone.utc).isoformat(),
         system_density=round(system_density, 4),
         total_entities=organism.total_repos,
         active_edges=dp.declared_edges,
+        active_loops=inference_data.get("active_loops", 0),
+        tension_count=inference_data.get("tension_count", 0),
         event_frequency_24h=event_freq,
+        cluster_count=inference_data.get("cluster_count", 0),
+        orphan_count=inference_data.get("orphan_count", 0),
+        overcoupled_count=inference_data.get("overcoupled_count", 0),
+        inference_score=inference_data.get("inference_score", 0.0),
         density_delta_24h=round(d24h, 4),
         density_delta_7d=round(d7d, 4),
         density_delta_30d=round(d30d, 4),
