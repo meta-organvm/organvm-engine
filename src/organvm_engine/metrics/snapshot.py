@@ -122,8 +122,10 @@ _LANG_MAP: dict[str, str] = {
 _SKIP_DIRS = frozenset({
     "node_modules", ".git", "__pycache__", ".venv", "venv", "dist",
     "build", ".next", ".astro", "intake", ".claude", "materia-collider",
-    ".eggs", "egg-info",
+    ".eggs", "egg-info", "site-packages", "new_venv", "env",
 })
+
+_SKIP_IN_PATH = ("site-packages", "new_venv", "/venv/", "/.venv/", "/env/", "/dist/", "/build/")
 
 _TEST_PATTERNS = ("test_", "_test.", ".test.", ".spec.", "/tests/", "/__tests__/")
 
@@ -138,10 +140,18 @@ def _scan_code_profile(workspace: Path) -> dict[str, Any]:
     test_lang_counts: dict[str, int] = {}
     frameworks: dict[str, int] = {}
 
+    import re
+
+    py_test_fns = 0
+    ts_test_fns = 0
+
     for org_dir in workspace.iterdir():
         if not org_dir.is_dir() or org_dir.name.startswith(".") or org_dir.name in _SKIP_DIRS:
             continue
         for f in org_dir.rglob("*"):
+            path_str = str(f)
+            if any(s in path_str for s in _SKIP_IN_PATH):
+                continue
             if any(s in f.parts for s in _SKIP_DIRS):
                 continue
             if not f.is_file():
@@ -164,9 +174,24 @@ def _scan_code_profile(workspace: Path) -> dict[str, Any]:
             lang = _LANG_MAP[ext]
             lang_counts[lang] = lang_counts.get(lang, 0) + 1
 
-            path_str = str(f).lower()
-            if any(p in path_str for p in _TEST_PATTERNS):
-                test_lang_counts[lang] = test_lang_counts.get(lang, 0) + 1
+            # Test file + function counting
+            if name.startswith("test_") and ext == ".py":
+                test_lang_counts["Python"] = test_lang_counts.get("Python", 0) + 1
+                try:
+                    content = f.read_text(errors="ignore")
+                    py_test_fns += len(re.findall(r"^\s*def test_", content, re.MULTILINE))
+                except Exception:
+                    pass
+            elif name.endswith((".test.ts", ".spec.ts", ".test.tsx", ".spec.tsx")):
+                tl = _LANG_MAP.get(ext, "TypeScript")
+                test_lang_counts[tl] = test_lang_counts.get(tl, 0) + 1
+                try:
+                    content = f.read_text(errors="ignore")
+                    ts_test_fns += len(re.findall(r"(?:^|\s)(?:it|test)\s*\(", content, re.MULTILINE))
+                except Exception:
+                    pass
+
+    total_test_fns = py_test_fns + ts_test_fns
 
     return {
         "languages": dict(sorted(lang_counts.items(), key=lambda x: -x[1])),
@@ -175,15 +200,10 @@ def _scan_code_profile(workspace: Path) -> dict[str, Any]:
         "total_code_files": sum(lang_counts.values()),
         "total_test_files": sum(test_lang_counts.values()),
         "primary_language": max(lang_counts, key=lang_counts.get) if lang_counts else "",
-        "verified_test_counts": {
-            "organvm-engine": 2556,
-            "organvm-ontologia": 438,
-            "organvm-mcp-server": 207,
-            "alchemia-ingestvm": 136,
-            "system-dashboard": 62,
-            "schema-definitions": 22,
-            "_total_verified": 3421,
-            "_note": "Counts from direct pytest runs, not file scanning",
+        "test_functions": {
+            "python": py_test_fns,
+            "typescript": ts_test_fns,
+            "total": total_test_fns,
         },
     }
 
