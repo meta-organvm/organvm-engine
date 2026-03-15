@@ -12,6 +12,7 @@ def build_system_snapshot(
     registry: dict,
     computed_metrics: dict,
     workspace: Path | None = None,
+    metrics_full: dict | None = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     all_repos: list[dict] = []
@@ -58,7 +59,8 @@ def build_system_snapshot(
     variables: dict[str, str] = {}
     try:
         from organvm_engine.metrics.vars import build_vars
-        variables = build_vars({"computed": computed_metrics, "manual": {}}, registry)
+        full = metrics_full if metrics_full else {"computed": computed_metrics, "manual": {}}
+        variables = build_vars(full, registry)
     except Exception:
         pass
 

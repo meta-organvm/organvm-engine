@@ -91,7 +91,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # Step 2.75: Build system snapshot for portal consumption
     try:
         from organvm_engine.metrics.snapshot import build_system_snapshot, write_system_snapshot
-        snapshot = build_system_snapshot(registry, computed, workspace=workspace)
+        snapshot = build_system_snapshot(
+            registry, computed, workspace=workspace, metrics_full=metrics,
+        )
         snapshot_path = corpus_root / "system-snapshot.json"
         if not dry_run:
             write_system_snapshot(snapshot, snapshot_path)
