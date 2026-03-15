@@ -114,10 +114,35 @@ def build_system_snapshot(
 
 
 _LANG_MAP: dict[str, str] = {
+    # Primary languages
     ".py": "Python", ".ts": "TypeScript", ".tsx": "TypeScript/React",
     ".js": "JavaScript", ".jsx": "JavaScript/React", ".go": "Go",
-    ".rs": "Rust", ".sh": "Shell",
+    ".rs": "Rust", ".sh": "Shell", ".bash": "Shell",
+    # Other compiled/scripting
+    ".rb": "Ruby", ".java": "Java", ".kt": "Kotlin",
+    ".swift": "Swift", ".c": "C", ".cpp": "C++",
+    ".cs": "C#", ".php": "PHP", ".lua": "Lua",
+    ".sol": "Solidity",
+    # Data/query
+    ".sql": "SQL", ".graphql": "GraphQL", ".gql": "GraphQL",
+    ".prisma": "Prisma", ".proto": "Protocol Buffers",
+    # Web/UI
+    ".html": "HTML", ".css": "CSS", ".scss": "SCSS",
+    ".svelte": "Svelte", ".vue": "Vue", ".astro": "Astro", ".mdx": "MDX",
+    # Config/data
+    ".yml": "YAML", ".yaml": "YAML", ".toml": "TOML",
+    ".json": "JSON", ".jsonc": "JSON",
+    # Documentation
+    ".md": "Markdown",
 }
+
+# Subset that counts as "code" (not config/data/docs)
+_CODE_EXTS = frozenset({
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".sh", ".bash",
+    ".rb", ".java", ".kt", ".swift", ".c", ".cpp", ".cs", ".php", ".lua",
+    ".sol", ".sql", ".graphql", ".gql", ".prisma", ".proto",
+    ".html", ".css", ".scss", ".svelte", ".vue", ".astro", ".mdx",
+})
 
 _SKIP_DIRS = frozenset({
     "node_modules", ".git", "__pycache__", ".venv", "venv", "dist",
@@ -136,7 +161,8 @@ def _scan_code_profile(workspace: Path) -> dict[str, Any]:
     Returns a structured breakdown: languages, test_frameworks, and
     verified_test_counts for packages with known passing test suites.
     """
-    lang_counts: dict[str, int] = {}
+    all_lang_counts: dict[str, int] = {}  # every file type
+    lang_counts: dict[str, int] = {}      # code files only
     test_lang_counts: dict[str, int] = {}
     frameworks: dict[str, int] = {}
 
@@ -168,11 +194,15 @@ def _scan_code_profile(workspace: Path) -> dict[str, Any]:
             elif name.startswith("jest.config"):
                 frameworks["jest"] = frameworks.get("jest", 0) + 1
 
-            # Language counting
+            # Language counting (all recognized files)
             if ext not in _LANG_MAP:
                 continue
             lang = _LANG_MAP[ext]
-            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+            all_lang_counts[lang] = all_lang_counts.get(lang, 0) + 1
+
+            # Code files only (not config/data/docs)
+            if ext in _CODE_EXTS:
+                lang_counts[lang] = lang_counts.get(lang, 0) + 1
 
             # Test file + function counting
             if name.startswith("test_") and ext == ".py":
@@ -194,9 +224,11 @@ def _scan_code_profile(workspace: Path) -> dict[str, Any]:
     total_test_fns = py_test_fns + ts_test_fns
 
     return {
-        "languages": dict(sorted(lang_counts.items(), key=lambda x: -x[1])),
+        "all_files": dict(sorted(all_lang_counts.items(), key=lambda x: -x[1])),
+        "code_files_by_language": dict(sorted(lang_counts.items(), key=lambda x: -x[1])),
         "test_languages": dict(sorted(test_lang_counts.items(), key=lambda x: -x[1])),
         "test_frameworks": dict(sorted(frameworks.items(), key=lambda x: -x[1])),
+        "total_files": sum(all_lang_counts.values()),
         "total_code_files": sum(lang_counts.values()),
         "total_test_files": sum(test_lang_counts.values()),
         "primary_language": max(lang_counts, key=lang_counts.get) if lang_counts else "",
