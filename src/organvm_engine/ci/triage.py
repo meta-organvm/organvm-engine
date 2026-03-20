@@ -21,6 +21,7 @@ class CITriageReport:
     total_checked: int = 0
     passing: int = 0
     failing: int = 0
+    unknown: int = 0
     pass_rate: float = 0.0
     by_organ: dict[str, list[dict]] = field(default_factory=dict)
     phantom_candidates: list[str] = field(default_factory=list)
@@ -29,10 +30,13 @@ class CITriageReport:
         lines = []
         lines.append(f"CI Triage Report — {self.date}")
         lines.append(f"{'─' * 60}")
-        lines.append(
+        status_parts = [
             f"  {self.passing}/{self.total_checked} passing "
             f"({self.pass_rate:.0%}), {self.failing} failing",
-        )
+        ]
+        if self.unknown > 0:
+            status_parts.append(f", {self.unknown} unknown")
+        lines.append("".join(status_parts))
 
         if self.by_organ:
             lines.append("\n  Failures by Organ")
@@ -104,10 +108,11 @@ def triage(soak_dir: Path | str | None = None) -> CITriageReport:
     report.total_checked = ci.get("total_checked", 0)
     report.passing = ci.get("passing", 0)
     report.failing = ci.get("failing", 0)
+    report.unknown = ci.get("unknown", 0)
     report.pass_rate = report.passing / report.total_checked if report.total_checked > 0 else 0.0
 
     # Categorize failures by organ
-    failing_repos = ci.get("failing_repos", [])
+    failing_repos = ci.get("failures", ci.get("failing_repos", []))
     for entry in failing_repos:
         if isinstance(entry, str):
             # Simple string format: "organ/repo"
