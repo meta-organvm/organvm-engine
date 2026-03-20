@@ -172,3 +172,81 @@ class TestChainVerification:
         result = verify_chain(tmp_path / "events.jsonl")
         assert result.last_sequence == 2
         assert result.last_hash == records[-1].hash
+
+    def test_detect_sequence_gap(self, tmp_path):
+        """Detect when a sequence number is skipped (event deleted)."""
+        from organvm_engine.events.spine import EventSpine
+
+        spine = EventSpine(tmp_path / "events.jsonl")
+        for i in range(5):
+            spine.emit(event_type="test", entity_uid=f"e{i}", actor="t")
+
+        # Delete event at sequence 2 (third line)
+        lines = (tmp_path / "events.jsonl").read_text().splitlines()
+        del lines[2]
+        (tmp_path / "events.jsonl").write_text("\n".join(lines) + "\n")
+
+        result = verify_chain(tmp_path / "events.jsonl")
+        assert result.valid is False
+        # Should detect both sequence gap and chain link break
+        assert len(result.errors) >= 1
+
+    def test_verify_chain_string_path(self, tmp_path):
+        """verify_chain accepts string paths."""
+        from organvm_engine.events.spine import EventSpine
+
+        spine = EventSpine(tmp_path / "events.jsonl")
+        spine.emit(event_type="test", entity_uid="e", actor="t")
+        result = verify_chain(str(tmp_path / "events.jsonl"))
+        assert result.valid is True
+
+    def test_verify_chain_with_blank_lines(self, tmp_path):
+        """Chain verification handles blank lines in JSONL."""
+        from organvm_engine.events.spine import EventSpine
+
+        spine = EventSpine(tmp_path / "events.jsonl")
+        spine.emit(event_type="test", entity_uid="e", actor="t")
+
+        # Insert blank lines
+        content = (tmp_path / "events.jsonl").read_text()
+        content = "\n\n" + content + "\n\n"
+        (tmp_path / "events.jsonl").write_text(content)
+
+        result = verify_chain(tmp_path / "events.jsonl")
+        assert result.valid is True
+        assert result.event_count == 1
+
+
+class TestChainReload:
+    """Test that chain properties survive across EventSpine instances."""
+
+    def test_new_spine_continues_chain(self, tmp_path):
+        from organvm_engine.events.spine import EventSpine
+
+        path = tmp_path / "events.jsonl"
+        spine1 = EventSpine(path)
+        r1 = spine1.emit(event_type="first", entity_uid="e", actor="t")
+
+        # New instance reads from same file
+        spine2 = EventSpine(path)
+        r2 = spine2.emit(event_type="second", entity_uid="e", actor="t")
+
+        assert r2.prev_hash == r1.hash
+        assert r2.sequence == 1
+
+        result = verify_chain(path)
+        assert result.valid is True
+
+    def test_many_reloads(self, tmp_path):
+        """10 separate spine instances, each emitting one event."""
+        from organvm_engine.events.spine import EventSpine
+
+        path = tmp_path / "events.jsonl"
+        for i in range(10):
+            spine = EventSpine(path)
+            spine.emit(event_type="test", entity_uid=f"e{i}", actor="t")
+
+        result = verify_chain(path)
+        assert result.valid is True
+        assert result.event_count == 10
+        assert result.last_sequence == 9
