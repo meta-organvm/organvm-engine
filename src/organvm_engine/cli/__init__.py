@@ -118,6 +118,14 @@ from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_sync_dna,
     cmd_ecosystem_validate,
 )
+from organvm_engine.cli.network import (
+    cmd_network_log,
+    cmd_network_map,
+    cmd_network_scan,
+    cmd_network_status,
+    cmd_network_suggest,
+    cmd_network_synthesize,
+)
 from organvm_engine.cli.git_cmds import (
     cmd_git_add_submodule,
     cmd_git_diff_pinned,
