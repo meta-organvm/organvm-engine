@@ -1556,6 +1556,48 @@ def build_parser() -> argparse.ArgumentParser:
     eco_lifecycle.add_argument("repo", help="Repository name")
     eco_lifecycle.add_argument("--json", action="store_true", help="Output JSON")
 
+    # network testament
+    net = sub.add_parser(
+        "network",
+        help="Network testament — external mirror mapping and engagement tracking",
+    )
+    net.add_argument("--workspace", default=None, help="Workspace root directory")
+    net.add_argument("--organ", default=None, help="Filter to specific organ")
+    net_sub = net.add_subparsers(dest="subcommand")
+
+    net_scan = net_sub.add_parser("scan", help="Scan repos for potential mirrors")
+    net_scan.add_argument("--repo", default=None, help="Filter to specific repo")
+    net_scan.add_argument("--dry-run", action="store_true", default=True)
+    net_scan.add_argument("--write", action="store_true", help="Update network-map.yaml files")
+
+    net_map = net_sub.add_parser("map", help="Show network map for repo or organ")
+    net_map.add_argument("--repo", default=None, help="Filter to specific repo")
+    net_map.add_argument("--json", action="store_true", help="Output JSON")
+
+    net_log = net_sub.add_parser("log", help="Record an engagement action")
+    net_log.add_argument("repo", help="ORGANVM repo name")
+    net_log.add_argument("project", help="External project identifier")
+    net_log.add_argument("--lens", required=True, choices=["technical", "parallel", "kinship"])
+    net_log.add_argument(
+        "--action", required=True,
+        choices=["presence", "contribution", "dialogue", "invitation"],
+    )
+    net_log.add_argument("--detail", required=True, help="Description of the action")
+    net_log.add_argument("--url", default=None, help="Link to the action")
+    net_log.add_argument("--outcome", default=None, help="Response or result")
+    net_log.add_argument("--tags", default=None, help="Comma-separated tags")
+
+    net_status = net_sub.add_parser("status", help="Network health summary")
+    net_status.add_argument("--json", action="store_true", help="Output JSON")
+
+    net_synth = net_sub.add_parser("synthesize", help="Generate narrative testament")
+    net_synth.add_argument(
+        "--period", default="monthly", choices=["weekly", "monthly", "all-time"],
+    )
+    net_synth.add_argument("--write", action="store_true", help="Write to testament directory")
+
+    net_sub.add_parser("suggest", help="Suggest next engagement actions")
+
     # audit
     aud = sub.add_parser(
         "audit",
@@ -2361,6 +2403,20 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["ledger", "--help"])
+        return 0
+    if args.command == "network":
+        network_dispatch = {
+            "scan": cmd_network_scan,
+            "map": cmd_network_map,
+            "log": cmd_network_log,
+            "status": cmd_network_status,
+            "synthesize": cmd_network_synthesize,
+            "suggest": cmd_network_suggest,
+        }
+        handler = network_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["network", "--help"])
         return 0
     if args.command == "ecosystem":
         ecosystem_dispatch = {
