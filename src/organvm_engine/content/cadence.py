@@ -28,17 +28,25 @@ def _iso_week(d: date) -> tuple[int, int]:
     return (cal[0], cal[1])
 
 
-def check_cadence(posts: list[ContentPost]) -> CadenceReport:
+def check_cadence(
+    posts: list[ContentPost],
+    reference_date: date | None = None,
+) -> CadenceReport:
     """Evaluate weekly content production cadence.
 
     Uses ISO week boundaries (Monday-Sunday).
     Streak counts consecutive weeks (going backwards from current)
     with >= 1 post of any status.
+
+    Args:
+        posts: List of content posts to evaluate.
+        reference_date: Date to use as "today" (default: date.today()).
+            Useful for deterministic testing.
     """
     if not posts:
         return CadenceReport()
 
-    today = date.today()
+    today = reference_date or date.today()
     current_week = _iso_week(today)
 
     # Parse post dates

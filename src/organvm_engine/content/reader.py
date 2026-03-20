@@ -34,6 +34,19 @@ class ContentPost:
     directory: Path
 
 
+def _infer_distribution(data: dict) -> dict:
+    """Build distribution dict from flat meta.yaml keys."""
+    dist: dict[str, dict] = {}
+    if "linkedin_posted" in data:
+        dist["linkedin"] = {"posted": bool(data["linkedin_posted"])}
+    if "portfolio_published" in data:
+        dist["portfolio"] = {
+            "posted": bool(data["portfolio_published"]),
+            "url": data.get("portfolio_url", ""),
+        }
+    return dist
+
+
 def discover_posts(content_dir: Path) -> list[ContentPost]:
     """Find all post directories matching YYYY-MM-DD-{slug}/ pattern.
 
@@ -64,14 +77,14 @@ def discover_posts(content_dir: Path) -> list[ContentPost]:
                 slug=str(data.get("slug", child.name.split("-", 3)[-1])),
                 title=str(data.get("title", "")),
                 date=str(data.get("date", "")),
-                hook=str(data.get("hook", "")),
+                hook=str(data.get("hook", "") or data.get("hook_line", "")),
                 status=str(data.get("status", "draft")),
                 source_session=str(data.get("source_session", "")),
                 context=str(data.get("context", "")),
-                tags=data.get("tags") or [],
-                distribution=data.get("distribution") or {},
+                tags=list(data.get("tags") or []),
+                distribution=data.get("distribution") or _infer_distribution(data),
                 engagement=data.get("engagement") or {},
-                redacted_items=data.get("redacted_items") or [],
+                redacted_items=list(data.get("redacted_items") or []),
                 directory=child,
             ))
         except (yaml.YAMLError, OSError) as exc:

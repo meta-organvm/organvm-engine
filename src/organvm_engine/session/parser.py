@@ -1452,7 +1452,12 @@ def extract_human_texts(jsonl_path: Path) -> list[str]:
     """
     texts: list[str] = []
 
-    with jsonl_path.open(encoding="utf-8") as f:
+    try:
+        fh = jsonl_path.open(encoding="utf-8")
+    except OSError:
+        return texts
+
+    with fh as f:
         for raw_line in f:
             raw_line = raw_line.strip()
             if not raw_line:
