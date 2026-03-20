@@ -23,6 +23,7 @@ _DEFAULT_CATALOG_DIR = Path.home() / ".organvm" / "testament"
 
 @dataclass
 class TestamentArtifact:
+    __test__ = False  # Prevent pytest collection (name starts with "Test")
     """A single rendered artifact in the testament catalog."""
 
     modality: ArtifactModality
