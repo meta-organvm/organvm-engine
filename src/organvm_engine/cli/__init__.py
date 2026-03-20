@@ -1455,6 +1455,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", default=None, help="Output directory for artifacts",
     )
     testament_render.add_argument("--registry", default=None, help="Registry path override")
+    testament_render.add_argument(
+        "--all-repos", action="store_true",
+        help="Render SVG identity cards for all repos",
+    )
 
     testament_catalog = testament_sub.add_parser("catalog", help="List produced artifacts")
     testament_catalog.add_argument("--organ", default=None, help="Filter to organ")

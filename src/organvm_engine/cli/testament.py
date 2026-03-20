@@ -59,6 +59,7 @@ def cmd_testament_render(args: argparse.Namespace) -> int:
     from organvm_engine.testament.pipeline import render_all, render_organ
 
     organ = getattr(args, "organ", None)
+    all_repos = getattr(args, "all_repos", False)
     dry_run = getattr(args, "dry_run", True)
     write = getattr(args, "write", False)
     if write:
@@ -70,6 +71,9 @@ def cmd_testament_render(args: argparse.Namespace) -> int:
         registry_path = Path(registry_path)
 
     load_taste()  # validates taste.yaml is parseable before rendering
+
+    if all_repos:
+        return _render_all_repos(output_dir, dry_run, registry_path)
 
     if organ:
         results = render_organ(
@@ -242,6 +246,71 @@ def cmd_testament_gallery(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _render_all_repos(
+    output_dir: Path, dry_run: bool, registry_path: Path | None,
+) -> int:
+    """Render SVG identity cards for all repos in the registry."""
+    from organvm_engine.organ_config import ORGANS
+    from organvm_engine.registry.loader import load_registry
+    from organvm_engine.testament.aesthetic import load_taste
+    from organvm_engine.testament.renderers.svg import Palette as SvgPalette
+    from organvm_engine.testament.renderers.svg import render_organ_card
+
+    taste = load_taste()
+    palette = SvgPalette(
+        primary=taste.palette.primary, secondary=taste.palette.secondary,
+        accent=taste.palette.accent, background=taste.palette.background,
+        text=taste.palette.text, muted=taste.palette.muted,
+    )
+
+    registry = load_registry(registry_path)
+    organs_data = registry.get("organs", {})
+    reg_to_cli: dict[str, str] = {}
+    for cli_key, meta in ORGANS.items():
+        rk = meta.get("registry_key", "")
+        if rk:
+            reg_to_cli[rk] = cli_key
+
+    repos_dir = output_dir / "repos"
+    total = 0
+
+    for reg_key, organ_data in organs_data.items():
+        cli_key = reg_to_cli.get(reg_key, reg_key)
+        for _repo in organ_data.get("repositories", []):
+            total += 1
+
+    if dry_run:
+        print(f"\n  [dry-run] Would render {total} per-repo identity cards")
+        print(f"  Output: {repos_dir}")
+        print("\n  Run with --write to produce.\n")
+        return 0
+
+    repos_dir.mkdir(parents=True, exist_ok=True)
+    rendered = 0
+    for reg_key, organ_data in organs_data.items():
+        cli_key = reg_to_cli.get(reg_key, reg_key)
+        for repo in organ_data.get("repositories", []):
+            name = repo.get("name", "unknown")
+            status = repo.get("promotion_status", repo.get("status", "unknown"))
+            tier = repo.get("tier", "standard")
+
+            svg = render_organ_card(
+                cli_key, repo_count=1,
+                flagship_count=1 if tier == "flagship" else 0,
+                status_counts={status: 1}, palette=palette,
+                width=350, height=200,
+            )
+            svg = svg.replace(f"ORGAN {cli_key}", name[:25])
+
+            safe_name = name.replace("/", "-").replace(" ", "-").lower()
+            (repos_dir / f"{safe_name}.svg").write_text(svg)
+            rendered += 1
+
+    print(f"\n  Rendered {rendered} per-repo identity cards")
+    print(f"  Output: {repos_dir}\n")
+    return 0
+
 
 def _resolve_output_dir(args: argparse.Namespace) -> Path:
     """Resolve the output directory for testament artifacts."""
