@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from organvm_engine.ledger.chain import (
     GENESIS_PREV_HASH,
@@ -250,3 +251,148 @@ class TestChainReload:
         assert result.valid is True
         assert result.event_count == 10
         assert result.last_sequence == 9
+
+
+class TestRepairChain:
+    """Tests for repair_chain() — fixes corrupted chains."""
+
+    def test_repair_valid_chain_is_noop(self, tmp_path):
+        from organvm_engine.events.spine import EventSpine
+        from organvm_engine.ledger.chain import repair_chain
+
+        path = tmp_path / "events.jsonl"
+        spine = EventSpine(path)
+        for i in range(5):
+            spine.emit(event_type="test", entity_uid=f"e{i}", actor="t")
+
+        result = repair_chain(path)
+        assert result["events_read"] == 5
+        assert result["events_repaired"] == 0  # Nothing to fix
+
+        post = verify_chain(path)
+        assert post.valid is True
+
+    def test_repair_fixes_broken_hashes(self, tmp_path):
+        from organvm_engine.events.spine import EventSpine
+        from organvm_engine.ledger.chain import repair_chain
+
+        path = tmp_path / "events.jsonl"
+        spine = EventSpine(path)
+        for i in range(5):
+            spine.emit(event_type="test", entity_uid=f"e{i}", actor="t")
+
+        # Corrupt event 2
+        lines = path.read_text().splitlines()
+        event = json.loads(lines[2])
+        event["payload"]["tampered"] = True
+        lines[2] = json.dumps(event, separators=(",", ":"))
+        path.write_text("\n".join(lines) + "\n")
+
+        # Verify it's broken
+        pre = verify_chain(path)
+        assert pre.valid is False
+
+        # Repair
+        result = repair_chain(path)
+        assert result["events_read"] == 5
+        assert result["events_repaired"] > 0
+
+        # Verify it's fixed
+        post = verify_chain(path)
+        assert post.valid is True
+
+    def test_repair_fixes_sequence_gaps(self, tmp_path):
+        from organvm_engine.events.spine import EventSpine
+        from organvm_engine.ledger.chain import repair_chain
+
+        path = tmp_path / "events.jsonl"
+        spine = EventSpine(path)
+        for i in range(5):
+            spine.emit(event_type="test", entity_uid=f"e{i}", actor="t")
+
+        # Mess up sequence numbers
+        lines = path.read_text().splitlines()
+        event = json.loads(lines[3])
+        event["sequence"] = 99
+        lines[3] = json.dumps(event, separators=(",", ":"))
+        path.write_text("\n".join(lines) + "\n")
+
+        result = repair_chain(path)
+        assert result["events_repaired"] > 0
+
+        post = verify_chain(path)
+        assert post.valid is True
+        assert post.last_sequence == 4  # Sequences are 0-4
+
+    def test_repair_creates_backup(self, tmp_path):
+        from organvm_engine.events.spine import EventSpine
+        from organvm_engine.ledger.chain import repair_chain
+
+        path = tmp_path / "events.jsonl"
+        spine = EventSpine(path)
+        spine.emit(event_type="test", entity_uid="e", actor="t")
+
+        # Corrupt
+        lines = path.read_text().splitlines()
+        event = json.loads(lines[0])
+        event["hash"] = "sha256:bogus"
+        path.write_text(json.dumps(event, separators=(",", ":")) + "\n")
+
+        result = repair_chain(path)
+        backup = Path(result["backup"])
+        assert backup.exists()
+        assert backup.stat().st_size > 0
+
+    def test_repair_nonexistent_file(self, tmp_path):
+        from organvm_engine.ledger.chain import repair_chain
+
+        result = repair_chain(tmp_path / "nope.jsonl")
+        assert result["events_read"] == 0
+        assert "File not found" in result["errors"]
+
+    def test_repair_empty_file(self, tmp_path):
+        from organvm_engine.ledger.chain import repair_chain
+
+        path = tmp_path / "events.jsonl"
+        path.touch()
+        result = repair_chain(path)
+        assert result["events_read"] == 0
+
+
+class TestConcurrentLocking:
+    """Test that file locking prevents chain corruption under concurrency."""
+
+    def test_threaded_writes_produce_valid_chain(self, tmp_path):
+        """Two threads writing 50 events each should produce a valid 100-event chain."""
+        import threading
+
+        from organvm_engine.events.spine import EventSpine
+
+        path = tmp_path / "chain.jsonl"
+        errors = []
+
+        def writer(thread_id: int):
+            try:
+                for i in range(50):
+                    spine = EventSpine(path)
+                    spine.emit(
+                        event_type="test",
+                        entity_uid=f"t{thread_id}_e{i}",
+                        actor=f"thread-{thread_id}",
+                    )
+            except Exception as e:
+                errors.append(str(e))
+
+        t1 = threading.Thread(target=writer, args=(1,))
+        t2 = threading.Thread(target=writer, args=(2,))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert errors == [], f"Thread errors: {errors}"
+
+        result = verify_chain(path)
+        assert result.event_count == 100
+        assert result.valid is True
+        assert result.last_sequence == 99

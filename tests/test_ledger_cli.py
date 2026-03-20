@@ -8,6 +8,7 @@ import json
 from organvm_engine.cli.ledger import (
     cmd_ledger_checkpoint,
     cmd_ledger_genesis,
+    cmd_ledger_repair,
     cmd_ledger_log,
     cmd_ledger_status,
     cmd_ledger_verify,
@@ -192,3 +193,58 @@ class TestLedgerCheckpoint:
             _args(chain_path=str(chain_path), write=True),
         )
         assert result == 0
+
+
+class TestLedgerRepair:
+
+    def test_repair_dry_run(self, tmp_path, capsys):
+        chain_path = tmp_path / "chain.jsonl"
+        # Write a corrupted chain
+        import json
+        event = {"event_id": "1", "sequence": 0, "event_type": "test",
+                 "hash": "sha256:bogus", "prev_hash": "sha256:" + "0" * 64}
+        chain_path.write_text(json.dumps(event) + "\n")
+
+        result = cmd_ledger_repair(_args(chain_path=str(chain_path)))
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "error" in out.lower()
+        assert "--write" in out
+
+    def test_repair_executes(self, tmp_path, capsys):
+        from organvm_engine.events.spine import EventSpine
+
+        chain_path = tmp_path / "chain.jsonl"
+        spine = EventSpine(chain_path)
+        for i in range(5):
+            spine.emit(event_type="test", entity_uid=f"e{i}", actor="t")
+
+        # Corrupt
+        import json
+        lines = chain_path.read_text().splitlines()
+        ev = json.loads(lines[2])
+        ev["payload"]["tampered"] = True
+        lines[2] = json.dumps(ev, separators=(",", ":"))
+        chain_path.write_text("\n".join(lines) + "\n")
+
+        result = cmd_ledger_repair(_args(chain_path=str(chain_path), write=True))
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "VALID" in out
+
+    def test_repair_valid_chain_skips(self, tmp_path, capsys):
+        chain_path = tmp_path / "chain.jsonl"
+        from organvm_engine.events.spine import EventSpine
+        spine = EventSpine(chain_path)
+        spine.emit(event_type="test", entity_uid="e", actor="t")
+
+        result = cmd_ledger_repair(_args(chain_path=str(chain_path), write=True))
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "already VALID" in out
+
+    def test_repair_no_chain(self, tmp_path):
+        result = cmd_ledger_repair(
+            _args(chain_path=str(tmp_path / "nope.jsonl"), write=True),
+        )
+        assert result == 1
