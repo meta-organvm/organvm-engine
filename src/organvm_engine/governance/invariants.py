@@ -129,14 +129,17 @@ def validate_governance_reachability(
 def validate_identity_persistence(
     entity_store_path: Path | str,
 ) -> tuple[bool, list[str]]:
-    """Check the ontologia entity store is monotonically growing.
+    """Check the ontologia entity store preserves identity.
 
-    Scans the JSONL entity store and verifies no UID that appeared in an
-    earlier entry is absent from later entries (deletion detection). The
-    store must be append-only — UIDs may only accumulate, never disappear.
+    Supports both formats:
+    - JSONL (one JSON object per line) — the event log format
+    - JSON dict (uid→entity mapping) — the entities.json format
+
+    Verifies no entity has lifecycle_status indicating deletion.
+    The store must be append-only — UIDs may only accumulate, never disappear.
 
     Args:
-        entity_store_path: Path to the entities JSONL file.
+        entity_store_path: Path to the entities file (JSON or JSONL).
 
     Returns:
         (valid, errors) — valid is True when no deletions detected.
@@ -148,45 +151,45 @@ def validate_identity_persistence(
         # No store yet is valid (system not bootstrapped)
         return True, []
 
-    # Each line is a JSON snapshot of the entity set at that moment.
-    # We track all UIDs ever seen and check they persist in subsequent lines.
-    all_seen_uids: set[str] = set()
-    line_num = 0
+    content = path.read_text().strip()
+    if not content:
+        return True, []
 
-    for raw_line in path.read_text().splitlines():
-        raw_line = raw_line.strip()
-        if not raw_line:
-            continue
-        line_num += 1
+    # Detect format: JSON dict vs JSONL
+    entries: list[dict] = []
+    try:
+        parsed = json.loads(content)
+        if isinstance(parsed, dict):
+            # JSON dict format: {uid: entity_data, ...}
+            for uid, data in parsed.items():
+                if isinstance(data, dict):
+                    entry = {**data, "uid": data.get("uid", uid)}
+                    entries.append(entry)
+                else:
+                    entries.append({"uid": uid})
+        elif isinstance(parsed, list):
+            # JSON array format
+            entries = [e for e in parsed if isinstance(e, dict)]
+        else:
+            errors.append("Entity store is not a dict, list, or JSONL")
+            return False, errors
+    except json.JSONDecodeError:
+        # Try JSONL format (one JSON per line)
+        for line_num, raw_line in enumerate(content.splitlines(), 1):
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            try:
+                entry = json.loads(raw_line)
+                if isinstance(entry, dict):
+                    entries.append(entry)
+            except json.JSONDecodeError:
+                errors.append(f"Line {line_num}: malformed JSON")
 
-        try:
-            entry = json.loads(raw_line)
-        except json.JSONDecodeError:
-            errors.append(f"Line {line_num}: malformed JSON")
-            continue
-
-        # Extract UID from the entry
-        uid = entry.get("uid", "")
-        if not uid:
-            continue
-
-        all_seen_uids.add(uid)
-
-    # For an append-only JSONL, each line adds an entity — we check that
-    # the file itself has not been truncated (UIDs only accumulate).
-    # Re-scan checking for any UID referenced as "archived" or "deleted"
-    # in a lifecycle_status field while we already saw it as active.
+    # Check for deletion markers
     deleted_uids: set[str] = set()
-    for raw_line in path.read_text().splitlines():
-        raw_line = raw_line.strip()
-        if not raw_line:
-            continue
-        try:
-            entry = json.loads(raw_line)
-        except json.JSONDecodeError:
-            continue
-
-        uid = entry.get("uid", "")
+    for entry in entries:
+        uid = entry.get("uid", entry.get("entity_id", ""))
         lifecycle = entry.get("lifecycle_status", "")
         if uid and lifecycle in ("deleted", "DELETED", "removed", "REMOVED"):
             deleted_uids.add(uid)
