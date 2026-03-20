@@ -81,6 +81,11 @@ from organvm_engine.cli.cmd_pulse import (
     cmd_pulse_temporal,
     cmd_pulse_tensions,
 )
+from organvm_engine.cli.content import (
+    cmd_content_list,
+    cmd_content_new,
+    cmd_content_status,
+)
 from organvm_engine.cli.context import cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
 from organvm_engine.cli.dispatch import cmd_dispatch_validate
@@ -1333,6 +1338,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sop_init.add_argument("--name", default=None, help="SOP name (default: new-procedure)")
 
+    # content
+    content = sub.add_parser("content", help="Content pipeline management")
+    content_sub = content.add_subparsers(dest="subcommand")
+
+    content_list = content_sub.add_parser("list", help="List all content posts")
+    content_list.add_argument("--status", help="Filter by status (draft/published/archived)")
+    content_list.add_argument("--tag", help="Filter by tag")
+    content_list.add_argument("--json", action="store_true", help="JSON output")
+
+    content_new = content_sub.add_parser("new", help="Scaffold a new post")
+    content_new.add_argument("slug", help="Post slug (e.g. trash-and-church)")
+    content_new.add_argument("--title", help="Post title")
+    content_new.add_argument("--hook", help="Hook line")
+    content_new.add_argument("--session", help="Source session ID")
+    content_new.add_argument("--dry-run", action="store_true", help="Preview without creating")
+
+    content_status = content_sub.add_parser("status", help="Weekly cadence health check")
+    content_status.add_argument("--json", action="store_true", help="JSON output")
+
     # ecosystem
     eco = sub.add_parser(
         "ecosystem",
@@ -2166,6 +2190,17 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["study", "--help"])
+        return 0
+    if args.command == "content":
+        content_dispatch = {
+            "list": cmd_content_list,
+            "new": cmd_content_new,
+            "status": cmd_content_status,
+        }
+        handler = content_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["content", "--help"])
         return 0
     if args.command == "ecosystem":
         ecosystem_dispatch = {
