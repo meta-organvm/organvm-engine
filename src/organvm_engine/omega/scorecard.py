@@ -212,14 +212,6 @@ def evaluate(
     """
     soak = analyze_soak_streak(soak_dir)
 
-    # Check registry for revenue_status
-    has_revenue_live = False
-    if registry:
-        for _, repo in all_repos(registry):
-            if repo.get("revenue_status") == "live":
-                has_revenue_live = True
-                break
-
     # Check if engagement baseline is established (30+ days of data)
     engagement_baseline = soak.total_snapshots >= 30
     soak_value = f"{soak.streak_days}/{soak.target_days} days, {soak.critical_incidents} incidents"
@@ -306,21 +298,23 @@ def evaluate(
         ),
         OmegaCriterion(
             id=9,
-            name="revenue_status: live for ≥1 entry",
+            name="≥3 products at stranger-ready polish",
             horizon="H3",
-            measurement="registry-v2.json",
-            auto=True,
-            status="MET" if has_revenue_live else "NOT_MET",
-            value="live" if has_revenue_live else "$0 MRR",
+            measurement="Stranger test per product (UI, docs, onboarding, zero rough edges)",
+            auto=False,
+            status="NOT_MET",
+            value="Products live but polish not validated",
+            evidence="Replaces old #9 (premature revenue). Craft before commerce.",
         ),
         OmegaCriterion(
             id=10,
-            name="MRR ≥ system operating costs",
+            name="≥100 unique visitors/month (organic discovery)",
             horizon="H3",
-            measurement="Financial record",
+            measurement="Analytics across portfolio + portal + products",
             auto=False,
             status="NOT_MET",
-            value="$0 MRR",
+            value="No analytics tracking configured",
+            evidence="Replaces old #10 (premature MRR). Traffic before monetization.",
         ),
         OmegaCriterion(
             id=11,
@@ -388,6 +382,17 @@ def evaluate(
             if soak.target_met
             else ("IN_PROGRESS" if soak.total_snapshots > 0 else "NOT_MET"),
             value=f"{soak.streak_days}/{soak.target_days} days",
+        ),
+        OmegaCriterion(
+            id=18,
+            name="First organic revenue (inquiry → payment)",
+            horizon="H5",
+            measurement="Payment record from someone who found the work organically",
+            auto=False,
+            status="NOT_MET",
+            value="Gated behind #9 (product quality) and #10 (organic traffic)",
+            evidence="Constitutional amendment: craft → traffic → inquiry → revenue. "
+            "Revenue is an outcome, not a feature to bolt on.",
         ),
     ]
 
