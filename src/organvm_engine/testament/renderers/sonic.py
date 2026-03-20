@@ -94,6 +94,7 @@ def render_sonic_params(
     organ_densities: dict[str, float] | None = None,
     organ_repo_counts: dict[str, int] | None = None,
     status_distribution: dict[str, int] | None = None,
+    organ_status_map: dict[str, dict[str, int]] | None = None,
     met_ratio: float | None = None,
     dep_depth: int | None = None,
     total_repos: int | None = None,
@@ -127,8 +128,9 @@ def render_sonic_params(
         # Amplitude: proportional to repo count
         amp = min(1.0, count / total * 3) * 0.7
 
-        # Waveform: dominant status in this organ
-        waveform = _dominant_waveform(statuses)
+        # Waveform: dominant status in this organ (per-organ if available)
+        organ_statuses = (organ_status_map or {}).get(key, statuses)
+        waveform = _dominant_waveform(organ_statuses)
 
         # Detune: dependency depth adds slight detuning
         detune = depth * 2.5

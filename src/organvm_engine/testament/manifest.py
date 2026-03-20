@@ -148,11 +148,13 @@ MODULE_SOURCES: dict[str, list[ArtifactType]] = {
             "AMMOI density portrait",
             "metrics",
         ),
+    ],
+    "metrics_timeline": [
         ArtifactType(
             ArtifactModality.STATISTICAL,
-            ArtifactFormat.HTML,
+            ArtifactFormat.SVG,
             "Temporal metrics timeline",
-            "metrics",
+            "metrics_timeline",
         ),
     ],
     "omega": [
@@ -209,6 +211,14 @@ MODULE_SOURCES: dict[str, list[ArtifactType]] = {
             ArtifactFormat.MARKDOWN,
             "Content pipeline post",
             "content",
+        ),
+    ],
+    "sonic": [
+        ArtifactType(
+            ArtifactModality.SONIC,
+            ArtifactFormat.TXT,
+            "System sonic self-portrait",
+            "sonic",
         ),
     ],
     "trivium": [
