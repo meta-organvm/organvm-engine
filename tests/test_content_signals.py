@@ -2,7 +2,45 @@
 
 from __future__ import annotations
 
-from organvm_engine.content.signals import ContentSignal, detect_content_signals
+import json
+from pathlib import Path
+
+from organvm_engine.content.signals import detect_content_signals
+from organvm_engine.session.parser import extract_human_texts
+
+
+def _make_session_jsonl(tmp_path: Path, human_texts: list[str]) -> Path:
+    """Create a minimal Claude Code session JSONL."""
+    jsonl = tmp_path / "session.jsonl"
+    lines = []
+    for i, text in enumerate(human_texts):
+        msg = {
+            "type": "user",
+            "timestamp": f"2026-03-19T10:{i:02d}:00Z",
+            "message": {
+                "content": [{"type": "text", "text": text}],
+            },
+        }
+        lines.append(json.dumps(msg))
+        lines.append(json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "OK"}]},
+        }))
+    jsonl.write_text("\n".join(lines))
+    return jsonl
+
+
+def test_extract_human_texts_basic(tmp_path: Path):
+    jsonl = _make_session_jsonl(tmp_path, ["hello world", "another message here"])
+    texts = extract_human_texts(jsonl)
+    assert texts == ["hello world", "another message here"]
+
+
+def test_extract_human_texts_filters_short(tmp_path: Path):
+    jsonl = _make_session_jsonl(tmp_path, ["hi", "a real message here"])
+    texts = extract_human_texts(jsonl)
+    assert len(texts) == 1
+    assert texts[0] == "a real message here"
 
 
 def test_detect_signals_empty_messages():

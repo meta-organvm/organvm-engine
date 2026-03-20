@@ -485,6 +485,25 @@ def cmd_session_review(args: argparse.Namespace) -> int:
         print("No plans found for this project.")
     print()
 
+    # Content signals
+    try:
+        from organvm_engine.content.signals import detect_content_signals
+        from organvm_engine.session.parser import extract_human_texts
+
+        human_texts = extract_human_texts(jsonl_path)
+        signals = detect_content_signals(human_texts)
+        if signals:
+            print(f"Content Signals ({len(signals)} potential moments):")
+            for s in signals:
+                print(f"  P{s.prompt_index}: {s.signal_type} — {s.description}")
+                if s.excerpt:
+                    trunc = s.excerpt[:80]
+                    ellipsis = "..." if len(s.excerpt) > 80 else ""
+                    print(f"    \"{trunc}{ellipsis}\"")
+            print()
+    except ImportError:
+        pass  # content module not installed
+
     print(f"Export: organvm session export {short_id} --slug <your-slug>")
     print(f"Full transcript: organvm session transcript {short_id}")
     return 0

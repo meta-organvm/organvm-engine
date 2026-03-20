@@ -1440,3 +1440,51 @@ def find_session(session_id: str) -> Path | None:
         return candidates[0]
 
     return None  # Not found or ambiguous
+
+
+def extract_human_texts(jsonl_path: Path) -> list[str]:
+    """Extract clean human prompt texts from a Claude Code session JSONL.
+
+    Uses _extract_human_text() and applies the same filtering as render_prompts()
+    (skips tool_result-only messages and messages shorter than 5 chars).
+
+    Returns list of human message strings in chronological order.
+    """
+    texts: list[str] = []
+
+    with jsonl_path.open(encoding="utf-8") as f:
+        for raw_line in f:
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            try:
+                msg = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+
+            if msg.get("type") != "user":
+                continue
+
+            text = _extract_human_text(msg)
+            if not text or len(text.strip()) < 5:
+                continue
+
+            # Skip tool_result-only messages
+            msg_content = msg.get("message", {}).get("content", "")
+            if isinstance(msg_content, list):
+                has_text = any(
+                    isinstance(p, dict)
+                    and p.get("type") == "text"
+                    and len(p.get("text", "").strip()) > 5
+                    for p in msg_content
+                )
+                has_tool_result = any(
+                    isinstance(p, dict) and p.get("type") == "tool_result"
+                    for p in msg_content
+                )
+                if has_tool_result and not has_text:
+                    continue
+
+            texts.append(text)
+
+    return texts
