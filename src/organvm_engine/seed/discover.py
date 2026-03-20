@@ -20,15 +20,37 @@ def discover_seeds(
 
     Structure: ~/Workspace/<org>/<repo>/seed.yaml
 
+    When a workspace-manifest.yaml exists at the workspace root and no
+    explicit ``orgs`` list is provided, scanning is limited to the organs
+    declared in the manifest. This enables partial checkouts for
+    collaborators who only need a subset of the full system.
+
     Args:
         workspace: Root workspace directory. Defaults to ~/Workspace.
-        orgs: List of org directory names to scan. Defaults to all 8 organs.
+        orgs: List of org directory names to scan. Defaults to all 8 organs,
+            or the manifest-declared subset if a workspace-manifest.yaml exists.
 
     Returns:
         Sorted list of paths to seed.yaml files found.
     """
     ws = Path(workspace) if workspace else workspace_root()
-    scan_orgs = orgs or ORGAN_ORGS
+
+    # Determine which org directories to scan
+    if orgs is not None:
+        # Explicit orgs parameter always takes precedence
+        scan_orgs = orgs
+    else:
+        # Check for workspace manifest to limit organ scanning
+        from organvm_engine.organ_config import organ_dir_map
+        from organvm_engine.seed.manifest import load_workspace_manifest, organs_in_manifest
+
+        manifest = load_workspace_manifest(ws / "workspace-manifest.yaml")
+        manifest_organs = organs_in_manifest(manifest)
+        if manifest_organs:
+            dir_map = organ_dir_map()
+            scan_orgs = [dir_map[k] for k in manifest_organs if k in dir_map]
+        else:
+            scan_orgs = ORGAN_ORGS
 
     seeds: list[Path] = []
     for org_name in scan_orgs:

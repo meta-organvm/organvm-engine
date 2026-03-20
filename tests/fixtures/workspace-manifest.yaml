@@ -1,0 +1,8 @@
+schema_version: "1.0"
+workspace_name: "chris-studio"
+operator: "chris"
+organs_present:
+  - II
+  - META
+partial: true
+notes: "ORGAN-II contributor workspace"

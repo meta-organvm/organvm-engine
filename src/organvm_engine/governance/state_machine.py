@@ -183,6 +183,7 @@ def execute_transition(
     rules_path: Path | str | None = None,
     actor: str = "cli",
     spine_path: Path | str | None = None,
+    seed: dict | None = None,
 ) -> tuple[bool, str]:
     """Validate and execute a state transition, emitting events on success.
 
@@ -196,6 +197,7 @@ def execute_transition(
         rules_path: Optional path to governance-rules.json.
         actor: Who/what is requesting the transition.
         spine_path: Optional path for the EventSpine JSONL file.
+        seed: Optional parsed seed.yaml for authorization checking.
 
     Returns:
         (valid, message) tuple — same semantics as check_transition.
@@ -203,6 +205,23 @@ def execute_transition(
     ok, msg = check_transition(current_state, target_state, rules_path)
     if not ok:
         return ok, msg
+
+    # Authorization check (advisory mode — logs but does not block)
+    if seed is not None:
+        try:
+            from organvm_engine.governance.authorization import (
+                authorize_transition as _authorize,
+            )
+
+            auth = _authorize(actor, target_state, seed, enforce=False)
+            if not auth.authorized:
+                logger.warning(
+                    "Authorization advisory for %s: %s (transition proceeds in advisory mode)",
+                    repo_name,
+                    auth.reason,
+                )
+        except Exception:
+            logger.debug("Authorization check failed (non-fatal)", exc_info=True)
 
     # Emit constitutional event via EventSpine
     _emit_spine_event(

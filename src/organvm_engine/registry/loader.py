@@ -21,15 +21,25 @@ def _count_repos(data: dict) -> int:
 
 
 def load_registry(path: Path | str | None = None) -> dict:
-    """Load registry-v2.json from disk.
+    """Load registry from a file or per-organ directory.
+
+    If path points to a directory containing _meta.json, merges
+    the per-organ files. Otherwise loads the single JSON file.
 
     Args:
-        path: Path to registry file. Defaults to the corpus repo location.
+        path: Path to registry file or split-registry directory.
+            Defaults to the corpus repo location.
 
     Returns:
         Parsed registry dict.
     """
     registry_path = Path(path) if path else _default_registry_path()
+
+    if registry_path.is_dir():
+        from organvm_engine.registry.split import merge_registry
+
+        return merge_registry(registry_path)
+
     with registry_path.open() as f:
         return json.load(f)
 

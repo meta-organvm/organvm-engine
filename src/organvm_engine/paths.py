@@ -50,6 +50,10 @@ class PathConfig:
     def governance_rules_path(self) -> Path:
         return self.corpus_dir() / "governance-rules.json"
 
+    def registry_dir(self) -> Path:
+        """Return the path for per-organ split registry directory."""
+        return self.corpus_dir() / "registry"
+
     def soak_dir(self) -> Path:
         return self.corpus_dir() / "data" / "soak-test"
 
@@ -83,6 +87,11 @@ def corpus_dir(config: PathConfig | None = None) -> Path:
 def registry_path(config: PathConfig | None = None) -> Path:
     """Return the path to registry-v2.json."""
     return resolve_path_config(config).registry_path()
+
+
+def registry_dir(config: PathConfig | None = None) -> Path:
+    """Return the path to the per-organ registry directory."""
+    return resolve_path_config(config).registry_dir()
 
 
 def governance_rules_path(config: PathConfig | None = None) -> Path:
