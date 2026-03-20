@@ -1,28 +1,20 @@
 ## Summary
 
-<!-- What does this PR do? Why is it needed? -->
+<!-- What does this PR do? Keep it brief — 1-3 sentences. -->
 
 ## Changes
 
-<!-- List the key changes made in this PR -->
-
 -
-
-## Related Issues
-
-<!-- Link related issues: Fixes #123, Relates to #456 -->
 
 ## Testing
 
-<!-- How did you test these changes? -->
-
 - [ ] Existing tests pass
-- [ ] New tests added (if applicable)
-- [ ] Manual testing performed
+- [ ] New tests added for new functionality (if applicable)
+- [ ] Manual verification performed
 
 ## Checklist
 
-- [ ] Code follows the project's style guidelines
-- [ ] Self-review completed
-- [ ] Documentation updated (if applicable)
-- [ ] No secrets or credentials included
+- [ ] Follows existing code style and patterns
+- [ ] No secrets, credentials, or personal data included
+- [ ] seed.yaml updated (if produces/consumes edges changed)
+- [ ] CLAUDE.md changes auto-generated (run `organvm context sync` if needed)

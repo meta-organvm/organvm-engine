@@ -184,6 +184,11 @@ def execute_transition(
     actor: str = "cli",
     spine_path: Path | str | None = None,
     seed: dict | None = None,
+    repo_path: Path | str | None = None,
+    organ: str = "",
+    org: str = "",
+    tier: str = "standard",
+    enforce_infrastructure: bool = True,
 ) -> tuple[bool, str]:
     """Validate and execute a state transition, emitting events on success.
 
@@ -198,6 +203,12 @@ def execute_transition(
         actor: Who/what is requesting the transition.
         spine_path: Optional path for the EventSpine JSONL file.
         seed: Optional parsed seed.yaml for authorization checking.
+        repo_path: Filesystem path to repo (for infrastructure audit).
+        organ: Organ registry key (for infrastructure audit).
+        org: GitHub org (for infrastructure audit).
+        tier: Repository tier (for infrastructure audit).
+        enforce_infrastructure: If True, block promotion when
+            infrastructure requirements are not met. Default True.
 
     Returns:
         (valid, message) tuple — same semantics as check_transition.
@@ -205,6 +216,32 @@ def execute_transition(
     ok, msg = check_transition(current_state, target_state, rules_path)
     if not ok:
         return ok, msg
+
+    # Infrastructure check (The Descent Protocol)
+    if enforce_infrastructure and repo_path is not None and target_state != "ARCHIVED":
+        try:
+            from organvm_engine.ci.audit import check_promotion_infrastructure
+
+            rp = Path(repo_path) if not isinstance(repo_path, Path) else repo_path
+            infra_ok, failures = check_promotion_infrastructure(
+                repo_path=rp,
+                repo_name=repo_name,
+                organ=organ,
+                org=org,
+                current_status=current_state,
+                target_status=target_state,
+                tier=tier,
+            )
+            if not infra_ok:
+                missing = ", ".join(failures)
+                return False, (
+                    f"Infrastructure requirements not met for {target_state}. "
+                    f"Missing: {missing}. "
+                    f"Deploy required infrastructure before promoting. "
+                    f"See: SOP--the-descent-protocol.md"
+                )
+        except Exception:
+            logger.debug("Infrastructure check failed (non-fatal)", exc_info=True)
 
     # Authorization check (advisory mode — logs but does not block)
     if seed is not None:

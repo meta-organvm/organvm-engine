@@ -1,0 +1,376 @@
+"""Tests for the testament module — the system's generative self-portrait."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from organvm_engine.testament.manifest import (
+    ArtifactFormat,
+    ArtifactModality,
+    ArtifactType,
+    MODULE_SOURCES,
+    ORGAN_OUTPUT_MATRIX,
+    OrganOutputProfile,
+    all_artifact_types,
+    get_module_artifacts,
+    get_organ_profile,
+)
+from organvm_engine.testament.catalog import (
+    CatalogSummary,
+    TestamentArtifact,
+    append_artifact,
+    catalog_summary,
+    load_catalog,
+)
+from organvm_engine.testament.aesthetic import (
+    AestheticProfile,
+    Palette,
+    Typography,
+    default_palette,
+    load_taste,
+)
+from organvm_engine.testament.renderers.svg import (
+    Palette as SvgPalette,
+    render_constellation,
+    render_dependency_flow,
+    render_density_bars,
+    render_omega_mandala,
+    render_organ_card,
+)
+from organvm_engine.testament.renderers.html import (
+    render_gallery_page,
+    render_organ_card_html,
+)
+from organvm_engine.testament.renderers.prose import (
+    render_organ_portrait,
+    render_self_portrait,
+    render_testament_manifest,
+)
+from organvm_engine.testament.renderers.statistical import (
+    render_repo_heatmap,
+    render_status_distribution,
+)
+
+
+# ── Manifest tests ──────────────────────────────────────────────────
+
+
+class TestManifest:
+    """Tests for artifact type registry and organ output matrix."""
+
+    def test_modality_enum_has_ten_values(self):
+        assert len(ArtifactModality) == 10
+
+    def test_format_enum_has_expected_values(self):
+        assert ArtifactFormat.SVG in ArtifactFormat
+        assert ArtifactFormat.HTML in ArtifactFormat
+        assert ArtifactFormat.MARKDOWN in ArtifactFormat
+
+    def test_organ_output_matrix_has_all_organs(self):
+        expected = {"I", "II", "III", "IV", "V", "VI", "VII", "META"}
+        assert set(ORGAN_OUTPUT_MATRIX.keys()) == expected
+
+    def test_meta_organ_has_all_modalities(self):
+        meta = ORGAN_OUTPUT_MATRIX["META"]
+        # META is the constitutional substrate — renders in every medium
+        all_mods = set(ArtifactModality)
+        covered = set(meta.primary_modalities) | set(meta.secondary_modalities)
+        assert covered == all_mods
+
+    def test_module_sources_has_entries(self):
+        assert len(MODULE_SOURCES) >= 8
+
+    def test_get_organ_profile(self):
+        profile = get_organ_profile("I")
+        assert profile is not None
+        assert ArtifactModality.MATHEMATICAL in profile.primary_modalities
+
+    def test_get_organ_profile_missing(self):
+        assert get_organ_profile("NONEXISTENT") is None
+
+    def test_get_module_artifacts(self):
+        arts = get_module_artifacts("omega")
+        assert len(arts) >= 1
+        assert any(a.modality == ArtifactModality.VISUAL for a in arts)
+
+    def test_get_module_artifacts_missing(self):
+        assert get_module_artifacts("nonexistent") == []
+
+    def test_all_artifact_types(self):
+        types = all_artifact_types()
+        assert len(types) >= 10
+        assert all(isinstance(t, ArtifactType) for t in types)
+
+    def test_artifact_type_has_source(self):
+        for types_list in MODULE_SOURCES.values():
+            for at in types_list:
+                assert at.source_module, f"Artifact type {at.description} has no source_module"
+
+
+# ── Catalog tests ───────────────────────────────────────────────────
+
+
+class TestCatalog:
+    """Tests for the testament artifact catalog (JSONL append-only store)."""
+
+    def _make_artifact(self, **kwargs) -> TestamentArtifact:
+        defaults = {
+            "id": "abcdef123456",
+            "modality": ArtifactModality.VISUAL,
+            "format": ArtifactFormat.SVG,
+            "source_module": "registry",
+            "organ": "META",
+            "title": "Test constellation",
+            "description": "Test artifact",
+            "path": "/tmp/test.svg",
+            "timestamp": "2026-03-19T12:00:00Z",
+            "metadata": {},
+        }
+        defaults.update(kwargs)
+        return TestamentArtifact(**defaults)
+
+    def test_append_and_load(self, tmp_path: Path):
+        a = self._make_artifact()
+        append_artifact(a, tmp_path)
+        catalog = load_catalog(tmp_path)
+        assert len(catalog) == 1
+        assert catalog[0].title == "Test constellation"
+
+    def test_append_multiple(self, tmp_path: Path):
+        for i in range(5):
+            a = self._make_artifact(id=f"artifact{i:06d}", title=f"Art {i}")
+            append_artifact(a, tmp_path)
+        catalog = load_catalog(tmp_path)
+        assert len(catalog) == 5
+
+    def test_catalog_summary(self, tmp_path: Path):
+        append_artifact(
+            self._make_artifact(modality=ArtifactModality.VISUAL, organ="META"),
+            tmp_path,
+        )
+        append_artifact(
+            self._make_artifact(
+                id="bbbbbb222222",
+                modality=ArtifactModality.STATISTICAL,
+                organ="I",
+            ),
+            tmp_path,
+        )
+        catalog = load_catalog(tmp_path)
+        summary = catalog_summary(catalog)
+        assert summary.total == 2
+        assert summary.by_modality["visual"] == 1
+        assert summary.by_modality["statistical"] == 1
+        assert summary.by_organ["META"] == 1
+        assert summary.by_organ["I"] == 1
+
+    def test_empty_catalog(self, tmp_path: Path):
+        catalog = load_catalog(tmp_path)
+        assert catalog == []
+        summary = catalog_summary(catalog)
+        assert summary.total == 0
+        assert summary.latest_timestamp is None
+
+    def test_catalog_file_is_jsonl(self, tmp_path: Path):
+        a = self._make_artifact()
+        append_artifact(a, tmp_path)
+        catalog_file = tmp_path / "testament-catalog.jsonl"
+        assert catalog_file.exists()
+        lines = catalog_file.read_text().strip().split("\n")
+        assert len(lines) == 1
+        data = json.loads(lines[0])
+        assert data["title"] == "Test constellation"
+
+
+# ── Aesthetic tests ─────────────────────────────────────────────────
+
+
+class TestAesthetic:
+    """Tests for the aesthetic cascade reader."""
+
+    def test_default_palette(self):
+        p = default_palette()
+        assert p.background == "#0f0f23"
+        assert p.accent == "#e94560"
+        assert p.primary == "#1a1a2e"
+
+    def test_load_taste(self):
+        profile = load_taste()
+        assert isinstance(profile, AestheticProfile)
+        assert profile.palette.accent == "#e94560"
+
+    def test_palette_has_all_fields(self):
+        p = default_palette()
+        assert p.primary
+        assert p.secondary
+        assert p.accent
+        assert p.background
+        assert p.text
+        assert p.muted
+
+
+# ── SVG renderer tests ──────────────────────────────────────────────
+
+
+class TestSvgRenderers:
+    """Tests for SVG-based visual renderers."""
+
+    def test_constellation_produces_valid_svg(self):
+        svg = render_constellation()
+        assert svg.startswith("<svg")
+        assert svg.endswith("</svg>")
+        assert "ORGANVM" in svg
+
+    def test_constellation_includes_all_organs(self):
+        svg = render_constellation()
+        for label in ["Theoria", "Poiesis", "Ergon", "Taxis",
+                       "Logos", "Koinonia", "Kerygma", "Meta"]:
+            assert label in svg
+
+    def test_constellation_custom_counts(self):
+        counts = {"I": 19, "II": 31, "III": 29, "IV": 11,
+                  "V": 2, "VI": 6, "VII": 4, "META": 11}
+        svg = render_constellation(organ_repo_counts=counts)
+        assert "113 repositories" in svg
+
+    def test_constellation_custom_palette(self):
+        p = SvgPalette(accent="#ff0000")
+        svg = render_constellation(palette=p)
+        assert "#ff0000" in svg
+
+    def test_omega_mandala_produces_valid_svg(self):
+        svg = render_omega_mandala(met_count=7, total=17)
+        assert svg.startswith("<svg")
+        assert "7" in svg
+        assert "17" in svg
+
+    def test_omega_mandala_all_met(self):
+        svg = render_omega_mandala(met_count=17, total=17)
+        assert "100%" in svg
+
+    def test_omega_mandala_none_met(self):
+        svg = render_omega_mandala(met_count=0, total=17)
+        assert "0%" in svg
+
+    def test_dependency_flow_produces_valid_svg(self):
+        svg = render_dependency_flow()
+        assert svg.startswith("<svg")
+        assert "Dependency Flow" in svg
+        assert "Production Core" in svg
+        assert "Control Plane" in svg
+
+    def test_density_bars_produces_valid_svg(self):
+        densities = {"META": 0.70, "I": 0.58, "II": 0.48, "III": 0.56}
+        svg = render_density_bars(organ_densities=densities)
+        assert svg.startswith("<svg")
+        assert "Density" in svg
+
+    def test_organ_card_produces_valid_svg(self):
+        svg = render_organ_card("META", repo_count=11, flagship_count=2)
+        assert svg.startswith("<svg")
+        assert "META" in svg
+        assert "11" in svg
+
+
+# ── HTML renderer tests ─────────────────────────────────────────────
+
+
+class TestHtmlRenderers:
+    """Tests for HTML-based renderers."""
+
+    def test_gallery_page_empty(self):
+        html = render_gallery_page([])
+        assert "<!DOCTYPE html>" in html
+        assert "0 artifacts" in html
+
+    def test_gallery_page_with_artifacts(self):
+        arts = [
+            {
+                "title": "Constellation",
+                "modality": "visual",
+                "format": "svg",
+                "path": "test.svg",
+                "timestamp": "2026-03-19T12:00:00Z",
+                "organ": "META",
+            }
+        ]
+        html = render_gallery_page(arts)
+        assert "Constellation" in html
+        assert "META" in html
+        assert "1 artifacts" in html
+
+    def test_organ_card_html(self):
+        html = render_organ_card_html("I", "Theoria", repo_count=19, flagship_count=1)
+        assert "ORGAN I" in html
+        assert "Theoria" in html
+        assert "19" in html
+
+
+# ── Prose renderer tests ────────────────────────────────────────────
+
+
+class TestProseRenderers:
+    """Tests for Markdown prose renderers."""
+
+    def test_self_portrait_produces_markdown(self):
+        data = {
+            "total_repos": 113,
+            "total_organs": 8,
+            "total_public": 45,
+            "status_counts": {"GRADUATED": 8, "CANDIDATE": 68},
+        }
+        md = render_self_portrait(data)
+        assert "# System Self-Portrait" in md
+        assert "113 repositories" in md
+        assert "8 organs" in md
+        assert "ORGANVM" in md
+
+    def test_organ_portrait(self):
+        md = render_organ_portrait("II", "Poiesis", repo_count=31, flagship_count=2)
+        assert "Organ II" in md
+        assert "Poiesis" in md
+        assert "31" in md
+
+    def test_testament_manifest(self):
+        artifacts = [
+            {"title": "Constellation", "modality": "visual", "format": "svg", "organ": "META"},
+            {"title": "Density", "modality": "statistical", "format": "svg", "organ": "META"},
+        ]
+        md = render_testament_manifest(artifacts)
+        assert "# Testament Manifest" in md
+        assert "2 total artifacts" in md
+
+
+# ── Statistical renderer tests ──────────────────────────────────────
+
+
+class TestStatisticalRenderers:
+    """Tests for statistical visualization renderers."""
+
+    def test_status_distribution(self):
+        counts = {"GRADUATED": 8, "CANDIDATE": 68, "PUBLIC_PROCESS": 12, "LOCAL": 10}
+        svg = render_status_distribution(counts)
+        assert svg.startswith("<svg")
+        assert "Status Distribution" in svg
+
+    def test_status_distribution_empty(self):
+        svg = render_status_distribution({})
+        assert svg.startswith("<svg")
+        assert "No data" in svg
+
+    def test_repo_heatmap(self):
+        data = {
+            "META": [
+                {"name": "organvm-engine", "promotion_status": "GRADUATED"},
+                {"name": "schema-definitions", "promotion_status": "GRADUATED"},
+            ],
+            "I": [
+                {"name": "recursive-engine", "promotion_status": "CANDIDATE"},
+            ],
+        }
+        svg = render_repo_heatmap(data)
+        assert svg.startswith("<svg")
+        assert "Heatmap" in svg
