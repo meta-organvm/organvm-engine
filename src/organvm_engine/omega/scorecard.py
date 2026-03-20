@@ -1,8 +1,15 @@
-"""Omega scorecard — 17 criteria for system completion.
+"""Omega scorecard — 18 criteria for system completion.
 
-Evaluates the 17 omega criteria defined in there+back-again.md.
+Evaluates the 18 omega criteria defined in there+back-again.md.
 Criteria that can be auto-assessed from soak data or registry are
 evaluated automatically; others report their manual status.
+
+Constitutional amendment (2026-03-20): Old #9 (revenue_status: live)
+and #10 (MRR ≥ costs) replaced with craft-first criteria:
+  #9  → ≥3 products at stranger-ready polish
+  #10 → ≥100 unique visitors/month (organic discovery)
+  #18 → First organic revenue (gated behind #9 + #10)
+Revenue follows traffic follows quality follows craft.
 """
 
 from __future__ import annotations
