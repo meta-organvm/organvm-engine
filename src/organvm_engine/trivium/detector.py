@@ -22,6 +22,8 @@ class CorrespondenceType(Enum):
     STRUCTURAL = "structural"    # similar counts, depths, formation patterns
     FUNCTIONAL = "functional"    # parallel produces/consumes signal types
     SEMANTIC = "semantic"        # description similarity
+    MATURITY = "maturity"        # parallel promotion status distributions
+    FORMATION = "formation"      # parallel tier/role classifications
 
 
 @dataclass(frozen=True)
@@ -201,6 +203,88 @@ def detect_semantic_correspondences(
     return correspondences
 
 
+def detect_maturity_correspondences(
+    organ_a_repos: list[dict[str, Any]],
+    organ_b_repos: list[dict[str, Any]],
+) -> list[Correspondence]:
+    """Detect parallel promotion status distributions across organs."""
+    if not organ_a_repos or not organ_b_repos:
+        return []
+
+    correspondences: list[Correspondence] = []
+
+    a_statuses = _promotion_distribution(organ_a_repos)
+    b_statuses = _promotion_distribution(organ_b_repos)
+    shared_statuses = set(a_statuses) & set(b_statuses)
+
+    if shared_statuses:
+        # Compare proportions for shared statuses
+        a_total = len(organ_a_repos)
+        b_total = len(organ_b_repos)
+        similarity = 0.0
+        for status in shared_statuses:
+            a_ratio = a_statuses[status] / a_total
+            b_ratio = b_statuses[status] / b_total
+            similarity += 1.0 - abs(a_ratio - b_ratio)
+        similarity /= max(len(set(a_statuses) | set(b_statuses)), 1)
+
+        if similarity > 0.2:
+            correspondences.append(Correspondence(
+                correspondence_type=CorrespondenceType.MATURITY,
+                source_organ=organ_a_repos[0].get("org", ""),
+                target_organ=organ_b_repos[0].get("org", ""),
+                source_entity="promotion_distribution",
+                target_entity="promotion_distribution",
+                evidence=(
+                    f"Shared statuses: {', '.join(sorted(shared_statuses))}. "
+                    f"Distribution similarity: {similarity:.2f}"
+                ),
+                strength=min(similarity, 1.0),
+            ))
+
+    return correspondences
+
+
+def detect_formation_correspondences(
+    organ_a_repos: list[dict[str, Any]],
+    organ_b_repos: list[dict[str, Any]],
+) -> list[Correspondence]:
+    """Detect repos with parallel tier/role classifications."""
+    if not organ_a_repos or not organ_b_repos:
+        return []
+
+    correspondences: list[Correspondence] = []
+
+    # Group by tier
+    a_by_tier: dict[str, list[str]] = {}
+    for r in organ_a_repos:
+        tier = r.get("tier", "unknown")
+        a_by_tier.setdefault(tier, []).append(r.get("name", ""))
+
+    b_by_tier: dict[str, list[str]] = {}
+    for r in organ_b_repos:
+        tier = r.get("tier", "unknown")
+        b_by_tier.setdefault(tier, []).append(r.get("name", ""))
+
+    # Flagship↔Flagship is strongest signal
+    a_flagships = a_by_tier.get("flagship", [])
+    b_flagships = b_by_tier.get("flagship", [])
+    if a_flagships and b_flagships:
+        for a_name in a_flagships:
+            for b_name in b_flagships:
+                correspondences.append(Correspondence(
+                    correspondence_type=CorrespondenceType.FORMATION,
+                    source_organ=organ_a_repos[0].get("org", ""),
+                    target_organ=organ_b_repos[0].get("org", ""),
+                    source_entity=a_name,
+                    target_entity=b_name,
+                    evidence=f"Both flagships: {a_name} ↔ {b_name}",
+                    strength=0.7,
+                ))
+
+    return correspondences
+
+
 def scan_organ_pair(
     organ_a_key: str,
     organ_b_key: str,
@@ -232,6 +316,8 @@ def scan_organ_pair(
     all_corr.extend(detect_structural_correspondences(a_repos, b_repos))
     all_corr.extend(detect_functional_correspondences(a_repos, b_repos))
     all_corr.extend(detect_semantic_correspondences(a_repos, b_repos))
+    all_corr.extend(detect_maturity_correspondences(a_repos, b_repos))
+    all_corr.extend(detect_formation_correspondences(a_repos, b_repos))
 
     by_type: dict[str, int] = {}
     for c in all_corr:
@@ -299,6 +385,14 @@ def _extract_stems(name: str) -> set[str]:
     """Extract meaningful word stems from a repo name."""
     parts = re.split(r"--|[-_]", name)
     return {p.lower() for p in parts if len(p) > 2 and p.lower() not in _STOP_WORDS}
+
+
+def _promotion_distribution(repos: list[dict[str, Any]]) -> dict[str, int]:
+    dist: dict[str, int] = {}
+    for r in repos:
+        status = r.get("promotion_status", r.get("status", "unknown"))
+        dist[status] = dist.get(status, 0) + 1
+    return dist
 
 
 def _tier_distribution(repos: list[dict[str, Any]]) -> dict[str, int]:

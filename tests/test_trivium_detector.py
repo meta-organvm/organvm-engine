@@ -6,7 +6,9 @@ from pathlib import Path
 from organvm_engine.trivium.detector import (
     Correspondence,
     CorrespondenceType,
+    detect_formation_correspondences,
     detect_functional_correspondences,
+    detect_maturity_correspondences,
     detect_naming_isomorphisms,
     detect_semantic_correspondences,
     detect_structural_correspondences,
@@ -22,7 +24,7 @@ def _load_fixture() -> dict:
 
 
 def test_correspondence_type_enum():
-    assert len(CorrespondenceType) == 4
+    assert len(CorrespondenceType) == 6
 
 
 def test_correspondence_strength_range():
@@ -156,3 +158,50 @@ def test_scan_organ_pair_meta():
     report = scan_organ_pair("I", "META", registry_path=FIXTURE_PATH)
     assert report["organ_a"] == "I"
     assert report["organ_b"] == "META"
+
+
+# Maturity correspondences
+
+
+def test_detect_maturity_empty():
+    result = detect_maturity_correspondences([], [])
+    assert result == []
+
+
+def test_detect_maturity_shared_statuses():
+    a = [{"org": "a", "promotion_status": "GRADUATED"} for _ in range(3)]
+    b = [{"org": "b", "promotion_status": "GRADUATED"} for _ in range(3)]
+    result = detect_maturity_correspondences(a, b)
+    assert len(result) >= 1
+    assert result[0].correspondence_type == CorrespondenceType.MATURITY
+
+
+def test_detect_maturity_different_statuses():
+    a = [{"org": "a", "promotion_status": "LOCAL"} for _ in range(3)]
+    b = [{"org": "b", "promotion_status": "GRADUATED"} for _ in range(3)]
+    result = detect_maturity_correspondences(a, b)
+    assert result == []
+
+
+# Formation correspondences
+
+
+def test_detect_formation_empty():
+    result = detect_formation_correspondences([], [])
+    assert result == []
+
+
+def test_detect_formation_flagship_match():
+    a = [{"name": "flagship-a", "org": "a", "tier": "flagship"}]
+    b = [{"name": "flagship-b", "org": "b", "tier": "flagship"}]
+    result = detect_formation_correspondences(a, b)
+    assert len(result) == 1
+    assert result[0].correspondence_type == CorrespondenceType.FORMATION
+    assert result[0].strength == 0.7
+
+
+def test_detect_formation_no_flagships():
+    a = [{"name": "std-a", "org": "a", "tier": "standard"}]
+    b = [{"name": "std-b", "org": "b", "tier": "standard"}]
+    result = detect_formation_correspondences(a, b)
+    assert result == []
