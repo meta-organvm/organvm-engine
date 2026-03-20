@@ -172,10 +172,10 @@ class TestSoakStreak:
 
 
 class TestEvaluate:
-    def test_returns_17_criteria(self, registry, soak_dir):
+    def test_returns_18_criteria(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
-        assert len(scorecard.criteria) == 17
-        assert scorecard.total == 17
+        assert len(scorecard.criteria) == 18
+        assert scorecard.total == 18
 
     def test_criterion_6_always_met(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
@@ -196,16 +196,26 @@ class TestEvaluate:
         c1 = scorecard.criteria[0]
         assert c1.status == "NOT_MET"
 
-    def test_revenue_not_met(self, registry, soak_dir):
+    def test_product_quality_not_met(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         c9 = scorecard.criteria[8]
         assert c9.id == 9
         assert c9.status == "NOT_MET"
+        assert "stranger-ready" in c9.name
 
-    def test_revenue_met(self, registry_with_revenue, soak_dir):
-        scorecard = evaluate(registry=registry_with_revenue, soak_dir=soak_dir)
-        c9 = scorecard.criteria[8]
-        assert c9.status == "MET"
+    def test_organic_discovery_not_met(self, registry, soak_dir):
+        scorecard = evaluate(registry=registry, soak_dir=soak_dir)
+        c10 = scorecard.criteria[9]
+        assert c10.id == 10
+        assert c10.status == "NOT_MET"
+        assert "visitor" in c10.name
+
+    def test_organic_revenue_is_criterion_18(self, registry, soak_dir):
+        scorecard = evaluate(registry=registry, soak_dir=soak_dir)
+        c18 = scorecard.criteria[17]
+        assert c18.id == 18
+        assert "organic revenue" in c18.name.lower()
+        assert c18.horizon == "H5"
 
     def test_met_count(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
@@ -215,7 +225,7 @@ class TestEvaluate:
     def test_summary_output(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         summary = scorecard.summary()
-        assert "5/17 MET" in summary
+        assert "5/18 MET" in summary
         assert "Soak Test Streak" in summary
         assert "8/30" in summary
 
@@ -223,15 +233,15 @@ class TestEvaluate:
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         d = scorecard.to_dict()
         assert d["score"] == 5
-        assert d["total"] == 17
-        assert len(d["criteria"]) == 17
+        assert d["total"] == 18
+        assert len(d["criteria"]) == 18
         assert "soak" in d
         assert d["soak"]["streak_days"] == 8
 
     def test_auto_criteria_identified(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         auto_ids = {c.id for c in scorecard.criteria if c.auto}
-        assert auto_ids == {1, 3, 9, 17}
+        assert auto_ids == {1, 3, 17}
 
 
 class TestWriteSnapshot:
@@ -247,8 +257,8 @@ class TestWriteSnapshot:
         path = write_snapshot(scorecard, corpus_dir=tmp_path)
         data = json.loads(path.read_text())
         assert data["score"] == 5
-        assert data["total"] == 17
-        assert len(data["criteria"]) == 17
+        assert data["total"] == 18
+        assert len(data["criteria"]) == 18
 
     def test_creates_omega_dir(self, registry, soak_dir, tmp_path):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
