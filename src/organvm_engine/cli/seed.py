@@ -3,6 +3,64 @@
 import argparse
 
 
+def cmd_seed_ownership(args: argparse.Namespace) -> int:
+    """Show ownership declarations for a repo's seed.yaml."""
+    from organvm_engine.seed.discover import discover_seeds
+    from organvm_engine.seed.ownership import (
+        get_ai_agents,
+        get_collaborators,
+        get_lead,
+        get_review_gates,
+        has_ownership,
+    )
+    from organvm_engine.seed.reader import read_seed
+
+    seeds = discover_seeds(args.workspace)
+    target = args.repo
+
+    for path in seeds:
+        seed = read_seed(path)
+        repo_name = seed.get("repo", "")
+        org = seed.get("org", "")
+        if target in (repo_name, f"{org}/{repo_name}"):
+            if not has_ownership(seed):
+                print(f"  {org}/{repo_name}: no ownership section (v1.0 seed — solo-operator mode)")
+                return 0
+
+            lead = get_lead(seed)
+            collabs = get_collaborators(seed)
+            agents = get_ai_agents(seed)
+            gates = get_review_gates(seed)
+
+            print(f"  Repo: {org}/{repo_name}")
+            print(f"  Lead: {lead or '(none)'}")
+
+            if collabs:
+                print(f"\n  Collaborators ({len(collabs)}):")
+                for c in collabs:
+                    organs = ", ".join(c.get("organs", []))
+                    access = ", ".join(c.get("access", []))
+                    print(f"    {c['handle']:12s}  role={c.get('role', '?'):12s}  access=[{access}]")
+                    if organs:
+                        print(f"    {'':12s}  organs=[{organs}]  since={c.get('since', '?')}")
+
+            if agents:
+                print(f"\n  AI Agents ({len(agents)}):")
+                for a in agents:
+                    access = ", ".join(a.get("access", []))
+                    print(f"    {a['type']:12s}  access=[{access}]  scope={a.get('scope', '?')}")
+
+            if gates:
+                print("\n  Review Gates:")
+                for gate_name, requires in gates.items():
+                    print(f"    {gate_name}: {', '.join(requires)}")
+
+            return 0
+
+    print(f"  ERROR: No seed.yaml found for '{target}'")
+    return 1
+
+
 def cmd_seed_discover(args: argparse.Namespace) -> int:
     from organvm_engine.seed.discover import discover_seeds
 

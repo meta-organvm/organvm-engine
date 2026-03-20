@@ -135,3 +135,15 @@ class TestActorAccess:
         seed = _load_seed()
         assert actor_access(seed, "Alice") == set()  # lead is "alice"
         assert "promote" in actor_access(seed, "alice")
+
+    def test_collaborator_missing_access_key(self):
+        seed = {"ownership": {"lead": "alice", "collaborators": [{"handle": "dave", "role": "contributor"}]}}
+        access = actor_access(seed, "dave")
+        assert access == set()  # no access key means empty set
+
+    def test_ownership_non_dict_ignored(self):
+        seed = {"ownership": "invalid"}
+        assert has_ownership(seed) is False
+        assert get_lead(seed) is None
+        assert get_collaborators(seed) == []
+        assert get_ai_agents(seed) == []

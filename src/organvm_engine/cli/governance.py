@@ -24,6 +24,46 @@ def cmd_governance_audit(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def cmd_governance_authorize(args: argparse.Namespace) -> int:
+    """Check if an actor is authorized to promote a repo."""
+    from organvm_engine.governance.authorization import authorize_transition
+    from organvm_engine.seed.discover import discover_seeds
+    from organvm_engine.seed.reader import read_seed
+
+    actor = args.actor
+    target = args.target
+    repo_name = args.repo
+
+    # Find the seed.yaml for this repo
+    seed_data = None
+    seeds = discover_seeds(getattr(args, "workspace", None))
+    for path in seeds:
+        try:
+            seed = read_seed(path)
+            if seed.get("repo") == repo_name:
+                seed_data = seed
+                break
+        except Exception:
+            continue
+
+    if seed_data is None:
+        print(f"  No seed.yaml found for '{repo_name}' — using solo-operator defaults")
+        seed_data = {}
+
+    result = authorize_transition(actor, target, seed_data, enforce=getattr(args, "enforce", False))
+
+    mode = "ENFORCING" if not result.advisory else "ADVISORY"
+    status = "AUTHORIZED" if result.authorized else "DENIED"
+    print(f"  [{mode}] {status}")
+    print(f"  Actor: {result.actor}")
+    print(f"  Target: {result.target_state}")
+    print(f"  Reason: {result.reason}")
+    if result.gates_required:
+        print(f"  Gates required: {', '.join(result.gates_required)}")
+
+    return 0 if result.authorized else 1
+
+
 def cmd_governance_checkdeps(args: argparse.Namespace) -> int:
     from organvm_engine.governance.dependency_graph import validate_dependencies
 

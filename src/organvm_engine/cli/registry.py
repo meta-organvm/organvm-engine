@@ -245,3 +245,39 @@ def cmd_registry_update(args: argparse.Namespace) -> int:
         save_registry(registry, args.registry)
         print("  Registry saved.")
     return 0 if ok else 1
+
+
+def cmd_registry_split(args: argparse.Namespace) -> int:
+    """Split monolithic registry into per-organ files."""
+    from pathlib import Path
+
+    from organvm_engine.registry.split import split_registry
+
+    registry = load_registry(args.registry)
+    output_dir = Path(args.output_dir)
+
+    written = split_registry(registry, output_dir)
+    print(f"  Split registry into {len(written)} files in {output_dir}/")
+    for path in written:
+        print(f"    {path.name}")
+    return 0
+
+
+def cmd_registry_merge(args: argparse.Namespace) -> int:
+    """Merge per-organ files back into monolithic registry."""
+    from pathlib import Path
+
+    registry = load_registry(Path(args.input_dir))
+    output = Path(args.output) if args.output else None
+
+    if output:
+        save_registry(registry, output)
+        print(f"  Merged registry written to {output}")
+    else:
+        total = sum(
+            len(o.get("repositories", []))
+            for o in registry.get("organs", {}).values()
+        )
+        print(f"  Merged {len(registry.get('organs', {}))} organs, {total} repos")
+        print("  Use --output <path> to write the merged file")
+    return 0

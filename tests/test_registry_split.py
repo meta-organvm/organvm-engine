@@ -108,6 +108,14 @@ class TestMergeRegistry:
         keys = list(merged["organs"].keys())
         assert keys == sorted(keys)
 
+    def test_merge_corrupted_organ_file_raises(self, tmp_path):
+        """Corrupted per-organ file should fail fast, not silently drop data."""
+        original = load_registry(FIXTURES / "registry-minimal.json")
+        split_registry(original, tmp_path)
+        (tmp_path / "ORGAN-I.json").write_text("{corrupted json")
+        with pytest.raises(json.JSONDecodeError):
+            merge_registry(tmp_path)
+
 
 class TestLoaderDetection:
     def test_load_from_directory(self, tmp_path):

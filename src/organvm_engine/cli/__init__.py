@@ -117,6 +117,7 @@ from organvm_engine.cli.git_cmds import (
 )
 from organvm_engine.cli.governance import (
     cmd_governance_audit,
+    cmd_governance_authorize,
     cmd_governance_checkdeps,
     cmd_governance_dictums,
     cmd_governance_excavate,
@@ -177,13 +178,20 @@ from organvm_engine.cli.refresh import cmd_refresh
 from organvm_engine.cli.registry import (
     cmd_registry_deps,
     cmd_registry_list,
+    cmd_registry_merge,
     cmd_registry_search,
     cmd_registry_show,
+    cmd_registry_split,
     cmd_registry_stats,
     cmd_registry_update,
     cmd_registry_validate,
 )
-from organvm_engine.cli.seed import cmd_seed_discover, cmd_seed_graph, cmd_seed_validate
+from organvm_engine.cli.seed import (
+    cmd_seed_discover,
+    cmd_seed_graph,
+    cmd_seed_ownership,
+    cmd_seed_validate,
+)
 from organvm_engine.cli.session import (
     cmd_session_agents,
     cmd_session_analyze,
@@ -300,6 +308,13 @@ def build_parser() -> argparse.ArgumentParser:
     upd.add_argument("field")
     upd.add_argument("value")
 
+    rsplit = reg_sub.add_parser("split", help="Split registry into per-organ files")
+    rsplit.add_argument("output_dir", help="Directory for per-organ files")
+
+    rmerge = reg_sub.add_parser("merge", help="Merge per-organ files into registry")
+    rmerge.add_argument("input_dir", help="Directory containing per-organ files")
+    rmerge.add_argument("--output", default=None, help="Output file path")
+
     # governance
     gov = sub.add_parser("governance", help="Governance operations")
     gov_sub = gov.add_subparsers(dest="subcommand")
@@ -311,6 +326,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     gov_sub.add_parser("check-deps", help="Validate dependency graph")
+
+    auth_p = gov_sub.add_parser("authorize", help="Check actor authorization for a transition")
+    auth_p.add_argument("actor", help="Actor handle (e.g. '4jp', 'chris')")
+    auth_p.add_argument("repo", help="Repository name")
+    auth_p.add_argument("target", help="Target promotion state")
+    auth_p.add_argument("--enforce", action="store_true", help="Use enforcing mode")
 
     prom = gov_sub.add_parser("promote", help="Check promotion eligibility")
     prom.add_argument("repo")
@@ -380,6 +401,8 @@ def build_parser() -> argparse.ArgumentParser:
     seed_sub.add_parser("discover", help="Find all seed.yaml files")
     seed_sub.add_parser("validate", help="Validate all seed.yaml files")
     seed_sub.add_parser("graph", help="Build produces/consumes graph")
+    seed_own = seed_sub.add_parser("ownership", help="Show ownership declarations for a repo")
+    seed_own.add_argument("repo", help="Repository name")
 
     # metrics
     met = sub.add_parser("metrics", help="Metrics operations")
@@ -2072,9 +2095,12 @@ def main() -> int:
         ("registry", "stats"): cmd_registry_stats,
         ("registry", "validate"): cmd_registry_validate,
         ("registry", "update"): cmd_registry_update,
+        ("registry", "split"): cmd_registry_split,
+        ("registry", "merge"): cmd_registry_merge,
         ("governance", "audit"): cmd_governance_audit,
         ("governance", "check-deps"): cmd_governance_checkdeps,
         ("governance", "promote"): cmd_governance_promote,
+        ("governance", "authorize"): cmd_governance_authorize,
         ("governance", "impact"): cmd_governance_impact,
         ("governance", "dictums"): cmd_governance_dictums,
         ("governance", "placement"): cmd_governance_placement,
@@ -2082,6 +2108,7 @@ def main() -> int:
         ("seed", "discover"): cmd_seed_discover,
         ("seed", "validate"): cmd_seed_validate,
         ("seed", "graph"): cmd_seed_graph,
+        ("seed", "ownership"): cmd_seed_ownership,
         ("metrics", "calculate"): cmd_metrics_calculate,
         ("metrics", "count-words"): cmd_metrics_count_words,
         ("metrics", "propagate"): cmd_metrics_propagate,
