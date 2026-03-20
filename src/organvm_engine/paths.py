@@ -56,6 +56,10 @@ class PathConfig:
     def atoms_dir(self) -> Path:
         return self.corpus_dir() / "data" / "atoms"
 
+    def content_dir(self) -> Path:
+        """Content pipeline posts directory in praxis-perpetua."""
+        return self.corpus_dir().parent / "praxis-perpetua" / "content-pipeline" / "posts"
+
 
 def _coerce_path(value: Path | str) -> Path:
     return Path(value).expanduser()
@@ -94,6 +98,11 @@ def soak_dir(config: PathConfig | None = None) -> Path:
 def atoms_dir(config: PathConfig | None = None) -> Path:
     """Return the path to the centralized atoms output directory."""
     return resolve_path_config(config).atoms_dir()
+
+
+def content_dir(config: PathConfig | None = None) -> Path:
+    """Return the path to the content pipeline posts directory."""
+    return resolve_path_config(config).content_dir()
 
 
 def resolve_workspace(
