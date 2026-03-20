@@ -98,7 +98,6 @@ def scan_pyproject(repo_path: Path) -> list[MirrorEntry]:
         if in_deps or in_optional:
             match = dep_pattern.match(stripped.strip('"').strip("'"))
             if match:
-                pkg = match.group(1).lower().replace("-", "").replace("_", "")
                 raw_name = match.group(1).lower()
                 if raw_name in seen:
                     continue

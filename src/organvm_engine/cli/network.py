@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 from organvm_engine.network import ENGAGEMENT_FORMS, MIRROR_LENSES
@@ -86,7 +85,7 @@ def cmd_network_map(args: argparse.Namespace) -> int:
         data = [m.to_dict() for _, m in pairs]
         print(json.dumps(data, indent=2))
     else:
-        for path, nmap in pairs:
+        for _path, nmap in pairs:
             print(f"\n{nmap.organ}/{nmap.repo} ({nmap.mirror_count} mirrors)")
             for lens in ("technical", "parallel", "kinship"):
                 entries = nmap.mirrors_by_lens(lens)
@@ -117,7 +116,7 @@ def cmd_network_log(args: argparse.Namespace) -> int:
         return 1
     if action_type not in ENGAGEMENT_FORMS:
         print(
-            f"Invalid action: {action_type}. Must be one of: {', '.join(sorted(ENGAGEMENT_FORMS))}"
+            f"Invalid action: {action_type}. Must be one of: {', '.join(sorted(ENGAGEMENT_FORMS))}",
         )
         return 1
 

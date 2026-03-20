@@ -117,7 +117,7 @@ def validate_network_map(data: dict) -> list[str]:
 
 
 def merge_mirrors(
-    existing: list[MirrorEntry], discovered: list[MirrorEntry]
+    existing: list[MirrorEntry], discovered: list[MirrorEntry],
 ) -> list[MirrorEntry]:
     """Merge discovered mirrors into existing list without duplicates.
 

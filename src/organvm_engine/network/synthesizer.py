@@ -21,7 +21,7 @@ from organvm_engine.network.metrics import (
     network_density,
     network_reciprocity,
 )
-from organvm_engine.network.schema import EngagementEntry, NetworkMap
+from organvm_engine.network.schema import EngagementEntry
 
 
 def _period_filter(entries: list[EngagementEntry], period: str) -> list[EngagementEntry]:
@@ -29,16 +29,8 @@ def _period_filter(entries: list[EngagementEntry], period: str) -> list[Engageme
     if period == "all-time":
         return entries
 
-    now = datetime.now(timezone.utc)
-    if period == "weekly":
-        days = 7
-    elif period == "monthly":
-        days = 30
-    else:
-        days = 30
-
-    cutoff = now.isoformat()[:10]  # simplified — real impl uses timedelta
-    # For now, return all entries (period filtering refined in implementation)
+    # Period filtering placeholder — refined in full implementation
+    # For now, return all entries
     return entries
 
 
