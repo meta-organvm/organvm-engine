@@ -255,6 +255,11 @@ from organvm_engine.cli.verify import (
     cmd_verify_system,
     cmd_verify_temporal,
 )
+from organvm_engine.cli.irf import (
+    cmd_irf_list,
+    cmd_irf_stats,
+    cmd_irf_status,
+)
 from organvm_engine.paths import registry_path as _default_registry_path
 
 
@@ -2289,6 +2294,32 @@ def build_parser() -> argparse.ArgumentParser:
     pulse_entity_mem.add_argument("--no-continuity", action="store_true")
     pulse_entity_mem.add_argument("--no-metrics", action="store_true")
 
+    # irf — Index Rerum Faciendarum
+    irf = sub.add_parser(
+        "irf",
+        help="Index Rerum Faciendarum — query the universal work registry",
+    )
+    irf_sub = irf.add_subparsers(dest="subcommand")
+
+    irf_list = irf_sub.add_parser("list", help="List IRF items with optional filters")
+    irf_list.add_argument("--priority", default=None, help="Filter by priority (P0–P3)")
+    irf_list.add_argument("--domain", default=None, help="Filter by domain code (e.g. SYS)")
+    irf_list.add_argument(
+        "--status",
+        default=None,
+        help="Filter by status (open, completed, blocked, archived)",
+    )
+    irf_list.add_argument("--owner", default=None, help="Filter by owner (substring match)")
+    irf_list.add_argument("--json", action="store_true", help="Output JSON")
+
+    irf_status = irf_sub.add_parser("status", help="Show all fields for a single IRF item")
+    irf_status.add_argument("item_id", help="IRF item ID (e.g. IRF-SYS-001)")
+
+    irf_sub.add_parser(
+        "stats",
+        help="Show summary statistics for the IRF document",
+    ).add_argument("--json", action="store_true", help="Output JSON")
+
     return parser
 
 
@@ -2628,6 +2659,17 @@ def main() -> int:
         if not sub_cmd:
             return cmd_pulse_show(args)
         parser.parse_args(["pulse", "--help"])
+        return 0
+    if args.command == "irf":
+        irf_dispatch = {
+            "list": cmd_irf_list,
+            "status": cmd_irf_status,
+            "stats": cmd_irf_stats,
+        }
+        handler = irf_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["irf", "--help"])
         return 0
 
     subcommand: str | None = getattr(args, "subcommand", None)
