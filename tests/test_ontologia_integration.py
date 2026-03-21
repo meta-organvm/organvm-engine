@@ -12,11 +12,13 @@ import json
 from unittest.mock import patch
 
 import pytest
-from ontologia.entity.identity import EntityType
-from ontologia.events import bus as ontologia_bus
-from ontologia.registry.store import RegistryStore
 
-from organvm_engine.registry.query import resolve_entity
+ontologia = pytest.importorskip("ontologia")
+from ontologia.entity.identity import EntityType  # noqa: E402
+from ontologia.events import bus as ontologia_bus  # noqa: E402
+from ontologia.registry.store import RegistryStore  # noqa: E402
+
+from organvm_engine.registry.query import resolve_entity  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures

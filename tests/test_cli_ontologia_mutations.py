@@ -9,9 +9,11 @@ import argparse
 import json
 
 import pytest
-from ontologia.entity.identity import EntityType
-from ontologia.events import bus as ontologia_bus
-from ontologia.registry.store import RegistryStore
+
+ontologia = pytest.importorskip("ontologia")
+from ontologia.entity.identity import EntityType  # noqa: E402
+from ontologia.events import bus as ontologia_bus  # noqa: E402
+from ontologia.registry.store import RegistryStore  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
