@@ -238,6 +238,57 @@ class TestRegistryCommands:
         assert "metasystem-master" in out
         assert "product-app" not in out
 
+    def test_registry_list_json(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--json"],
+        ):
+            rc = main()
+        assert rc == 0
+        import json
+
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert isinstance(data, list)
+        assert len(data) == 6
+        # Verify all expected fields are present
+        entry = data[0]
+        for key in ("name", "organ", "status", "tier", "promotion", "org"):
+            assert key in entry, f"Missing key: {key}"
+
+    def test_registry_list_json_with_organ_filter(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--organ", "I", "--json"],
+        ):
+            rc = main()
+        assert rc == 0
+        import json
+
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert all(entry["organ"] == "ORGAN-I" for entry in data)
+
+    def test_registry_list_json_empty_filter(self, capsys):
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "registry", "list", "--organ", "VII", "--json"],
+        ):
+            rc = main()
+        assert rc == 0
+        import json
+
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data == []
+
+    def test_registry_list_json_flag_parses(self):
+        parser = build_parser()
+        args = parser.parse_args(["registry", "list", "--json"])
+        assert args.json is True
+
     def test_registry_validate_passes(self, capsys):
         with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "registry", "validate"]):
             rc = main()
