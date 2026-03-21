@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 
 from organvm_engine.network.schema import MirrorEntry
@@ -64,55 +65,50 @@ def scan_pyproject(repo_path: Path) -> list[MirrorEntry]:
     """Extract dependencies from pyproject.toml.
 
     Parses [project.dependencies] and [project.optional-dependencies]
-    sections. Maps known packages to their GitHub repos.
+    sections using tomllib. Maps known packages to their GitHub repos.
     """
     toml_path = repo_path / "pyproject.toml"
     if not toml_path.exists():
         return []
 
-    content = toml_path.read_text()
+    try:
+        data = tomllib.loads(toml_path.read_text())
+    except tomllib.TOMLDecodeError:
+        return []
+
     mirrors: list[MirrorEntry] = []
     seen: set[str] = set()
 
-    # Extract dependency names from dependencies and optional-dependencies
-    # Simple regex approach — handles most pyproject.toml formats
-    dep_pattern = re.compile(r'^\s*"?([a-zA-Z0-9_-]+)', re.MULTILINE)
+    # Collect all dependency strings from [project.dependencies]
+    # and [project.optional-dependencies.*]
+    dep_strings: list[str] = []
+    project = data.get("project", {})
+    dep_strings.extend(project.get("dependencies", []))
+    for group_deps in project.get("optional-dependencies", {}).values():
+        dep_strings.extend(group_deps)
 
-    in_deps = False
-    in_optional = False
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped == "[project.dependencies]" or stripped.startswith("dependencies = ["):
-            in_deps = True
-            in_optional = False
-            continue
-        if stripped.startswith("[project.optional-dependencies"):
-            in_optional = True
-            in_deps = False
-            continue
-        if stripped.startswith("[") and not stripped.startswith("[project.optional"):
-            in_deps = False
-            in_optional = False
-            continue
+    # PEP 508: package name is everything before the first version specifier or extra marker
+    name_pattern = re.compile(r'^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)')
 
-        if in_deps or in_optional:
-            match = dep_pattern.match(stripped.strip('"').strip("'"))
-            if match:
-                raw_name = match.group(1).lower()
-                if raw_name in seen:
-                    continue
-                seen.add(raw_name)
+    for dep in dep_strings:
+        match = name_pattern.match(dep.strip())
+        if not match:
+            continue
+        # PEP 503: normalize by lowercasing and collapsing runs of [-_.] to single hyphen
+        raw_name = re.sub(r'[-_.]+', '-', match.group(1)).lower()
+        if raw_name in seen:
+            continue
+        seen.add(raw_name)
 
-                # Check known repos
-                github_repo = KNOWN_REPOS.get(raw_name)
-                if github_repo:
-                    mirrors.append(MirrorEntry(
-                        project=github_repo,
-                        platform="github",
-                        relevance=f"Python dependency: {raw_name}",
-                        engagement=["watch"],
-                        tags=["auto-discovered", "python-dep"],
-                    ))
+        github_repo = KNOWN_REPOS.get(raw_name)
+        if github_repo:
+            mirrors.append(MirrorEntry(
+                project=github_repo,
+                platform="github",
+                relevance=f"Python dependency: {raw_name}",
+                engagement=["watch"],
+                tags=["auto-discovered", "python-dep"],
+            ))
 
     return mirrors
 
