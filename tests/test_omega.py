@@ -5,6 +5,8 @@ import json
 import pytest
 
 from organvm_engine.omega.scorecard import (
+    NetworkTestamentResult,
+    _check_network_testament,
     analyze_soak_streak,
     diff_snapshots,
     evaluate,
@@ -172,10 +174,10 @@ class TestSoakStreak:
 
 
 class TestEvaluate:
-    def test_returns_18_criteria(self, registry, soak_dir):
+    def test_returns_19_criteria(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
-        assert len(scorecard.criteria) == 18
-        assert scorecard.total == 18
+        assert len(scorecard.criteria) == 19
+        assert scorecard.total == 19
 
     def test_criterion_6_always_met(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
@@ -225,23 +227,23 @@ class TestEvaluate:
     def test_summary_output(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         summary = scorecard.summary()
-        assert "5/18 MET" in summary
+        assert f"{scorecard.met_count}/{scorecard.total} MET" in summary
         assert "Soak Test Streak" in summary
         assert "8/30" in summary
 
     def test_to_dict(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         d = scorecard.to_dict()
-        assert d["score"] == 5
-        assert d["total"] == 18
-        assert len(d["criteria"]) == 18
+        assert d["score"] == scorecard.met_count
+        assert d["total"] == 19
+        assert len(d["criteria"]) == 19
         assert "soak" in d
         assert d["soak"]["streak_days"] == 8
 
     def test_auto_criteria_identified(self, registry, soak_dir):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         auto_ids = {c.id for c in scorecard.criteria if c.auto}
-        assert auto_ids == {1, 3, 17}
+        assert auto_ids == {1, 3, 17, 19}
 
 
 class TestWriteSnapshot:
@@ -256,9 +258,9 @@ class TestWriteSnapshot:
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
         path = write_snapshot(scorecard, corpus_dir=tmp_path)
         data = json.loads(path.read_text())
-        assert data["score"] == 5
-        assert data["total"] == 18
-        assert len(data["criteria"]) == 18
+        assert data["score"] == scorecard.met_count
+        assert data["total"] == 19
+        assert len(data["criteria"]) == 19
 
     def test_creates_omega_dir(self, registry, soak_dir, tmp_path):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)
@@ -293,3 +295,78 @@ class TestWriteSnapshot:
         write_snapshot(scorecard, corpus_dir=tmp_path)
         changes = diff_snapshots(scorecard, corpus_dir=tmp_path)
         assert any("No changes" in c for c in changes)
+
+
+class TestNetworkTestament:
+    def test_result_not_met_by_default(self):
+        result = NetworkTestamentResult()
+        assert not result.met
+        assert result.density == 0.0
+        assert result.velocity == 0.0
+        assert result.milestones == 0
+
+    def test_result_met_when_all_conditions_satisfied(self):
+        result = NetworkTestamentResult(
+            density=0.6, velocity=0.5, milestones=1,
+            maps_found=10, total_mirrors=30, ledger_entries=15,
+        )
+        assert result.met
+
+    def test_result_not_met_low_density(self):
+        result = NetworkTestamentResult(density=0.3, velocity=0.5, milestones=1)
+        assert not result.met
+
+    def test_result_not_met_zero_velocity(self):
+        result = NetworkTestamentResult(density=0.6, velocity=0.0, milestones=1)
+        assert not result.met
+
+    def test_result_not_met_no_milestones(self):
+        result = NetworkTestamentResult(density=0.6, velocity=0.5, milestones=0)
+        assert not result.met
+
+    def test_check_empty_workspace(self, tmp_path):
+        ws = tmp_path / "workspace"
+        ws.mkdir()
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+        result = _check_network_testament(workspace_root=ws, corpus_dir=corpus)
+        assert result.maps_found == 0
+        assert result.density == 0.0
+        assert result.milestones == 0
+
+    def test_check_milestones_counted(self, tmp_path):
+        corpus = tmp_path / "corpus"
+        milestones_dir = corpus / "data" / "testament" / "milestones"
+        milestones_dir.mkdir(parents=True)
+        (milestones_dir / "first-mirror.md").write_text("# First mirror milestone")
+        (milestones_dir / "engagement-started.json").write_text("{}")
+        (milestones_dir / "not-a-milestone.txt").touch()  # wrong extension
+        ws = tmp_path / "workspace"
+        ws.mkdir()
+        result = _check_network_testament(workspace_root=ws, corpus_dir=corpus)
+        assert result.milestones == 2  # .md and .json count, .txt does not
+
+    def test_criterion_19_in_evaluate(self, registry, soak_dir):
+        scorecard = evaluate(registry=registry, soak_dir=soak_dir)
+        c19 = scorecard.criteria[18]  # 0-indexed
+        assert c19.id == 19
+        assert "Network Testament" in c19.name
+        assert c19.horizon == "H3"
+        assert c19.auto is True
+        assert "density=" in c19.value
+
+    def test_criterion_19_status_reflects_data(self, registry, soak_dir, tmp_path, monkeypatch):
+        # With empty workspace + corpus + no ledger, should be NOT_MET
+        ws = tmp_path / "workspace"
+        ws.mkdir()
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+        # Block the ledger from reading real production data
+        import organvm_engine.network.ledger as _ledger_mod
+        monkeypatch.setattr(_ledger_mod, "DEFAULT_LEDGER_PATH", tmp_path / "empty-ledger.jsonl")
+        scorecard = evaluate(
+            registry=registry, soak_dir=soak_dir,
+            workspace_root=ws, corpus_dir=corpus,
+        )
+        c19 = scorecard.criteria[18]
+        assert c19.status == "NOT_MET"

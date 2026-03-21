@@ -1,6 +1,6 @@
-"""Omega scorecard — 18 criteria for system completion.
+"""Omega scorecard — 19 criteria for system completion.
 
-Evaluates the 18 omega criteria defined in there+back-again.md.
+Evaluates the 19 omega criteria defined in there+back-again.md.
 Criteria that can be auto-assessed from soak data or registry are
 evaluated automatically; others report their manual status.
 
@@ -10,6 +10,10 @@ and #10 (MRR ≥ costs) replaced with craft-first criteria:
   #10 → ≥100 unique visitors/month (organic discovery)
   #18 → First organic revenue (gated behind #9 + #10)
 Revenue follows traffic follows quality follows craft.
+
+Amendment (2026-03-21): #19 — Network Testament health check.
+  network_density >= 0.5 AND engagement_velocity > 0
+  AND ≥1 milestone in testament/milestones/.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from pathlib import Path
 
 from organvm_engine.paths import corpus_dir as _default_corpus_dir
 from organvm_engine.paths import soak_dir as _default_soak_dir
+from organvm_engine.paths import workspace_root as _default_workspace_root
 
 # ── Soak streak analysis ────────────────────────────────────────────
 
@@ -131,7 +136,7 @@ class OmegaCriterion:
 
 @dataclass
 class OmegaScorecard:
-    """Complete omega scorecard with all 17 criteria."""
+    """Complete omega scorecard with all 19 criteria."""
 
     criteria: list[OmegaCriterion]
     soak: SoakStreak
@@ -207,11 +212,91 @@ _KNOWN_MET = {
 }
 
 
+@dataclass
+class NetworkTestamentResult:
+    """Result of evaluating network testament health."""
+
+    density: float = 0.0
+    velocity: float = 0.0
+    milestones: int = 0
+    maps_found: int = 0
+    total_mirrors: int = 0
+    ledger_entries: int = 0
+
+    @property
+    def met(self) -> bool:
+        return self.density >= 0.5 and self.velocity > 0 and self.milestones >= 1
+
+
+def _check_network_testament(
+    workspace_root: Path | str | None = None,
+    corpus_dir: Path | str | None = None,
+) -> NetworkTestamentResult:
+    """Check network testament health for omega criterion #19.
+
+    Evaluates three conditions:
+    1. network_density >= 0.5 (majority of active repos have mirrors)
+    2. engagement_velocity > 0 (at least one engagement action recorded)
+    3. ≥1 milestone file in corpus data/testament/milestones/
+
+    Returns:
+        NetworkTestamentResult with all measured values.
+    """
+    result = NetworkTestamentResult()
+
+    # 1. Network density — discover maps and compute coverage
+    try:
+        from organvm_engine.network.mapper import discover_network_maps
+        from organvm_engine.network.metrics import engagement_velocity, network_density
+
+        ws = Path(workspace_root) if workspace_root else _default_workspace_root()
+        maps_with_paths = discover_network_maps(ws)
+        maps = [nmap for _, nmap in maps_with_paths]
+        result.maps_found = len(maps)
+        result.total_mirrors = sum(m.mirror_count for m in maps)
+
+        # Use maps_found as proxy for total active repos with network maps
+        # A density of 0.5 means at least half of repos with maps have mirrors
+        total_repos_with_maps = len(maps)
+        if total_repos_with_maps > 0:
+            result.density = network_density(maps, total_repos_with_maps)
+        else:
+            result.density = 0.0
+    except Exception:
+        pass
+
+    # 2. Engagement velocity — read ledger and check for any activity
+    try:
+        from organvm_engine.network.ledger import read_ledger
+
+        entries = read_ledger()
+        result.ledger_entries = len(entries)
+        result.velocity = engagement_velocity(entries, period_days=30) if entries else 0.0
+    except Exception:
+        pass
+
+    # 3. Milestones — check for testament milestone files
+    try:
+        cd = Path(corpus_dir) if corpus_dir else _default_corpus_dir()
+        milestones_dir = cd / "data" / "testament" / "milestones"
+        if milestones_dir.is_dir():
+            result.milestones = sum(
+                1 for f in milestones_dir.iterdir()
+                if f.is_file() and f.suffix in (".md", ".json", ".yaml", ".yml")
+            )
+    except Exception:
+        pass
+
+    return result
+
+
 def evaluate(
     registry: dict | None = None,
     soak_dir: Path | str | None = None,
+    workspace_root: Path | str | None = None,
+    corpus_dir: Path | str | None = None,
 ) -> OmegaScorecard:
-    """Evaluate all 17 omega criteria.
+    """Evaluate all 19 omega criteria.
 
     Auto-assesses criteria from soak data and registry where possible.
     Returns the complete scorecard.
@@ -221,6 +306,12 @@ def evaluate(
     # Check if engagement baseline is established (30+ days of data)
     engagement_baseline = soak.total_snapshots >= 30
     soak_value = f"{soak.streak_days}/{soak.target_days} days, {soak.critical_incidents} incidents"
+
+    # Evaluate network testament health
+    net = _check_network_testament(
+        workspace_root=workspace_root,
+        corpus_dir=corpus_dir,
+    )
 
     criteria = [
         OmegaCriterion(
@@ -399,6 +490,25 @@ def evaluate(
             value="Gated behind #9 (product quality) and #10 (organic traffic)",
             evidence="Constitutional amendment: craft → traffic → inquiry → revenue. "
             "Revenue is an outcome, not a feature to bolt on.",
+        ),
+        OmegaCriterion(
+            id=19,
+            name="Network Testament health (density + engagement + milestones)",
+            horizon="H3",
+            measurement="network_density >= 0.5, engagement_velocity > 0, ≥1 milestone",
+            auto=True,
+            status="MET" if net.met else (
+                "IN_PROGRESS"
+                if net.maps_found > 0 or net.ledger_entries > 0
+                else "NOT_MET"
+            ),
+            value=(
+                f"density={net.density:.2f}, velocity={net.velocity:.2f}, "
+                f"milestones={net.milestones}, maps={net.maps_found}, "
+                f"mirrors={net.total_mirrors}"
+            ),
+            evidence="Network testament tracks external mirror coverage, "
+            "engagement velocity, and accumulated milestones.",
         ),
     ]
 
