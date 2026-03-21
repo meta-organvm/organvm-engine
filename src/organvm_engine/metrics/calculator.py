@@ -155,6 +155,74 @@ def count_code_files(workspace: Path) -> dict:
     }
 
 
+def count_code_files_per_repo(workspace: Path) -> dict[str, dict[str, int]]:
+    """Count code and test files per repository.
+
+    Walks all organ directories and counts source/test files for each repo
+    individually, keyed by ``org/repo-name`` (e.g. ``organvm-i-theoria/recursive-engine``).
+
+    Args:
+        workspace: Path to the workspace root (e.g. ~/Workspace).
+
+    Returns:
+        Dict mapping ``org/repo-name`` to ``{"code_files": N, "test_files": N}``.
+    """
+    from organvm_engine.organ_config import ORGANS
+
+    per_repo: dict[str, dict[str, int]] = {}
+
+    for organ_info in ORGANS.values():
+        organ_dir = workspace / organ_info["dir"]
+        if not organ_dir.is_dir():
+            continue
+        for repo_dir in sorted(organ_dir.iterdir()):
+            if not repo_dir.is_dir():
+                continue
+            repo_code = 0
+            repo_tests = 0
+            for path in repo_dir.rglob("*"):
+                if not path.is_file():
+                    continue
+                if any(skip in path.parts for skip in _SKIP_DIRS):
+                    continue
+                if path.suffix in _CODE_EXTENSIONS:
+                    repo_code += 1
+                    if any(pat in path.name for pat in _TEST_PATTERNS):
+                        repo_tests += 1
+            key = f"{organ_dir.name}/{repo_dir.name}"
+            per_repo[key] = {"code_files": repo_code, "test_files": repo_tests}
+
+    return per_repo
+
+
+def propagate_repo_metrics(registry: dict, per_repo: dict[str, dict[str, int]]) -> int:
+    """Write per-repo code_files/test_files counts into registry entries.
+
+    For each repository in the registry, looks up its filesystem counts from
+    *per_repo* and stores them under a ``metrics`` key on the repo dict.
+
+    Args:
+        registry: Mutable registry dict (modified in place).
+        per_repo: Output of :func:`count_code_files_per_repo`.
+
+    Returns:
+        Number of registry entries updated.
+    """
+    updated = 0
+    for organ_data in registry.get("organs", {}).values():
+        for repo in organ_data.get("repositories", []):
+            org = repo.get("org", "")
+            name = repo.get("name", "")
+            key = f"{org}/{name}"
+            counts = per_repo.get(key)
+            if counts is not None:
+                metrics = repo.setdefault("metrics", {})
+                metrics["code_files"] = counts["code_files"]
+                metrics["test_files"] = counts["test_files"]
+                updated += 1
+    return updated
+
+
 def compute_metrics(registry: dict, workspace: Path | None = None) -> dict:
     """Derive all computable metrics from registry-v2.json.
 

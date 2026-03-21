@@ -8,8 +8,10 @@ from organvm_engine.metrics.calculator import (
     _strip_frontmatter,
     compute_metrics,
     count_code_files,
+    count_code_files_per_repo,
     count_words,
     format_word_count,
+    propagate_repo_metrics,
 )
 from organvm_engine.metrics.propagator import (
     build_patterns,
@@ -522,3 +524,158 @@ class TestComputeVitalsComputedFirst:
         vitals = compute_vitals(canonical)
         assert vitals["logos"]["words"] == 404000
         assert "word_breakdown" not in vitals["logos"]
+
+
+class TestCountCodeFilesPerRepo:
+    def _make_workspace(self, tmp_path):
+        """Build a workspace with multiple repos across organs."""
+        ws = tmp_path / "workspace"
+        organ = ws / "organvm-i-theoria"
+
+        # repo-a: 2 source + 1 test
+        repo_a = organ / "repo-a"
+        (repo_a / "src").mkdir(parents=True)
+        (repo_a / "src" / "main.py").write_text("x = 1")
+        (repo_a / "src" / "utils.py").write_text("y = 2")
+        (repo_a / "tests").mkdir()
+        (repo_a / "tests" / "test_main.py").write_text("pass")
+
+        # repo-b: 1 ts file, no tests
+        repo_b = organ / "repo-b"
+        repo_b.mkdir(parents=True)
+        (repo_b / "index.ts").write_text("export const x = 1")
+
+        return ws
+
+    def test_per_repo_keys(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        per_repo = count_code_files_per_repo(ws)
+        assert "organvm-i-theoria/repo-a" in per_repo
+        assert "organvm-i-theoria/repo-b" in per_repo
+
+    def test_per_repo_counts(self, tmp_path):
+        ws = self._make_workspace(tmp_path)
+        per_repo = count_code_files_per_repo(ws)
+        assert per_repo["organvm-i-theoria/repo-a"]["code_files"] == 3  # main + utils + test
+        assert per_repo["organvm-i-theoria/repo-a"]["test_files"] == 1
+        assert per_repo["organvm-i-theoria/repo-b"]["code_files"] == 1
+        assert per_repo["organvm-i-theoria/repo-b"]["test_files"] == 0
+
+    def test_skips_vendored_dirs(self, tmp_path):
+        ws = tmp_path / "workspace"
+        organ = ws / "organvm-i-theoria" / "repo-c"
+        (organ / "node_modules" / "pkg").mkdir(parents=True)
+        (organ / "node_modules" / "pkg" / "index.js").write_text("x")
+        (organ / "src").mkdir(parents=True)
+        (organ / "src" / "app.py").write_text("y")
+        per_repo = count_code_files_per_repo(ws)
+        assert per_repo["organvm-i-theoria/repo-c"]["code_files"] == 1
+
+    def test_empty_workspace(self, tmp_path):
+        ws = tmp_path / "empty"
+        ws.mkdir()
+        per_repo = count_code_files_per_repo(ws)
+        assert per_repo == {}
+
+
+class TestPropagateRepoMetrics:
+    def test_writes_metrics_to_registry_entries(self):
+        registry = {
+            "organs": {
+                "ORGAN-I": {
+                    "repositories": [
+                        {"name": "recursive-engine", "org": "organvm-i-theoria"},
+                        {"name": "ontological-framework", "org": "organvm-i-theoria"},
+                    ],
+                },
+            },
+        }
+        per_repo = {
+            "organvm-i-theoria/recursive-engine": {"code_files": 42, "test_files": 10},
+            "organvm-i-theoria/ontological-framework": {"code_files": 15, "test_files": 3},
+        }
+        updated = propagate_repo_metrics(registry, per_repo)
+        assert updated == 2
+        repos = registry["organs"]["ORGAN-I"]["repositories"]
+        assert repos[0]["metrics"]["code_files"] == 42
+        assert repos[0]["metrics"]["test_files"] == 10
+        assert repos[1]["metrics"]["code_files"] == 15
+        assert repos[1]["metrics"]["test_files"] == 3
+
+    def test_preserves_existing_metrics_keys(self):
+        registry = {
+            "organs": {
+                "ORGAN-I": {
+                    "repositories": [
+                        {
+                            "name": "recursive-engine",
+                            "org": "organvm-i-theoria",
+                            "metrics": {"custom_key": "preserved"},
+                        },
+                    ],
+                },
+            },
+        }
+        per_repo = {
+            "organvm-i-theoria/recursive-engine": {"code_files": 42, "test_files": 10},
+        }
+        propagate_repo_metrics(registry, per_repo)
+        m = registry["organs"]["ORGAN-I"]["repositories"][0]["metrics"]
+        assert m["custom_key"] == "preserved"
+        assert m["code_files"] == 42
+
+    def test_skips_repos_not_on_disk(self):
+        registry = {
+            "organs": {
+                "ORGAN-I": {
+                    "repositories": [
+                        {"name": "missing-repo", "org": "organvm-i-theoria"},
+                    ],
+                },
+            },
+        }
+        per_repo = {}  # no repos found on disk
+        updated = propagate_repo_metrics(registry, per_repo)
+        assert updated == 0
+        assert "metrics" not in registry["organs"]["ORGAN-I"]["repositories"][0]
+
+    def test_returns_count_of_updated_entries(self):
+        registry = {
+            "organs": {
+                "ORGAN-I": {
+                    "repositories": [
+                        {"name": "found", "org": "organvm-i-theoria"},
+                        {"name": "missing", "org": "organvm-i-theoria"},
+                    ],
+                },
+            },
+        }
+        per_repo = {
+            "organvm-i-theoria/found": {"code_files": 5, "test_files": 1},
+        }
+        updated = propagate_repo_metrics(registry, per_repo)
+        assert updated == 1
+
+    def test_integration_with_fixture_registry(self, registry):
+        """Verify propagation works against the standard minimal registry fixture."""
+        per_repo = {
+            "organvm-i-theoria/recursive-engine": {"code_files": 100, "test_files": 25},
+            "organvm-i-theoria/ontological-framework": {"code_files": 50, "test_files": 8},
+            "organvm-ii-poiesis/metasystem-master": {"code_files": 30, "test_files": 5},
+            "organvm-iii-ergon/product-app": {"code_files": 80, "test_files": 12},
+            "meta-organvm/organvm-engine": {"code_files": 200, "test_files": 60},
+            "meta-organvm/organvm-corpvs-testamentvm": {"code_files": 10, "test_files": 0},
+        }
+        updated = propagate_repo_metrics(registry, per_repo)
+        assert updated == 6
+
+        # Check a specific entry
+        organ_i = registry["organs"]["ORGAN-I"]["repositories"]
+        engine = next(r for r in organ_i if r["name"] == "recursive-engine")
+        assert engine["metrics"]["code_files"] == 100
+        assert engine["metrics"]["test_files"] == 25
+
+        meta = registry["organs"]["META-ORGANVM"]["repositories"]
+        oe = next(r for r in meta if r["name"] == "organvm-engine")
+        assert oe["metrics"]["code_files"] == 200
+        assert oe["metrics"]["test_files"] == 60

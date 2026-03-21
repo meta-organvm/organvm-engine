@@ -9,8 +9,14 @@ from organvm_engine.registry.loader import load_registry
 
 
 def cmd_metrics_calculate(args: argparse.Namespace) -> int:
-    from organvm_engine.metrics.calculator import compute_metrics, write_metrics
+    from organvm_engine.metrics.calculator import (
+        compute_metrics,
+        count_code_files_per_repo,
+        propagate_repo_metrics,
+        write_metrics,
+    )
     from organvm_engine.paths import resolve_workspace as _resolve_workspace
+    from organvm_engine.registry.loader import save_registry
 
     registry = load_registry(args.registry)
     workspace = _resolve_workspace(args)
@@ -21,11 +27,21 @@ def cmd_metrics_calculate(args: argparse.Namespace) -> int:
     )
     write_metrics(computed, output)
 
+    # Propagate per-repo code_files/test_files into registry entries
+    repo_updated = 0
+    if workspace is not None:
+        per_repo = count_code_files_per_repo(workspace)
+        repo_updated = propagate_repo_metrics(registry, per_repo)
+        if repo_updated > 0:
+            save_registry(registry, args.registry)
+
     print(f"Metrics written to {output}")
     print(f"  Repos: {computed['total_repos']} ({computed['active_repos']} ACTIVE)")
     print(f"  Organs: {computed['operational_organs']}/{computed['total_organs']} operational")
     print(f"  CI: {computed['ci_workflows']}")
     print(f"  Dependencies: {computed['dependency_edges']} edges")
+    if repo_updated:
+        print(f"  Registry: {repo_updated} repo(s) updated with code_files/test_files")
     if "word_counts" in computed:
         wc = computed["word_counts"]
         print(
@@ -145,8 +161,14 @@ def cmd_metrics_count_words(args: argparse.Namespace) -> int:
 
 
 def cmd_metrics_refresh(args: argparse.Namespace) -> int:
-    from organvm_engine.metrics.calculator import compute_metrics, write_metrics
+    from organvm_engine.metrics.calculator import (
+        compute_metrics,
+        count_code_files_per_repo,
+        propagate_repo_metrics,
+        write_metrics,
+    )
     from organvm_engine.paths import resolve_workspace as _resolve_workspace
+    from organvm_engine.registry.loader import save_registry
 
     # Step 1: Calculate
     registry = load_registry(args.registry)
@@ -156,12 +178,22 @@ def cmd_metrics_refresh(args: argparse.Namespace) -> int:
     corpus_root = Path(args.registry).parent
     output = corpus_root / "system-metrics.json"
 
+    # Propagate per-repo code_files/test_files into registry entries
+    repo_updated = 0
+    if workspace is not None:
+        per_repo = count_code_files_per_repo(workspace)
+        repo_updated = propagate_repo_metrics(registry, per_repo)
+
     if not args.dry_run:
         write_metrics(computed, output)
+        if repo_updated > 0:
+            save_registry(registry, args.registry)
 
     prefix = "[DRY RUN] " if args.dry_run else ""
     print(f"{prefix}[1/2] Metrics calculated -> {output}")
     print(f"  Repos: {computed['total_repos']} ({computed['active_repos']} ACTIVE)")
+    if repo_updated:
+        print(f"  Registry: {repo_updated} repo(s) updated with code_files/test_files")
 
     # Step 2: Propagate
     args_ns = argparse.Namespace(
