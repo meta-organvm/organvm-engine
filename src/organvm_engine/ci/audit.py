@@ -81,8 +81,35 @@ TIER_REQUIREMENTS: dict[str, set[str]] = {
     "ARCHIVED": set(),  # no requirements for archived repos
 }
 
-# Repos that are docs-only — skip code-specific checks
+# Repos that are docs-only — skip code-specific checks (override: always docs-only)
 _DOCS_ONLY_INDICATORS = {"praxis-perpetua", ".github"}
+
+# Files whose presence indicates a code repo (not docs-only)
+_CODE_INDICATOR_FILES = {
+    "pyproject.toml",
+    "package.json",
+    "setup.py",
+    "setup.cfg",
+    "go.mod",
+    "Cargo.toml",
+    "Makefile",
+    "CMakeLists.txt",
+    "build.gradle",
+    "pom.xml",
+    "requirements.txt",
+    "seed.yaml",
+}
+
+# Directories whose presence indicates a code repo (not docs-only)
+_CODE_INDICATOR_DIRS = {
+    "src",
+    "lib",
+    "cmd",
+    "pkg",
+    "internal",
+    "app",
+    "bin",
+}
 
 
 @dataclass
@@ -255,18 +282,25 @@ class InfraAuditReport:
 # ---------------------------------------------------------------------------
 
 def _is_docs_only(repo_name: str, repo_path: Path | None) -> bool:
-    """Heuristic: is this repo docs-only (no code to lint/test)?"""
+    """Heuristic: is this repo docs-only (no code to lint/test)?
+
+    Detection strategy:
+    1. Override set — repos in _DOCS_ONLY_INDICATORS are always docs-only.
+    2. Code-indicator files — presence of any build/config file (pyproject.toml,
+       go.mod, Cargo.toml, Makefile, etc.) means it has code.
+    3. Code-indicator directories — presence of src/, lib/, cmd/, pkg/, etc.
+       means it has code.
+    4. If none found, assume docs-only.
+    """
     if repo_name in _DOCS_ONLY_INDICATORS:
         return True
     if repo_path is None:
         return False
-    # Check for pyproject.toml or package.json — indicates code repo
-    if (repo_path / "pyproject.toml").is_file():
+    # Any code-indicator file present means this is a code repo
+    if any((repo_path / f).is_file() for f in _CODE_INDICATOR_FILES):
         return False
-    if (repo_path / "package.json").is_file():
-        return False
-    # Check for src/ or lib/ directories
-    return not ((repo_path / "src").is_dir() or (repo_path / "lib").is_dir())
+    # Any code-indicator directory present means this is a code repo
+    return all(not (repo_path / d).is_dir() for d in _CODE_INDICATOR_DIRS)
 
 
 def _check_dependabot(repo_path: Path) -> InfraCheck:
@@ -286,14 +320,44 @@ def _check_codeowners(repo_path: Path) -> InfraCheck:
     return InfraCheck("codeowners", CheckStatus.FAIL, "no CODEOWNERS file")
 
 
+_CODEQL_CONTENT_PATTERNS = [
+    r"github/codeql-action/init",
+    r"github/codeql-action/analyze",
+    r"github/codeql-action/autobuild",
+    r"github/codeql-action/upload-sarif",
+    r"codeql[_-]analysis",
+]
+
+
 def _check_codeql(repo_path: Path) -> InfraCheck:
-    """Check for CodeQL workflow."""
+    """Check for CodeQL workflow.
+
+    Uses a two-pass approach:
+    1. Fast path: filename contains "codeql" (explicit CodeQL workflow file).
+    2. Content fallback: scan all workflow YAML files for CodeQL action
+       references (catches repos using codeql-action without a dedicated file).
+    """
     wf_dir = repo_path / ".github" / "workflows"
     if not wf_dir.is_dir():
         return InfraCheck("codeql", CheckStatus.FAIL, "no workflows directory")
+
+    # Fast path — filename match
     for f in wf_dir.iterdir():
         if f.is_file() and "codeql" in f.name.lower():
             return InfraCheck("codeql", CheckStatus.PASS, f.name)
+
+    # Content fallback — scan workflow file contents for CodeQL action references
+    for wf in wf_dir.iterdir():
+        if not wf.is_file() or wf.suffix not in (".yml", ".yaml"):
+            continue
+        try:
+            content = wf.read_text(errors="replace")
+        except OSError:
+            continue
+        for pattern in _CODEQL_CONTENT_PATTERNS:
+            if re.search(pattern, content, re.IGNORECASE):
+                return InfraCheck("codeql", CheckStatus.PASS, f"codeql action in {wf.name}")
+
     return InfraCheck("codeql", CheckStatus.FAIL, "no CodeQL workflow found")
 
 
@@ -332,18 +396,56 @@ def _check_issue_templates(repo_path: Path) -> InfraCheck:
     return InfraCheck("issue_templates", CheckStatus.FAIL, "no issue templates found")
 
 
+_RELEASE_CONTENT_PATTERNS = [
+    r"release-drafter/release-drafter",
+    r"semantic-release",
+    r"changesets/action",
+    r"goreleaser/goreleaser-action",
+    r"softprops/action-gh-release",
+    r"ncipollo/release-action",
+    r"pypa/gh-action-pypi-publish",
+    r"actions/create-release",
+    r"google-github-actions/release-please-action",
+]
+
+
 def _check_release_automation(repo_path: Path) -> InfraCheck:
-    """Check for release drafter or similar release workflow."""
+    """Check for release drafter or similar release workflow.
+
+    Uses a three-pass approach:
+    1. Fast path: workflow filename contains release/publish keywords.
+    2. Config fallback: release-drafter.yml in .github/.
+    3. Content fallback: scan all workflow YAML files for known release
+       action references (catches repos embedding release steps in CI).
+    """
     wf_dir = repo_path / ".github" / "workflows"
     if not wf_dir.is_dir():
         return InfraCheck("release_automation", CheckStatus.FAIL, "no workflows directory")
+
+    # Fast path — filename match
     release_keywords = {"release", "publish", "deploy-release"}
     for f in wf_dir.iterdir():
         if f.is_file() and any(kw in f.stem.lower() for kw in release_keywords):
             return InfraCheck("release_automation", CheckStatus.PASS, f.name)
-    # Also check for release-drafter config
+
+    # Config fallback — release-drafter config file
     if (repo_path / ".github" / "release-drafter.yml").is_file():
         return InfraCheck("release_automation", CheckStatus.PASS, "release-drafter.yml config")
+
+    # Content fallback — scan workflow file contents for release action references
+    for wf in wf_dir.iterdir():
+        if not wf.is_file() or wf.suffix not in (".yml", ".yaml"):
+            continue
+        try:
+            content = wf.read_text(errors="replace")
+        except OSError:
+            continue
+        for pattern in _RELEASE_CONTENT_PATTERNS:
+            if re.search(pattern, content, re.IGNORECASE):
+                return InfraCheck(
+                    "release_automation", CheckStatus.PASS, f"release action in {wf.name}",
+                )
+
     return InfraCheck("release_automation", CheckStatus.FAIL, "no release automation found")
 
 

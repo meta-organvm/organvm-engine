@@ -492,7 +492,7 @@ class TestEdgeCases:
         assert result.is_docs_only is True
 
     def test_docs_only_detection_by_content(self, tmp_path: Path):
-        """Repos without pyproject.toml/package.json/src/ are docs-only."""
+        """Repos without any code-indicator files or dirs are docs-only."""
         repo = tmp_path / "pure-docs"
         repo.mkdir()
         (repo / "README.md").write_text("# Docs only\n")
@@ -505,6 +505,63 @@ class TestEdgeCases:
             tier="standard",
         )
         assert result.is_docs_only is True
+
+    @pytest.mark.parametrize(
+        "indicator_file",
+        [
+            "pyproject.toml",
+            "package.json",
+            "setup.py",
+            "setup.cfg",
+            "go.mod",
+            "Cargo.toml",
+            "Makefile",
+            "CMakeLists.txt",
+            "build.gradle",
+            "pom.xml",
+            "requirements.txt",
+            "seed.yaml",
+        ],
+    )
+    def test_code_indicator_file_prevents_docs_only(self, tmp_path: Path, indicator_file: str):
+        """Any code-indicator file should mark the repo as not docs-only."""
+        from organvm_engine.ci.audit import _is_docs_only
+
+        repo = tmp_path / "code-repo"
+        repo.mkdir()
+        (repo / "README.md").write_text("# Has code\n")
+        (repo / indicator_file).write_text("")
+        assert _is_docs_only("code-repo", repo) is False
+
+    @pytest.mark.parametrize(
+        "indicator_dir",
+        ["src", "lib", "cmd", "pkg", "internal", "app", "bin"],
+    )
+    def test_code_indicator_dir_prevents_docs_only(self, tmp_path: Path, indicator_dir: str):
+        """Any code-indicator directory should mark the repo as not docs-only."""
+        from organvm_engine.ci.audit import _is_docs_only
+
+        repo = tmp_path / "code-repo"
+        repo.mkdir()
+        (repo / "README.md").write_text("# Has code\n")
+        (repo / indicator_dir).mkdir()
+        assert _is_docs_only("code-repo", repo) is False
+
+    def test_override_set_trumps_code_indicators(self, tmp_path: Path):
+        """Repos in _DOCS_ONLY_INDICATORS are docs-only even with code files."""
+        from organvm_engine.ci.audit import _is_docs_only
+
+        repo = tmp_path / ".github"
+        repo.mkdir()
+        (repo / "pyproject.toml").write_text("[project]\nname = 'gh'")
+        (repo / "src").mkdir()
+        assert _is_docs_only(".github", repo) is True
+
+    def test_none_repo_path_is_not_docs_only(self):
+        """None repo_path (can't inspect disk) defaults to not docs-only."""
+        from organvm_engine.ci.audit import _is_docs_only
+
+        assert _is_docs_only("unknown-repo", None) is False
 
 
 # ---------------------------------------------------------------------------
@@ -844,3 +901,308 @@ class TestPromotionGateIntegration:
         )
         assert ok is True
         reset_loaded_transitions()
+
+
+# ---------------------------------------------------------------------------
+# Content-based detection (CodeQL and release automation)
+# ---------------------------------------------------------------------------
+
+class TestCodeQLContentDetection:
+    """Tests for content-based CodeQL detection (fallback path)."""
+
+    def test_codeql_action_init_in_ci_workflow(self, tmp_path: Path):
+        """CodeQL detected via github/codeql-action/init in a non-codeql-named file."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "name: CI\n"
+            "jobs:\n"
+            "  analyze:\n"
+            "    steps:\n"
+            "      - uses: github/codeql-action/init@v3\n"
+            "        with:\n"
+            "          languages: python\n"
+            "      - uses: github/codeql-action/analyze@v3\n",
+        )
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.PASS
+        assert "codeql action in ci.yml" in result.detail
+
+    def test_codeql_action_analyze_only(self, tmp_path: Path):
+        """CodeQL detected via analyze action alone."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "security.yml").write_text(
+            "name: Security\n"
+            "jobs:\n"
+            "  scan:\n"
+            "    steps:\n"
+            "      - uses: github/codeql-action/analyze@v2\n",
+        )
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_codeql_upload_sarif(self, tmp_path: Path):
+        """CodeQL detected via upload-sarif action."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "analysis.yml").write_text(
+            "name: Analysis\n"
+            "steps:\n"
+            "  - uses: github/codeql-action/upload-sarif@v3\n",
+        )
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_codeql_analysis_keyword(self, tmp_path: Path):
+        """CodeQL detected via codeql_analysis or codeql-analysis keyword."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "scan.yml").write_text(
+            "name: Scan\n"
+            "jobs:\n"
+            "  codeql-analysis:\n"
+            "    runs-on: ubuntu-latest\n",
+        )
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_filename_fast_path_takes_precedence(self, tmp_path: Path):
+        """When filename matches, content scanning is skipped -- detail is filename."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "codeql-analysis.yml").write_text("name: CodeQL\n")
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.PASS
+        assert result.detail == "codeql-analysis.yml"
+
+    def test_no_codeql_in_content_still_fails(self, tmp_path: Path):
+        """Workflow without CodeQL references still fails."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "name: CI\n"
+            "jobs:\n"
+            "  test:\n"
+            "    steps:\n"
+            "      - run: pytest tests/ -v\n",
+        )
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.FAIL
+
+    def test_non_yaml_files_ignored_in_content_scan(self, tmp_path: Path):
+        """Non-YAML files in workflows/ are not scanned for content."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "notes.txt").write_text("github/codeql-action/init\n")
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.FAIL
+
+    def test_codeql_autobuild_action(self, tmp_path: Path):
+        """CodeQL detected via autobuild action reference."""
+        from organvm_engine.ci.audit import _check_codeql
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "build.yaml").write_text(
+            "steps:\n"
+            "  - uses: github/codeql-action/autobuild@v3\n",
+        )
+        result = _check_codeql(repo)
+        assert result.status == CheckStatus.PASS
+
+
+class TestReleaseAutomationContentDetection:
+    """Tests for content-based release automation detection (fallback path)."""
+
+    def test_semantic_release_in_ci(self, tmp_path: Path):
+        """Release automation detected via semantic-release in CI workflow."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "name: CI\n"
+            "jobs:\n"
+            "  deploy:\n"
+            "    steps:\n"
+            "      - run: npx semantic-release\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+        assert "release action in ci.yml" in result.detail
+
+    def test_changesets_action(self, tmp_path: Path):
+        """Release automation detected via changesets/action."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "steps:\n"
+            "  - uses: changesets/action@v1\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_goreleaser_action(self, tmp_path: Path):
+        """Release automation detected via goreleaser."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "build.yml").write_text(
+            "steps:\n"
+            "  - uses: goreleaser/goreleaser-action@v5\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_softprops_gh_release(self, tmp_path: Path):
+        """Release automation detected via softprops/action-gh-release."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "deploy.yaml").write_text(
+            "steps:\n"
+            "  - uses: softprops/action-gh-release@v1\n"
+            "    with:\n"
+            "      files: dist/*\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_pypi_publish_action(self, tmp_path: Path):
+        """Release automation detected via pypa/gh-action-pypi-publish."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "steps:\n"
+            "  - uses: pypa/gh-action-pypi-publish@release/v1\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_release_please_action(self, tmp_path: Path):
+        """Release automation detected via release-please."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "steps:\n"
+            "  - uses: google-github-actions/release-please-action@v4\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_release_drafter_action_in_content(self, tmp_path: Path):
+        """Release automation via release-drafter action in workflow content."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "drafter.yml").write_text(
+            "steps:\n"
+            "  - uses: release-drafter/release-drafter@v5\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_filename_fast_path_takes_precedence(self, tmp_path: Path):
+        """When filename matches, content scanning is skipped -- detail is filename."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "release.yml").write_text("name: Release\n")
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+        assert result.detail == "release.yml"
+
+    def test_no_release_in_content_still_fails(self, tmp_path: Path):
+        """Workflow without release references still fails."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(
+            "name: CI\n"
+            "steps:\n"
+            "  - run: pytest tests/ -v\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.FAIL
+
+    def test_non_yaml_files_ignored_in_content_scan(self, tmp_path: Path):
+        """Non-YAML files in workflows/ are not scanned for content."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "readme.md").write_text("Uses semantic-release for publishing\n")
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.FAIL
+
+    def test_actions_create_release(self, tmp_path: Path):
+        """Release automation detected via actions/create-release."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "tag.yml").write_text(
+            "steps:\n"
+            "  - uses: actions/create-release@v1\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
+
+    def test_ncipollo_release_action(self, tmp_path: Path):
+        """Release automation detected via ncipollo/release-action."""
+        from organvm_engine.ci.audit import _check_release_automation
+
+        repo = tmp_path / "r"
+        wf = repo / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yaml").write_text(
+            "steps:\n"
+            "  - uses: ncipollo/release-action@v1\n",
+        )
+        result = _check_release_automation(repo)
+        assert result.status == CheckStatus.PASS
