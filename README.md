@@ -32,6 +32,10 @@ organvm metrics calculate
 
 # Dispatch
 organvm dispatch validate payload.json
+
+# Context
+organvm context sync --dry-run
+organvm context surfaces --workspace ~/Workspace --json
 ```
 
 ## Library Usage
@@ -56,6 +60,7 @@ print(result.summary())
 | `seed` | Discover, parse, and graph seed.yaml files |
 | `metrics` | Compute and propagate system-wide metrics |
 | `dispatch` | Cross-organ event routing and cascade planning |
+| `contextmd` | Sync AI context files and discover exported conversation-corpus surfaces |
 
 ## Part of the Eight-Organ System
 

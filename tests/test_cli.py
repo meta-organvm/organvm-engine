@@ -63,6 +63,7 @@ class TestHelpOutput:
             ["omega", "--help"],
             ["pitch", "--help"],
             ["context", "--help"],
+            ["context", "surfaces", "--help"],
             ["deadlines", "--help"],
             ["ci", "--help"],
         ],
@@ -131,6 +132,13 @@ class TestDispatchTable:
         for sub in ["generate repo --dry-run", "sync --dry-run"]:
             args = parser.parse_args(["--registry", MOCK_REGISTRY, "pitch"] + sub.split())
             assert args.command == "pitch"
+
+    def test_context_surfaces_subcommand_parses(self):
+        parser = build_parser()
+        args = parser.parse_args(["context", "surfaces", "--repo", "conversation-corpus-engine"])
+        assert args.command == "context"
+        assert args.subcommand == "surfaces"
+        assert args.repo == "conversation-corpus-engine"
 
 
 # ── Registry commands ────────────────────────────────────────────
@@ -441,6 +449,11 @@ class TestDryRunFlags:
         parser = build_parser()
         args = parser.parse_args(["context", "sync", "--dry-run"])
         assert args.dry_run is True
+
+    def test_context_surfaces_has_json_flag(self):
+        parser = build_parser()
+        args = parser.parse_args(["context", "surfaces", "--json"])
+        assert args.json is True
 
     def test_omega_update_has_dry_run(self):
         parser = build_parser()

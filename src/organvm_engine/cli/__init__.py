@@ -33,6 +33,7 @@ Usage:
     organvm pitch generate <repo> [--dry-run]
     organvm pitch sync [--organ X] [--dry-run] [--tier X]
     organvm context sync [--dry-run] [--organ X]
+    organvm context surfaces [--workspace <path>] [--repo <name>] [--json]
     organvm prompts narrate [--agent claude|gemini|codex] [--project FILTER] [--output FILE] [--summary FILE] [--dry-run] [--gap-hours 24]
     organvm plans atomize [--plans-dir DIR] [--output FILE] [--summary FILE] [--dry-run]
     organvm atoms link [--threshold 0.25] [--by-thread] [--json] [--output FILE]
@@ -86,7 +87,7 @@ from organvm_engine.cli.content import (
     cmd_content_new,
     cmd_content_status,
 )
-from organvm_engine.cli.context import cmd_context_sync
+from organvm_engine.cli.context import cmd_context_surfaces, cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
 from organvm_engine.cli.dispatch import cmd_dispatch_validate
 from organvm_engine.cli.ecosystem import (
@@ -131,6 +132,11 @@ from organvm_engine.cli.indexer import (
     cmd_index_show,
     cmd_index_stats,
 )
+from organvm_engine.cli.irf import (
+    cmd_irf_list,
+    cmd_irf_stats,
+    cmd_irf_status,
+)
 from organvm_engine.cli.ledger import (
     cmd_ledger_checkpoint,
     cmd_ledger_genesis,
@@ -155,14 +161,6 @@ from organvm_engine.cli.network import (
     cmd_network_synthesize,
 )
 from organvm_engine.cli.omega import cmd_omega_check, cmd_omega_status, cmd_omega_update
-from organvm_engine.cli.trivium import (
-    cmd_trivium_dialects,
-    cmd_trivium_essays,
-    cmd_trivium_matrix,
-    cmd_trivium_scan,
-    cmd_trivium_status,
-    cmd_trivium_synthesize,
-)
 from organvm_engine.cli.ontologia import (
     cmd_ontologia_bootstrap,
     cmd_ontologia_events,
@@ -249,16 +247,19 @@ from organvm_engine.cli.testament import (
     cmd_testament_render,
     cmd_testament_status,
 )
+from organvm_engine.cli.trivium import (
+    cmd_trivium_dialects,
+    cmd_trivium_essays,
+    cmd_trivium_matrix,
+    cmd_trivium_scan,
+    cmd_trivium_status,
+    cmd_trivium_synthesize,
+)
 from organvm_engine.cli.verify import (
     cmd_verify_contracts,
     cmd_verify_ledger,
     cmd_verify_system,
     cmd_verify_temporal,
-)
-from organvm_engine.cli.irf import (
-    cmd_irf_list,
-    cmd_irf_stats,
-    cmd_irf_status,
 )
 from organvm_engine.paths import registry_path as _default_registry_path
 
@@ -765,6 +766,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--organ",
         default=None,
         help="Filter to specific organ",
+    )
+    c_surfaces = ctx_sub.add_parser(
+        "surfaces",
+        help="Discover and validate conversation corpus surface exports",
+    )
+    c_surfaces.add_argument(
+        "--repo",
+        default=None,
+        help="Filter to a specific repository name",
+    )
+    c_surfaces.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON",
     )
 
     # organism
@@ -2372,6 +2387,7 @@ def main() -> int:
         ("pitch", "generate"): cmd_pitch_generate,
         ("pitch", "sync"): cmd_pitch_sync,
         ("context", "sync"): cmd_context_sync,
+        ("context", "surfaces"): cmd_context_surfaces,
         ("omega", "status"): cmd_omega_status,
         ("omega", "check"): cmd_omega_check,
         ("omega", "update"): cmd_omega_update,

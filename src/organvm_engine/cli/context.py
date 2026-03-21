@@ -1,6 +1,24 @@
-"""Context sync CLI commands."""
+"""Context CLI commands."""
 
 import argparse
+import json
+
+
+def cmd_context_surfaces(args: argparse.Namespace) -> int:
+    from organvm_engine.contextmd.surfaces import (
+        collect_conversation_corpus_surfaces,
+        render_conversation_corpus_surfaces,
+    )
+
+    report = collect_conversation_corpus_surfaces(
+        workspace=args.workspace,
+        repo=getattr(args, "repo", None),
+    )
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=2))
+    else:
+        print(render_conversation_corpus_surfaces(report))
+    return 1 if report["invalid_count"] > 0 else 0
 
 
 def cmd_context_sync(args: argparse.Namespace) -> int:
