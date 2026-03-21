@@ -36,7 +36,7 @@ Every other module imports from these; change them carefully.
 
 - **`project_slug.py`** — Canonical project slug derivation (`meta-organvm/organvm-engine` form). Converts filesystem paths, plan directory names, and raw slugs to a normalized slash-separated format. Shared across `prompts/`, `plans/`, and `session/`.
 
-### Domain modules (21)
+### Domain modules (22)
 
 | Module | Role |
 |--------|------|
@@ -60,6 +60,7 @@ Every other module imports from these; change them carefully.
 | `ecosystem/` | Product business profiles, competitive matrix, gap analysis, action generation |
 | `prompting/` | Agent-specific prompting guidelines and provider standards |
 | `sop/` | SOP/METADOC discovery, inventory audit, tiered resolver (T4→T3→T2 cascade) |
+| `irf/` | Parse and query INST-INDEX-RERUM-FACIENDARUM.md — the universal work registry. IRFItem dataclass, priority/domain/status filtering |
 | `cli/` | One module per command group (23 modules), wired together in `cli/__init__.py` |
 
 ### The atomization pipeline
@@ -80,7 +81,7 @@ All pipeline outputs go to `corpus_dir/data/atoms/` with a `pipeline-manifest.js
 
 ### CLI dispatch pattern
 
-`cli/__init__.py` builds an argparse tree with `build_parser()`. Commands with subcommands that are in the original tuple-dict (`registry`, `governance`, `seed`, `metrics`, etc.) dispatch via `{(command, subcommand): handler}`. Newer command groups (`session`, `plans`, `prompts`, `atoms`, `organism`) use per-group inline dispatch dicts in explicit `if args.command == ...` branches. Top-level commands without subcommands (`status`, `deadlines`, `refresh`, `lint-vars`) dispatch via standalone `if` branches. Each CLI module exports `cmd_*` functions taking `argparse.Namespace` and returning `int`.
+`cli/__init__.py` builds an argparse tree with `build_parser()`. Commands with subcommands that are in the original tuple-dict (`registry`, `governance`, `seed`, `metrics`, etc.) dispatch via `{(command, subcommand): handler}`. Newer command groups (`session`, `plans`, `prompts`, `atoms`, `organism`, `irf`) use per-group inline dispatch dicts in explicit `if args.command == ...` branches. Top-level commands without subcommands (`status`, `deadlines`, `refresh`, `lint-vars`) dispatch via standalone `if` branches. Each CLI module exports `cmd_*` functions taking `argparse.Namespace` and returning `int`.
 
 ### Registry data safety
 
@@ -124,7 +125,7 @@ All pipeline outputs go to `corpus_dir/data/atoms/` with a `pipeline-manifest.js
 ### Governance
 - *Standard ORGANVM governance applies*
 
-*Last synced: 2026-03-20T10:58:33Z*
+*Last synced: 2026-03-21T13:21:04Z*
 
 ## Session Review Protocol
 
@@ -217,6 +218,13 @@ Linked skills: cicd-resilience-and-recovery, continuous-learning-agent, cross-ag
 Run: `organvm ecosystem show organvm-engine` | `organvm ecosystem validate --organ META`
 
 
+## External Mirrors (Network Testament)
+
+- **technical** (1): yaml/pyyaml
+
+Convergences: 20 | Run: `organvm network map --repo organvm-engine` | `organvm network suggest`
+
+
 ## Task Queue (from pipeline)
 
 **104** pending tasks | Last pipeline: unknown
@@ -247,30 +255,39 @@ Resolve: `organvm ontologia resolve organvm-engine` | History: `organvm ontologi
 
 | Variable | Value | Scope | Updated |
 |----------|-------|-------|---------|
-| `active_repos` | 1 | global | 2026-03-20 |
-| `archived_repos` | 0 | global | 2026-03-20 |
-| `ci_workflows` | 1 | global | 2026-03-20 |
-| `code_files` | 0 | global | 2026-03-20 |
-| `dependency_edges` | 0 | global | 2026-03-20 |
-| `operational_organs` | 1 | global | 2026-03-20 |
-| `published_essays` | 0 | global | 2026-03-20 |
-| `repos_with_tests` | 0 | global | 2026-03-20 |
-| `sprints_completed` | 0 | global | 2026-03-20 |
-| `test_files` | 0 | global | 2026-03-20 |
-| `total_organs` | 1 | global | 2026-03-20 |
-| `total_repos` | 1 | global | 2026-03-20 |
-| `total_words_formatted` | 0 | global | 2026-03-20 |
-| `total_words_numeric` | 0 | global | 2026-03-20 |
-| `total_words_short` | 0K+ | global | 2026-03-20 |
+| `active_repos` | 62 | global | 2026-03-21 |
+| `archived_repos` | 53 | global | 2026-03-21 |
+| `ci_workflows` | 104 | global | 2026-03-21 |
+| `code_files` | 23121 | global | 2026-03-21 |
+| `dependency_edges` | 55 | global | 2026-03-21 |
+| `operational_organs` | 8 | global | 2026-03-21 |
+| `published_essays` | 0 | global | 2026-03-21 |
+| `repos_with_tests` | 47 | global | 2026-03-21 |
+| `sprints_completed` | 0 | global | 2026-03-21 |
+| `test_files` | 4337 | global | 2026-03-21 |
+| `total_organs` | 8 | global | 2026-03-21 |
+| `total_repos` | 116 | global | 2026-03-21 |
+| `total_words_formatted` | 740,907 | global | 2026-03-21 |
+| `total_words_numeric` | 740907 | global | 2026-03-21 |
+| `total_words_short` | 741K+ | global | 2026-03-21 |
 
-Metrics: 9 registered | Observations: 7184 recorded
+Metrics: 9 registered | Observations: 8632 recorded
 Resolve: `organvm ontologia status` | Refresh: `organvm refresh`
 
 
 ## System Density (auto-generated)
 
-AMMOI: 54% | Edges: 28 | Tensions: 33 | Clusters: 5 | Adv: 3 | Events(24h): 12929
+AMMOI: 54% | Edges: 28 | Tensions: 33 | Clusters: 5 | Adv: 3 | Events(24h): 14977
 Structure: 8 organs / 117 repos / 1654 components (depth 17) | Inference: 98% | Organs: META-ORGANVM:66%, ORGAN-I:55%, ORGAN-II:47%, ORGAN-III:56% +4 more
-Last pulse: 2026-03-20T10:58:23 | Δ24h: -3.7% | Δ7d: n/a
+Last pulse: 2026-03-21T13:20:54 | Δ24h: n/a | Δ7d: n/a
+
+
+## Dialect Identity (Trivium)
+
+**Dialect:** SELF_WITNESSING | **Classical Parallel:** The Eighth Art | **Translation Role:** The Witness — proves all translations compose without loss
+
+Strongest translations: I (formal), IV (structural), V (analogical)
+
+Scan: `organvm trivium scan META <OTHER>` | Matrix: `organvm trivium matrix` | Synthesize: `organvm trivium synthesize`
 
 <!-- ORGANVM:AUTO:END -->
