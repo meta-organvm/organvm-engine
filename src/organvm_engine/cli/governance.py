@@ -408,6 +408,112 @@ def cmd_governance_excavate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_governance_graph_history(args: argparse.Namespace) -> int:
+    """Show temporal dependency graph history, snapshots, or diffs."""
+    import json as json_mod
+    from pathlib import Path
+
+    from organvm_engine.governance.temporal import (
+        TemporalGraph,
+        record_registry_snapshot,
+    )
+    from organvm_engine.paths import corpus_dir
+
+    # Resolve the temporal-graph data file
+    data_path: Path
+    if getattr(args, "data", None):
+        data_path = Path(args.data)
+    else:
+        data_path = corpus_dir() / "data" / "temporal-graph.json"
+
+    # --snapshot: record current registry state into the temporal graph
+    if getattr(args, "snapshot", False):
+        registry = load_registry(args.registry)
+        graph = TemporalGraph.load(data_path) if data_path.exists() else TemporalGraph()
+
+        added, removed = record_registry_snapshot(graph, registry)
+        graph.save(data_path)
+
+        print("Temporal Graph Snapshot")
+        print("=" * 40)
+        print(f"  Edges added:   {len(added)}")
+        print(f"  Edges removed: {len(removed)}")
+        print(f"  Total records: {len(graph.edges)}")
+        print(f"  Active edges:  {len(graph.active_edges())}")
+        print(f"  Saved to: {data_path}")
+        return 0
+
+    # Load existing graph for query commands
+    if not data_path.exists():
+        print(f"No temporal graph data at {data_path}")
+        print("Run 'organvm governance graph-history --snapshot' to create the first snapshot.")
+        return 1
+
+    graph = TemporalGraph.load(data_path)
+
+    # --at: reconstruct graph at a point in time
+    at_ts = getattr(args, "at", None)
+    if at_ts:
+        edges = graph.graph_at(at_ts)
+        if getattr(args, "json", False):
+            print(json_mod.dumps(
+                {"timestamp": at_ts, "edges": [e.to_dict() for e in edges]},
+                indent=2,
+            ))
+        else:
+            print(f"Graph at {at_ts}: {len(edges)} active edges")
+            print("=" * 60)
+            for e in sorted(edges, key=lambda x: (x.source, x.target)):
+                status = ""
+                if e.source_status:
+                    status = f"  [{e.source_status}]"
+                print(f"  {e.source} -> {e.target}{status}")
+        return 0
+
+    # --diff: compare two timestamps
+    t1 = getattr(args, "from_ts", None)
+    t2 = getattr(args, "to_ts", None)
+    if t1 and t2:
+        diff = graph.graph_diff(t1, t2)
+        if getattr(args, "json", False):
+            print(json_mod.dumps(diff.to_dict(), indent=2))
+        else:
+            print(f"Graph diff: {t1} -> {t2}")
+            print("=" * 60)
+            if diff.added:
+                print(f"\n  Added ({len(diff.added)}):")
+                for e in diff.added:
+                    print(f"    + {e.source} -> {e.target}")
+            if diff.removed:
+                print(f"\n  Removed ({len(diff.removed)}):")
+                for e in diff.removed:
+                    print(f"    - {e.source} -> {e.target}")
+            if not diff.added and not diff.removed:
+                print("  No changes in this interval.")
+        return 0
+
+    # Default: show summary
+    active = graph.active_edges()
+    if getattr(args, "json", False):
+        print(json_mod.dumps(graph.to_dict(), indent=2))
+    else:
+        removed_count = len(graph.edges) - len(active)
+        print("Temporal Dependency Graph")
+        print("=" * 40)
+        print(f"  Total records: {len(graph.edges)}")
+        print(f"  Active edges:  {len(active)}")
+        print(f"  Removed edges: {removed_count}")
+        if graph.edges:
+            timestamps = sorted(set(
+                e.created_at for e in graph.edges
+            ))
+            print(f"  First snapshot: {timestamps[0]}")
+            print(f"  Last snapshot:  {timestamps[-1]}")
+            print(f"  Snapshots:      {len(timestamps)}")
+
+    return 0
+
+
 def cmd_governance_impact(args: argparse.Namespace) -> int:
     from organvm_engine.governance.impact import calculate_impact
 

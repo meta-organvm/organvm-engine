@@ -47,6 +47,7 @@ from organvm_engine.cli.atoms import (
     cmd_atoms_link,
     cmd_atoms_pipeline,
     cmd_atoms_reconcile,
+    cmd_atoms_research,
 )
 from organvm_engine.cli.ci import (
     cmd_ci_audit,
@@ -130,6 +131,7 @@ from organvm_engine.cli.governance import (
     cmd_governance_checkdeps,
     cmd_governance_dictums,
     cmd_governance_excavate,
+    cmd_governance_graph_history,
     cmd_governance_impact,
     cmd_governance_placement,
     cmd_governance_promote,
@@ -252,6 +254,7 @@ from organvm_engine.cli.testament import (
     cmd_testament_cascade,
     cmd_testament_catalog,
     cmd_testament_gallery,
+    cmd_testament_play,
     cmd_testament_render,
     cmd_testament_status,
 )
@@ -373,6 +376,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     gov_sub.add_parser("check-deps", help="Validate dependency graph")
+
+    gh_p = gov_sub.add_parser(
+        "graph-history",
+        help="Temporal dependency graph: snapshots, point-in-time queries, diffs",
+    )
+    gh_p.add_argument(
+        "--snapshot", action="store_true",
+        help="Record the current registry state as a temporal snapshot",
+    )
+    gh_p.add_argument(
+        "--at", default=None,
+        help="Show the graph as it was at this ISO-8601 timestamp",
+    )
+    gh_p.add_argument(
+        "--from", dest="from_ts", default=None,
+        help="Start timestamp for diff (use with --to)",
+    )
+    gh_p.add_argument(
+        "--to", dest="to_ts", default=None,
+        help="End timestamp for diff (use with --from)",
+    )
+    gh_p.add_argument("--json", action="store_true", help="JSON output")
+    gh_p.add_argument(
+        "--data", default=None,
+        help="Path to temporal-graph.json (default: corpus/data/temporal-graph.json)",
+    )
 
     auth_p = gov_sub.add_parser("authorize", help="Check actor authorization for a transition")
     auth_p.add_argument("actor", help="Actor handle (e.g. '4jp', 'chris')")
@@ -1591,6 +1620,18 @@ def build_parser() -> argparse.ArgumentParser:
     testament_cascade.add_argument("--json", action="store_true", help="JSON output")
     testament_cascade.add_argument("--registry", default=None, help="Registry path override")
 
+    testament_play = testament_sub.add_parser(
+        "play", help="Render system as sonic parameters — OSC bridge to alchemical-synthesizer",
+    )
+    testament_play.add_argument("--json", action="store_true", help="JSON output")
+    testament_play.add_argument(
+        "--osc", action="store_true", help="Output OSC messages only (for piping to SC)",
+    )
+    testament_play.add_argument(
+        "--yaml", action="store_true", help="Output YAML only (for BrahmaModBus.sc)",
+    )
+    testament_play.add_argument("--registry", default=None, help="Registry path override")
+
     # ledger (Testament Protocol — hash-linked event chain)
     ledger = sub.add_parser(
         "ledger", help="Testament Protocol — native hash-linked event chain",
@@ -1975,6 +2016,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip git-based reconciliation step",
     )
+    atoms_pipeline.add_argument(
+        "--skip-research",
+        action="store_true",
+        help="Skip research activation step",
+    )
+    atoms_pipeline.add_argument(
+        "--research-dir",
+        default=None,
+        help="Path to research docs directory (default: praxis-perpetua/research/)",
+    )
 
     atoms_reconcile = atoms_sub.add_parser(
         "reconcile",
@@ -2014,6 +2065,32 @@ def build_parser() -> argparse.ArgumentParser:
         "--workspace",
         default=None,
         help="Workspace root directory",
+    )
+
+    atoms_research = atoms_sub.add_parser(
+        "research",
+        help="Scan research docs for actionable directives",
+    )
+    atoms_research.add_argument(
+        "--write",
+        action="store_true",
+        help="Mark scanned docs as activated (default is dry-run)",
+    )
+    atoms_research.add_argument(
+        "--research-dir",
+        default=None,
+        help="Path to research docs directory (default: praxis-perpetua/research/)",
+    )
+    atoms_research.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.4,
+        help="Minimum extraction confidence 0.0-1.0 (default 0.4)",
+    )
+    atoms_research.add_argument(
+        "--json",
+        action="store_true",
+        help="Output JSON instead of table",
     )
 
     # ontologia — structural registry and entity identity
@@ -2482,6 +2559,7 @@ def main() -> int:
         ("registry", "merge"): cmd_registry_merge,
         ("governance", "audit"): cmd_governance_audit,
         ("governance", "check-deps"): cmd_governance_checkdeps,
+        ("governance", "graph-history"): cmd_governance_graph_history,
         ("governance", "promote"): cmd_governance_promote,
         ("governance", "authorize"): cmd_governance_authorize,
         ("governance", "impact"): cmd_governance_impact,
@@ -2540,6 +2618,7 @@ def main() -> int:
             "pipeline": cmd_atoms_pipeline,
             "reconcile": cmd_atoms_reconcile,
             "fanout": cmd_atoms_fanout,
+            "research": cmd_atoms_research,
         }
         handler = atoms_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:
@@ -2626,6 +2705,7 @@ def main() -> int:
             "cascade": cmd_testament_cascade,
             "catalog": cmd_testament_catalog,
             "gallery": cmd_testament_gallery,
+            "play": cmd_testament_play,
         }
         handler = testament_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:
