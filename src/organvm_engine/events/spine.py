@@ -204,7 +204,7 @@ class EventSpine:
         # Acquire exclusive lock for the entire read-compute-write cycle.
         # This prevents concurrent writers from racing on sequence/prev_hash.
         lock_path = self._path.with_suffix(".lock")
-        lock_fd = open(lock_path, "w")  # noqa: SIM115
+        lock_fd = lock_path.open("w")
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
 

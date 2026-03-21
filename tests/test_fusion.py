@@ -9,7 +9,6 @@ from organvm_engine.governance.fusion import (
     validate_fusion_plan,
 )
 
-
 # ---------- FusionClassification enum ----------
 
 def test_classification_enum_values():

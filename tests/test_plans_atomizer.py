@@ -2,12 +2,9 @@
 
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.plans.atomizer import (
     AtomicTask,
     AtomizeResult,
-    FileRef,
     PlanParser,
     atomize_plans,
     classify_archetype,
@@ -23,7 +20,6 @@ from organvm_engine.plans.atomizer import (
     infer_task_type,
     is_actionable,
 )
-
 
 # ---------------------------------------------------------------------------
 # discover_plans
@@ -360,7 +356,7 @@ class TestPlanParser:
 class TestAtomizePlans:
     def test_atomize_directory(self, tmp_path: Path):
         (tmp_path / "plan.md").write_text(
-            "# Sprint Plan\n- [ ] Build feature\n- [x] Write tests\n"
+            "# Sprint Plan\n- [ ] Build feature\n- [x] Write tests\n",
         )
         result = atomize_plans(tmp_path)
         assert isinstance(result, AtomizeResult)

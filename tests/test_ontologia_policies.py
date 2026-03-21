@@ -1,7 +1,6 @@
 """Tests for ontologia governance policies bridge."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -15,7 +14,6 @@ from organvm_engine.ontologia.policies import (
     load_policies,
     load_revisions,
     policies_path,
-    revisions_path,
     save_policies,
 )
 

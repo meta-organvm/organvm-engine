@@ -21,7 +21,6 @@ from pathlib import Path
 
 from organvm_engine.paths import corpus_dir as _default_corpus_dir
 from organvm_engine.paths import soak_dir as _default_soak_dir
-from organvm_engine.registry.query import all_repos
 
 # ── Soak streak analysis ────────────────────────────────────────────
 

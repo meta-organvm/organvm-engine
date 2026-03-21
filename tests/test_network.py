@@ -6,19 +6,16 @@ Covers: schema, mapper, ledger, scanner, metrics, query, discover, synthesizer.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 import yaml
 
 from organvm_engine.network import ENGAGEMENT_FORMS, MIRROR_LENSES, NETWORK_MAP_FILENAME
-from organvm_engine.network.schema import EngagementEntry, MirrorEntry, NetworkMap
-from organvm_engine.network.mapper import (
-    merge_mirrors,
-    read_network_map,
-    validate_network_map,
-    write_network_map,
+from organvm_engine.network.discover import (
+    suggest_kinship_mirrors,
+    suggest_parallel_mirrors,
 )
 from organvm_engine.network.ledger import (
     create_engagement,
@@ -26,12 +23,11 @@ from organvm_engine.network.ledger import (
     log_engagement,
     read_ledger,
 )
-from organvm_engine.network.scanner import (
-    scan_cargo_toml,
-    scan_go_mod,
-    scan_package_json,
-    scan_pyproject,
-    scan_repo_dependencies,
+from organvm_engine.network.mapper import (
+    merge_mirrors,
+    read_network_map,
+    validate_network_map,
+    write_network_map,
 )
 from organvm_engine.network.metrics import (
     convergence_points,
@@ -48,16 +44,19 @@ from organvm_engine.network.query import (
     organ_density,
     repos_mirroring,
 )
-from organvm_engine.network.discover import (
-    suggest_kinship_mirrors,
-    suggest_parallel_mirrors,
+from organvm_engine.network.scanner import (
+    scan_cargo_toml,
+    scan_go_mod,
+    scan_package_json,
+    scan_pyproject,
+    scan_repo_dependencies,
 )
+from organvm_engine.network.schema import EngagementEntry, MirrorEntry, NetworkMap
 from organvm_engine.network.synthesizer import (
     _period_filter,
     synthesize_testament,
     write_testament,
 )
-
 
 # ─── Fixtures ───────────────────────────────────────────────────────────
 
@@ -102,10 +101,10 @@ def _make_entry(
 
 class TestConstants:
     def test_mirror_lenses_are_three(self):
-        assert MIRROR_LENSES == {"technical", "parallel", "kinship"}
+        assert {"technical", "parallel", "kinship"} == MIRROR_LENSES
 
     def test_engagement_forms_are_four(self):
-        assert ENGAGEMENT_FORMS == {"presence", "contribution", "dialogue", "invitation"}
+        assert {"presence", "contribution", "dialogue", "invitation"} == ENGAGEMENT_FORMS
 
     def test_filename_is_correct(self):
         assert NETWORK_MAP_FILENAME == "network-map.yaml"
@@ -233,7 +232,7 @@ class TestMapper:
     def test_read_invalid_yaml(self, tmp_path: Path):
         bad = tmp_path / "network-map.yaml"
         bad.write_text("not: a: valid: [")
-        with pytest.raises(Exception):
+        with pytest.raises(yaml.YAMLError):
             read_network_map(bad)
 
     def test_read_non_mapping(self, tmp_path: Path):
@@ -428,7 +427,7 @@ class TestScanner:
     def test_scan_pyproject(self, tmp_path: Path):
         toml = tmp_path / "pyproject.toml"
         toml.write_text(
-            '[project]\ndependencies = [\n  "pyyaml>=6.0",\n  "click>=8.0",\n]\n'
+            '[project]\ndependencies = [\n  "pyyaml>=6.0",\n  "click>=8.0",\n]\n',
         )
         mirrors = scan_pyproject(tmp_path)
         projects = {m.project for m in mirrors}
@@ -438,7 +437,7 @@ class TestScanner:
     def test_scan_pyproject_optional(self, tmp_path: Path):
         toml = tmp_path / "pyproject.toml"
         toml.write_text(
-            '[project.optional-dependencies]\ndev = [\n  "pytest>=7.0",\n  "ruff>=0.1",\n]\n'
+            '[project.optional-dependencies]\ndev = [\n  "pytest>=7.0",\n  "ruff>=0.1",\n]\n',
         )
         mirrors = scan_pyproject(tmp_path)
         projects = {m.project for m in mirrors}
@@ -475,7 +474,7 @@ class TestScanner:
             "require (\n"
             "\tgithub.com/gorilla/mux v1.8.0\n"
             "\tgithub.com/gin-gonic/gin v1.9.0\n"
-            ")\n"
+            ")\n",
         )
         mirrors = scan_go_mod(tmp_path)
         projects = {m.project for m in mirrors}
@@ -486,7 +485,7 @@ class TestScanner:
         go = tmp_path / "go.mod"
         go.write_text(
             "module example.com/mymod\n\n"
-            "require github.com/gorilla/mux v1.8.0\n"
+            "require github.com/gorilla/mux v1.8.0\n",
         )
         mirrors = scan_go_mod(tmp_path)
         assert len(mirrors) == 1
@@ -500,7 +499,7 @@ class TestScanner:
         cargo.write_text(
             "[package]\nname = \"myapp\"\n\n"
             "[dependencies]\ntokio = { version = \"1\", features = [\"full\"] }\n"
-            "serde = \"1.0\"\n"
+            "serde = \"1.0\"\n",
         )
         mirrors = scan_cargo_toml(tmp_path)
         projects = {m.project for m in mirrors}
@@ -513,7 +512,7 @@ class TestScanner:
     def test_scan_repo_deduplicates(self, tmp_path: Path):
         # Both pyproject and package.json have overlapping deps (vitest)
         (tmp_path / "pyproject.toml").write_text(
-            '[project]\ndependencies = [\n  "pyyaml>=6.0",\n]\n'
+            '[project]\ndependencies = [\n  "pyyaml>=6.0",\n]\n',
         )
         (tmp_path / "package.json").write_text(json.dumps({
             "dependencies": {"react": "^18"},
@@ -524,7 +523,7 @@ class TestScanner:
 
     def test_scan_tags_auto_discovered(self, tmp_path: Path):
         (tmp_path / "pyproject.toml").write_text(
-            '[project]\ndependencies = [\n  "ruff>=0.1",\n]\n'
+            '[project]\ndependencies = [\n  "ruff>=0.1",\n]\n',
         )
         mirrors = scan_pyproject(tmp_path)
         assert "auto-discovered" in mirrors[0].tags
@@ -854,7 +853,7 @@ class TestScannerEdgeCases:
         cargo = tmp_path / "Cargo.toml"
         cargo.write_text(
             "[package]\nname = \"myapp\"\n\n"
-            "[dev-dependencies]\nclap = \"4.0\"\n"
+            "[dev-dependencies]\nclap = \"4.0\"\n",
         )
         mirrors = scan_cargo_toml(tmp_path)
         projects = {m.project for m in mirrors}
@@ -867,7 +866,7 @@ class TestScannerEdgeCases:
             "module example.com/mymod\n\n"
             "require (\n"
             "\tgolang.org/x/text v0.3.0\n"
-            ")\n"
+            ")\n",
         )
         mirrors = scan_go_mod(tmp_path)
         assert mirrors == []
@@ -876,7 +875,7 @@ class TestScannerEdgeCases:
         """Dependencies not in KNOWN_REPOS produce no mirrors."""
         toml = tmp_path / "pyproject.toml"
         toml.write_text(
-            '[project]\ndependencies = [\n  "totally-unknown-package>=1.0",\n]\n'
+            '[project]\ndependencies = [\n  "totally-unknown-package>=1.0",\n]\n',
         )
         mirrors = scan_pyproject(tmp_path)
         assert mirrors == []

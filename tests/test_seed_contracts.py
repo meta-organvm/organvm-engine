@@ -1,6 +1,5 @@
 """Tests for seed.contracts — SPEC-007, INTF-001 through INTF-005."""
 
-import pytest
 
 from organvm_engine.seed.contracts import (
     CANONICAL_SIGNAL_TYPES,
@@ -8,7 +7,6 @@ from organvm_engine.seed.contracts import (
     check_signal_compatibility,
     validate_contract,
 )
-
 
 # ---------------------------------------------------------------------------
 # validate_contract — well-formed edges

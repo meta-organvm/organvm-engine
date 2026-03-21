@@ -1,11 +1,9 @@
 """Tests for alpha-omega phase map (SPEC-010)."""
 
-import pytest
 
 from organvm_engine.omega.phases import (
     Phase,
     PhaseRegime,
-    PhaseResult,
     check_transition_condition,
     diagnose_current_phase,
     get_regime,

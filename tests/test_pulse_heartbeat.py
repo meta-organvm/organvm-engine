@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from organvm_engine.metrics.gates import GateResult, RepoProgress, ScaffoldInfo
-from organvm_engine.metrics.organism import GateStats, OrganOrganism, SystemOrganism
+from organvm_engine.metrics.organism import OrganOrganism, SystemOrganism
 from organvm_engine.pulse.heartbeat import (
     GateDelta,
-    PulseSnapshot,
     RepoDelta,
     compute_pulse,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper: build minimal RepoProgress / SystemOrganism

@@ -136,7 +136,7 @@ class TestSyncModulesFromExcavation:
     def test_preserves_scale_metadata(self, store):
         finding = _sub_package()
         finding.scale = {"files": 12, "lines": 3000}
-        result = sync_modules_from_excavation([finding], store=store)
+        sync_modules_from_excavation([finding], store=store)
 
         from ontologia.entity.identity import EntityType
 

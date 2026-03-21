@@ -172,5 +172,5 @@ class TestSeedGraphRegistryKeyAlias:
         graph = build_seed_graph()
         assert len(graph.edges) == 1
         assert graph.edges[0] == (
-            "meta-organvm/schema-defs", "meta-organvm/engine", "schema"
+            "meta-organvm/schema-defs", "meta-organvm/engine", "schema",
         )

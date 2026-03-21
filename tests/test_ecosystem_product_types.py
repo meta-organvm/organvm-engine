@@ -7,16 +7,15 @@ PRODUCT_TYPES data integrity, and edge cases.
 from __future__ import annotations
 
 from organvm_engine.ecosystem.product_types import (
+    _REVENUE_HINTS,
+    _TAG_HINTS,
     DEFAULT_CRIT_PROMPTS,
     DEFAULT_GEN_PROMPTS,
     LIFECYCLE_STAGES,
     PRODUCT_TYPES,
-    _REVENUE_HINTS,
-    _TAG_HINTS,
     get_pillar_defaults,
     infer_product_type,
 )
-
 
 # ── PRODUCT_TYPES data integrity ─────────────────────────────────
 

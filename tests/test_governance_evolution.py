@@ -1,6 +1,5 @@
 """Tests for governance.evolution — SPEC-008, EVOL-001 through EVOL-003."""
 
-import pytest
 
 from organvm_engine.governance.evolution import (
     ChangeMode,
@@ -9,7 +8,6 @@ from organvm_engine.governance.evolution import (
     evaluate_evolution_policy,
     validate_migration_record,
 )
-
 
 # ---------------------------------------------------------------------------
 # ChangeMode enum

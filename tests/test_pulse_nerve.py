@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import yaml
 
-import pytest
-
 from organvm_engine.pulse.events import Event
 from organvm_engine.pulse.nerve import (
     NerveBundle,
@@ -14,7 +12,6 @@ from organvm_engine.pulse.nerve import (
     propagate,
     resolve_subscriptions,
 )
-
 
 # ---------------------------------------------------------------------------
 # Subscription dataclass

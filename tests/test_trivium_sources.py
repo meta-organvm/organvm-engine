@@ -1,6 +1,5 @@
 """Tests for trivium data source adapters."""
 
-import json
 from pathlib import Path
 
 from organvm_engine.trivium.sources import dialect_data, isomorphism_data

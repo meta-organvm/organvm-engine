@@ -184,14 +184,11 @@ class TestBuildVariableContext:
 
         # Patch open_store in the generator module to use our tmp store
         import organvm_engine.contextmd.generator as gen_mod
-        original_func = None
 
         def patched_open_store(store_dir=None):
             return open_store(store_dir=tmp_path / "ontologia")
-
-        original = getattr(gen_mod, "_build_variable_context")
         # Exercise the real function against a real store by monkeypatching open_store
-        import unittest.mock as mock
+        from unittest import mock
         with mock.patch("organvm_engine.contextmd.generator.open_store" if hasattr(gen_mod, "open_store") else "ontologia.registry.store.open_store"):
             pass  # scope check only
 

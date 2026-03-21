@@ -1,10 +1,8 @@
 """Tests for contract-aware dispatch — payload validation and verified routing."""
 
-import pytest
 
 from organvm_engine.dispatch.payload import (
     create_payload,
-    validate_payload,
     validate_payload_with_contract,
 )
 from organvm_engine.dispatch.router import DispatchReceipt, route_event, route_event_verified

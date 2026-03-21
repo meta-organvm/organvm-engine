@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from organvm_engine.pulse.affective import (
     MoodFactors,
-    MoodReading,
     SystemMood,
     compute_mood,
 )
-
 
 # ---------------------------------------------------------------------------
 # Mood determination

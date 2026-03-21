@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from organvm_engine.pulse.ecosystem_bridge import (
-    EcosystemCoverage,
     ORGAN_ARCHETYPES,
-    RepoEcosystemContext,
+    EcosystemCoverage,
     infer_repo_context,
 )
-
 
 # ---------------------------------------------------------------------------
 # Organ archetypes

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from organvm_engine.pulse.advisories import (
@@ -12,7 +10,6 @@ from organvm_engine.pulse.advisories import (
     _make_advisory_id,
     _severity_from_action,
     acknowledge_advisory,
-    evaluate_all_policies,
     read_advisories,
     store_advisories,
 )

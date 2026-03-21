@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
@@ -12,7 +11,6 @@ from organvm_engine.pulse.metric_policies import (
     MetricThreshold,
     evaluate_metric_thresholds,
 )
-
 
 # ---------------------------------------------------------------------------
 # Minimal Observation stub — avoids ontologia dependency in tests
@@ -219,7 +217,7 @@ class TestEvaluateMetricThresholds:
                 name="My Metric",
                 min_value=50.0,
                 severity="critical",
-            )
+            ),
         ]
         obs = [_Obs(metric_id="my_metric", entity_id="ent-1", value=10.0)]
         advisories = evaluate_metric_thresholds(obs, thresholds=custom)

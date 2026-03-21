@@ -1,7 +1,6 @@
 """Tests for ontologia sensor implementations."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -13,7 +12,6 @@ from organvm_engine.ontologia.sensors import (
     normalize_signals,
     scan_all,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from organvm_engine.pulse.advisories import check_snapshot_staleness
 
 

@@ -14,8 +14,8 @@ def _mini_registry(organ_key, repos):
                     {"name": r, "org": "test-org", "implementation_status": "ACTIVE"}
                     for r in repos
                 ],
-            }
-        }
+            },
+        },
     }
 
 
@@ -150,7 +150,7 @@ class TestFilesystemAudit:
                     "name": "II",
                     "repositories": [{"name": "r2", "org": "o2", "implementation_status": "ACTIVE"}],
                 },
-            }
+            },
         }
         report = audit_filesystem(registry, ws, scope_organ="ORGAN-I")
 

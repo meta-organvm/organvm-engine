@@ -17,7 +17,6 @@ from organvm_engine.indexer.bridge import (
 )
 from organvm_engine.indexer.types import Component, RepoIndex, SystemIndex
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

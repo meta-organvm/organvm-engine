@@ -82,7 +82,7 @@ class TestEventDataclass:
 class TestEmit:
     def test_emit_creates_file(self, tmp_path):
         """Emit creates the events.jsonl file with a valid JSON line."""
-        ev = emit(REGISTRY_UPDATED, "test-source")
+        emit(REGISTRY_UPDATED, "test-source")
         # The fixture routes to tmp_path; the file should now exist
         from organvm_engine.pulse.events import _events_path
         path = _events_path()

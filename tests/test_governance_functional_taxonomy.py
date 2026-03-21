@@ -1,6 +1,5 @@
 """Tests for functional taxonomy engine (INST-TAXONOMY)."""
 
-import pytest
 
 from organvm_engine.governance.functional_taxonomy import (
     FunctionalClass,

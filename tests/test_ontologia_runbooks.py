@@ -1,8 +1,6 @@
 """Tests for ontologia runbook generator."""
 
-from pathlib import Path
 
-import pytest
 
 from organvm_engine.ontologia.runbooks import (
     RUNBOOK_TEMPLATES,

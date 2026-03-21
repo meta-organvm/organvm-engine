@@ -8,16 +8,12 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from organvm_engine.pulse.graph import (
     RelationEdgeDTO,
     RelationMap,
     _gather_indexer_edges,
-    _gather_seed_edges,
     query_relations,
 )
-
 
 # ---------------------------------------------------------------------------
 # RelationEdgeDTO

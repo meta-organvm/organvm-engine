@@ -6,16 +6,13 @@ from pathlib import Path
 import pytest
 
 from organvm_engine.ci.audit import (
+    TIER_REQUIREMENTS,
     CheckStatus,
     InfraAuditReport,
-    InfraCheck,
-    RepoCompliance,
-    TIER_REQUIREMENTS,
     audit_repo,
     check_promotion_infrastructure,
     run_infra_audit,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -46,7 +43,7 @@ def full_repo(tmp_path: Path) -> Path:
         "      - run: pyright src/\n"
         "      - name: Secret scan\n"
         "        run: |\n"
-        "          for pattern in 'sk-[a-zA-Z0-9]{20,}' 'ghp_[a-zA-Z0-9]{36}';\n"
+        "          for pattern in 'sk-[a-zA-Z0-9]{20,}' 'ghp_[a-zA-Z0-9]{36}';\n",
     )
 
     # CodeQL

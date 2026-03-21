@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from pathlib import Path
 
-from organvm_engine.content.cadence import CadenceReport, check_cadence
+from organvm_engine.content.cadence import check_cadence
 from organvm_engine.content.reader import ContentPost
 
 

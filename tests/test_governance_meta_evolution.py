@@ -1,11 +1,8 @@
 """Tests for meta-evolution engine (SPEC-011)."""
 
-import pytest
 
 from organvm_engine.governance.meta_evolution import (
-    EvolutionClassification,
     EvolutionStratum,
-    SafetyCheck,
     check_safety_constraints,
     classify_evolution,
     stratum_severity,

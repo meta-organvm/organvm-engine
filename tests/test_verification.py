@@ -3,8 +3,6 @@
 import json
 import time
 
-import pytest
-
 from organvm_engine.verification.contracts import (
     CONTRACTS,
     ContractResult,
@@ -19,7 +17,6 @@ from organvm_engine.verification.temporal import (
     verify_prerequisite_chain,
     verify_temporal_order,
 )
-
 
 # ── Contract tests ──────────────────────────────────────────────────
 
@@ -466,7 +463,7 @@ class TestVerifySystem:
         assert not VerificationReport(idempotency_risks=["x"]).passed
 
     def test_stale_pending_detected(self, tmp_path):
-        ledger = DispatchLedger(tmp_path / "ledger.jsonl")
+        DispatchLedger(tmp_path / "ledger.jsonl")
         # Manually create an old entry
         entry_data = {
             "dispatch_id": "old-one",

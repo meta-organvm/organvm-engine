@@ -7,7 +7,6 @@ from pathlib import Path
 
 from organvm_engine.ledger.chain import (
     GENESIS_PREV_HASH,
-    ChainVerificationResult,
     compute_event_hash,
     verify_chain,
     verify_chain_link,

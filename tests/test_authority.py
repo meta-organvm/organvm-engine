@@ -9,7 +9,6 @@ from organvm_engine.governance.authority import (
     is_authorized,
 )
 
-
 # ---------- AuthorityLevel enum ----------
 
 def test_authority_levels_are_ordered():
@@ -32,7 +31,7 @@ def test_authority_level_count():
 # ---------- IMMUTABLE_SPECS ----------
 
 def test_immutable_specs_are_correct():
-    assert IMMUTABLE_SPECS == {"SPEC-000", "SPEC-001", "SPEC-002"}
+    assert {"SPEC-000", "SPEC-001", "SPEC-002"} == IMMUTABLE_SPECS
 
 
 def test_immutable_specs_is_a_set():

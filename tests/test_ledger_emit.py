@@ -70,7 +70,7 @@ class TestTestamentEmitHelper:
         chain_path = tmp_path / "chain.jsonl"
         with patch("organvm_engine.ledger.emit._CHAIN_PATH", chain_path):
             id1 = _testament_emit(event_type="cause", entity_uid="e")
-            id2 = _testament_emit(
+            _testament_emit(
                 event_type="effect",
                 entity_uid="e",
                 causal_predecessor=id1,

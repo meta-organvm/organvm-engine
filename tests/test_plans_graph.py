@@ -4,16 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import pytest
-
 from organvm_engine.plans.graph import (
     PlanEdge,
-    PlanOverlap,
     compute_edges,
     compute_overlaps,
     jaccard_similarity,
 )
-
 
 # ---------------------------------------------------------------------------
 # Lightweight PlanEntry stub

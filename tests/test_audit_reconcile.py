@@ -47,8 +47,8 @@ class TestReconcile:
                     "repositories": [
                         {"name": "repo-a", "org": "org-a", "tier": "standard"},
                     ],
-                }
-            }
+                },
+            },
         }
         report = audit_reconcile(registry, ws)
         # No count mismatch, no missing entries
@@ -68,8 +68,8 @@ class TestReconcile:
                     "repositories": [
                         {"name": "repo-a", "org": "org-a"},
                     ],
-                }
-            }
+                },
+            },
         }
         report = audit_reconcile(registry, ws)
         msgs = [f.message for f in report.findings]
@@ -93,8 +93,8 @@ class TestReconcile:
                 "organ-i": {
                     "name": "I",
                     "repositories": [{"name": "ghost-repo", "org": "org"}],
-                }
-            }
+                },
+            },
         }
         report = audit_reconcile(registry, ws)
         warns = [f for f in report.findings if f.severity == Severity.WARNING]
@@ -112,8 +112,8 @@ class TestReconcile:
                     "repositories": [
                         {"name": "repo-a", "org": "org-a", "tier": "standard"},
                     ],
-                }
-            }
+                },
+            },
         }
         report = audit_reconcile(registry, ws)
         infos = [f for f in report.findings if f.severity == Severity.INFO]

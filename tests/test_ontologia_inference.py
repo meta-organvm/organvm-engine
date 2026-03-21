@@ -8,8 +8,7 @@ error paths, and the combined health aggregation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -23,7 +22,6 @@ from organvm_engine.ontologia.inference_bridge import (
     detect_tensions,
     infer_health,
 )
-
 
 # ─── Skip guard ───────────────────────────────────────────────────────────
 

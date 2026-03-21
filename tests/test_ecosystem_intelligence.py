@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 import yaml
 
@@ -23,7 +22,6 @@ from organvm_engine.ecosystem.intelligence import (
     write_intelligence,
     write_snapshot,
 )
-
 
 # ── write_snapshot ────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 """Tests for testament digest assembly."""
 
 from organvm_engine.events.spine import EventRecord
-from organvm_engine.ledger.digest import DigestSummary, assemble_digest
+from organvm_engine.ledger.digest import assemble_digest
 
 
 class TestDigestAssembly:

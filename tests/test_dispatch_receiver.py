@@ -1,9 +1,11 @@
-import unittest
 import os
 import tempfile
+import unittest
 from pathlib import Path
-from organvm_engine.dispatch.receiver import WebhookReceiver, FormalVerificationError
+
+from organvm_engine.dispatch.receiver import FormalVerificationError, WebhookReceiver
 from organvm_engine.verification.idempotency import DispatchLedger
+
 
 class TestWebhookReceiver(unittest.TestCase):
     def setUp(self):
@@ -27,8 +29,8 @@ class TestWebhookReceiver(unittest.TestCase):
             "payload": {
                 "artifact_id": "ART-001",
                 "title": "On Recursive Roots",
-                "source_repo": "radix-recursiva"
-            }
+                "source_repo": "radix-recursiva",
+            },
         }
         result = self.receiver.receive(payload)
         self.assertEqual(result["status"], "success")
@@ -43,8 +45,8 @@ class TestWebhookReceiver(unittest.TestCase):
             "payload": {
                 "artifact_id": "",  # Empty ID should fail contract
                 "title": "Invalid Art",
-                "source_repo": "repo"
-            }
+                "source_repo": "repo",
+            },
         }
         with self.assertRaises(FormalVerificationError):
             self.receiver.receive(payload)
@@ -59,8 +61,8 @@ class TestWebhookReceiver(unittest.TestCase):
             "payload": {
                 "artifact_id": "ART-003",
                 "title": "Double Fire",
-                "source_repo": "repo"
-            }
+                "source_repo": "repo",
+            },
         }
         # First send
         self.receiver.receive(payload)

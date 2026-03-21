@@ -9,15 +9,13 @@ from __future__ import annotations
 
 import builtins
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from organvm_engine.pulse.edge_bridge import (
-    EdgeSyncResult,
     _SEED_TO_RELATION,
+    EdgeSyncResult,
     _resolve_seed_node,
     sync_seed_edges,
 )
@@ -27,7 +25,6 @@ from organvm_engine.pulse.inference_bridge import (
     blast_radius,
     run_inference,
 )
-
 
 # ─── EdgeSyncResult ──────────────────────────────────────────────────────
 

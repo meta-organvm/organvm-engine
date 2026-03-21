@@ -16,7 +16,6 @@ from organvm_engine.pulse.variable_bridge import (
     sync_variables,
 )
 
-
 # ---------------------------------------------------------------------------
 # Minimal ontologia store stub (avoids importing ontologia in engine tests)
 # ---------------------------------------------------------------------------
@@ -181,7 +180,7 @@ class TestSyncVariables:
 
     def test_per_organ_variables(self, engine_vars, organ_map):
         store = StubStore()
-        result = sync_variables(store, engine_vars, organ_entity_map=organ_map)
+        sync_variables(store, engine_vars, organ_entity_map=organ_map)
         # Each organ gets repo_count + organ_name = 2 vars × 2 organs = 4
         organ_vars = [k for k in store.variables if "ent_organ" in k]
         assert len(organ_vars) == 4  # 2 per organ
@@ -195,7 +194,7 @@ class TestSyncVariables:
 
     def test_no_organ_map_skips_organ_vars(self, engine_vars):
         store = StubStore()
-        result = sync_variables(store, engine_vars, organ_entity_map=None)
+        sync_variables(store, engine_vars, organ_entity_map=None)
         organ_vars = [k for k in store.variables if "ent_organ" in k]
         assert len(organ_vars) == 0
 
@@ -250,7 +249,7 @@ class TestSyncMetrics:
 
     def test_organ_metrics_registered(self, engine_vars, organ_map):
         store = StubStore()
-        result = sync_metrics(store, engine_vars, organ_entity_map=organ_map)
+        sync_metrics(store, engine_vars, organ_entity_map=organ_map)
         assert "met_organ_repos" in store.metrics
 
     def test_organ_observations_recorded(self, engine_vars, organ_map):

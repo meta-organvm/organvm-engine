@@ -7,7 +7,6 @@ grouping/sorting, custom pattern dicts, and PatternMatch serialization.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 
 from organvm_engine.distill.matcher import (
     MATCH_THRESHOLD,

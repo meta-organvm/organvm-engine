@@ -32,21 +32,21 @@ def cmd_trivium_dialects(args: argparse.Namespace) -> int:
     print("\n  Trivium — Dialectica Universalis")
     print(f"  {'═' * 52}")
     print(
-        "\n  The structural isomorphism of thought, truth, and computation."
+        "\n  The structural isomorphism of thought, truth, and computation.",
     )
     print(
-        "  Eight organs. Eight dialects. One universal logic.\n"
+        "  Eight organs. Eight dialects. One universal logic.\n",
     )
     print(
         f"  {'Organ':<8} {'Dialect':<26} {'Classical':<12} "
-        f"Translation Role"
+        f"Translation Role",
     )
     print(f"  {'─' * 80}")
     for d in dialects:
         p = dialect_profile(d)
         print(
             f"  {p.organ_key:<8} {d.name:<26} {p.classical_parallel:<12} "
-            f"{p.translation_role}"
+            f"{p.translation_role}",
         )
     print()
     return 0
@@ -64,7 +64,7 @@ def cmd_trivium_matrix(args: argparse.Namespace) -> int:
 
     if as_json:
         data = []
-        for (a, b), ev in sorted(
+        for (_a, _b), ev in sorted(
             matrix.items(), key=lambda x: -x[1].aggregate_strength,
         ):
             data.append({
@@ -104,7 +104,7 @@ def cmd_trivium_scan(args: argparse.Namespace) -> int:
             print(
                 f"  {r['organ_a']:>4}↔{r['organ_b']:<4}  "
                 f"{r['count']:>3} correspondences  "
-                f"strength {r['avg_strength']:.2f}"
+                f"strength {r['avg_strength']:.2f}",
             )
         print()
         return 0
@@ -136,7 +136,7 @@ def cmd_trivium_scan(args: argparse.Namespace) -> int:
         for c in report["correspondences"]:
             print(
                 f"  {c['type']:<12} {c['strength']:>8.2f}  "
-                f"{c['evidence'][:50]}"
+                f"{c['evidence'][:50]}",
             )
     print()
     return 0
@@ -155,9 +155,9 @@ def cmd_trivium_synthesize(args: argparse.Namespace) -> int:
     content = synthesize_trivium_testament(registry_path=registry_path)
 
     if dry_run:
-        print(f"\n  [dry-run] Would generate trivium testament synthesis")
+        print("\n  [dry-run] Would generate trivium testament synthesis")
         print(f"  {len(content)} bytes, {content.count(chr(10))} lines")
-        print(f"\n  Run with --write to produce.\n")
+        print("\n  Run with --write to produce.\n")
         return 0
 
     testament_dir = _resolve_testament_dir(args)
@@ -168,15 +168,14 @@ def cmd_trivium_synthesize(args: argparse.Namespace) -> int:
 
 def cmd_trivium_status(args: argparse.Namespace) -> int:
     """Show trivium subsystem health."""
-    from organvm_engine.trivium.dialects import all_dialects
-    from organvm_engine.trivium.sources import dialect_data, isomorphism_data
+    from organvm_engine.trivium.sources import dialect_data
     from organvm_engine.trivium.taxonomy import (
         TranslationTier,
         pairs_by_tier,
     )
 
     as_json = getattr(args, "json", False)
-    registry_path = _resolve_registry(args)
+    _resolve_registry(args)
 
     d_data = dialect_data()
     tier_counts = {
@@ -195,8 +194,8 @@ def cmd_trivium_status(args: argparse.Namespace) -> int:
     print("\n  Trivium — Dialectica Universalis")
     print(f"  {'═' * 48}")
     print(f"\n  Dialects:           {d_data['count']}")
-    print(f"  Translation pairs:  28")
-    print(f"\n  By tier:")
+    print("  Translation pairs:  28")
+    print("\n  By tier:")
     for tier_name, count in tier_counts.items():
         print(f"    {tier_name:<14} {count}")
     print()
@@ -248,7 +247,7 @@ def cmd_trivium_essays(args: argparse.Namespace) -> int:
             print(f"  [{e.pair.tier.value:>10}] {e.title}")
             print(f"               {e.subtitle}")
             print()
-        print(f"  Run with --write to generate full catalog.\n")
+        print("  Run with --write to generate full catalog.\n")
         return 0
 
     catalog = render_essay_catalog(essays)

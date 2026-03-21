@@ -33,6 +33,7 @@ __all__ = [
     "compute_event_hash",
     "compute_merkle_root",
     "generate_merkle_proof",
+    "repair_chain",
     "verify_chain",
     "verify_chain_link",
     "testament_emit",

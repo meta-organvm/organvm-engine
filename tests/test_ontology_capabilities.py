@@ -15,7 +15,6 @@ from organvm_engine.ontology.capabilities import (
     CapabilityRegistry,
 )
 
-
 # ---------------------------------------------------------------------------
 # Capability dataclass
 # ---------------------------------------------------------------------------

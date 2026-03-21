@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.governance.dictums import validate_organ_placement
 
 FIXTURES = Path(__file__).parent / "fixtures"

@@ -1,7 +1,6 @@
 """Tests for audit coordinator."""
 
 from organvm_engine.audit.coordinator import run_audit
-from organvm_engine.audit.types import Severity
 
 
 def _mini_registry():
@@ -12,8 +11,8 @@ def _mini_registry():
                 "repositories": [
                     {"name": "repo-a", "org": "org-i", "implementation_status": "ACTIVE"},
                 ],
-            }
-        }
+            },
+        },
     }
 
 
@@ -95,7 +94,7 @@ class TestCoordinator:
                     "name": "II",
                     "repositories": [{"name": "r2", "org": "o"}],
                 },
-            }
+            },
         }
 
         report = run_audit(registry, ws, scope_organ="ORGAN-I", layers=["filesystem"])
@@ -118,8 +117,8 @@ class TestCoordinator:
                         {"name": "target", "org": "o", "implementation_status": "ACTIVE"},
                         {"name": "other", "org": "o", "implementation_status": "ACTIVE"},
                     ],
-                }
-            }
+                },
+            },
         }
 
         report = run_audit(registry, ws, scope_repo="target", layers=["filesystem"])

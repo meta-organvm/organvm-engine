@@ -82,7 +82,7 @@ def test_translation_matrix_shape():
 def test_translation_matrix_keys_are_dialect_pairs():
     registry = _load_fixture()
     matrix = translation_matrix(registry=registry)
-    for (a, b), ev in matrix.items():
+    for (a, b), _ev in matrix.items():
         assert isinstance(a, Dialect)
         assert isinstance(b, Dialect)
         assert a != b

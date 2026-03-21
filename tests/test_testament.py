@@ -5,40 +5,40 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from organvm_engine.testament.manifest import (
-    ArtifactFormat,
-    ArtifactModality,
-    ArtifactType,
-    MODULE_SOURCES,
-    ORGAN_OUTPUT_MATRIX,
-    OrganOutputProfile,
-    all_artifact_types,
-    get_module_artifacts,
-    get_organ_profile,
+from organvm_engine.testament.aesthetic import (
+    AestheticProfile,
+    default_palette,
+    load_taste,
 )
 from organvm_engine.testament.catalog import (
-    CatalogSummary,
     TestamentArtifact,
     append_artifact,
     catalog_summary,
     load_catalog,
 )
-from organvm_engine.testament.aesthetic import (
-    AestheticProfile,
-    Palette,
-    Typography,
-    default_palette,
-    load_taste,
+from organvm_engine.testament.manifest import (
+    MODULE_SOURCES,
+    ORGAN_OUTPUT_MATRIX,
+    ArtifactFormat,
+    ArtifactModality,
+    ArtifactType,
+    all_artifact_types,
+    get_module_artifacts,
+    get_organ_profile,
 )
-from organvm_engine.testament.renderers.svg import (
-    Palette as SvgPalette,
-    render_constellation,
-    render_dependency_flow,
-    render_density_bars,
-    render_omega_mandala,
-    render_organ_card,
+from organvm_engine.testament.network import (
+    FEEDBACK_GRAPH,
+    cascade,
+    network_summary,
+    topological_order,
+)
+from organvm_engine.testament.pipeline import (
+    _DISPATCH,
+    _build_filename,
+    _dry_run_result,
+    _format_extension,
+    render_all,
+    render_organ,
 )
 from organvm_engine.testament.renderers.html import (
     render_gallery_page,
@@ -49,9 +49,9 @@ from organvm_engine.testament.renderers.prose import (
     render_self_portrait,
     render_testament_manifest,
 )
-from organvm_engine.testament.renderers.statistical import (
-    render_repo_heatmap,
-    render_status_distribution,
+from organvm_engine.testament.renderers.social import (
+    render_pulse,
+    render_pulse_markdown,
 )
 from organvm_engine.testament.renderers.sonic import (
     SonicTestament,
@@ -59,26 +59,20 @@ from organvm_engine.testament.renderers.sonic import (
     render_sonic_params,
     render_sonic_yaml,
 )
-from organvm_engine.testament.renderers.social import (
-    render_pulse,
-    render_pulse_markdown,
+from organvm_engine.testament.renderers.statistical import (
+    render_repo_heatmap,
+    render_status_distribution,
 )
-from organvm_engine.testament.network import (
-    FEEDBACK_GRAPH,
-    cascade,
-    network_summary,
-    topological_order,
+from organvm_engine.testament.renderers.svg import (
+    Palette as SvgPalette,
 )
-from organvm_engine.testament.pipeline import (
-    RenderResult,
-    _build_filename,
-    _DISPATCH,
-    _dry_run_result,
-    _format_extension,
-    render_all,
-    render_organ,
+from organvm_engine.testament.renderers.svg import (
+    render_constellation,
+    render_density_bars,
+    render_dependency_flow,
+    render_omega_mandala,
+    render_organ_card,
 )
-
 
 # ── Manifest tests ──────────────────────────────────────────────────
 
@@ -320,7 +314,7 @@ class TestHtmlRenderers:
                 "path": "test.svg",
                 "timestamp": "2026-03-19T12:00:00Z",
                 "organ": "META",
-            }
+            },
         ]
         html = render_gallery_page(arts)
         assert "Constellation" in html
@@ -583,7 +577,7 @@ class TestFeedbackNetwork:
 
     def test_cascade_manifest_mode_no_execution(self):
         results = cascade({}, execute=False)
-        for name, data in results.items():
+        for _name, data in results.items():
             assert data.get("executed") is False
 
 
@@ -655,12 +649,11 @@ class TestPipeline:
         """Every MODULE_SOURCES entry should have a dispatch mapping."""
         from organvm_engine.testament.manifest import MODULE_SOURCES
 
-        for module_name, types_list in MODULE_SOURCES.items():
+        for _module_name, types_list in MODULE_SOURCES.items():
             for at in types_list:
                 key = (at.source_module, at.modality.value)
-                assert key in _DISPATCH or True, (
-                    f"No dispatch for {key} — acceptable if intentionally unmapped"
-                )
+                # Soft check: missing dispatch keys are acceptable if intentionally unmapped
+                _ = key in _DISPATCH
 
 
 # ── Catalog edge case tests ─────────────────────────────────────────

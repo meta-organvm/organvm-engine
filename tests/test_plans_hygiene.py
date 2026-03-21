@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.plans.hygiene import (
-    ArchiveResult,
-    PlanSprawl,
     SweepCandidate,
     archive_plans,
     compute_archive_path,
     compute_sprawl,
     sweep_candidates,
 )
-
 
 # ---------------------------------------------------------------------------
 # Lightweight PlanEntry stub

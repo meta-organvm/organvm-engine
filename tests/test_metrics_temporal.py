@@ -5,7 +5,6 @@ import pytest
 from organvm_engine.metrics.temporal import (
     MetricType,
     TrendDirection,
-    VariableBinding,
     VariableScope,
     classify_metric,
     compute_trend,

@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import json
 from argparse import Namespace
-from pathlib import Path
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # InferenceSummary
@@ -75,10 +73,10 @@ class TestInferenceScore:
 class TestRunInference:
     def test_returns_zeroed_when_ontologia_unavailable(self, monkeypatch):
         """If ontologia can't be imported, return zeroed summary."""
-        from organvm_engine.pulse import inference_bridge
-
         # Simulate ImportError
         import builtins
+
+        from organvm_engine.pulse import inference_bridge
 
         real_import = builtins.__import__
 
@@ -96,9 +94,9 @@ class TestRunInference:
 class TestBlastRadius:
     def test_returns_error_when_unavailable(self, monkeypatch):
         """blast_radius returns error dict when ontologia unavailable."""
-        from organvm_engine.pulse import inference_bridge
-
         import builtins
+
+        from organvm_engine.pulse import inference_bridge
 
         real_import = builtins.__import__
 
@@ -684,9 +682,8 @@ class TestCLIAdvisories:
 
 class TestCLIBlast:
     def test_blast_json_error(self, monkeypatch, capsys):
-        from organvm_engine.cli.cmd_pulse import cmd_pulse_blast
-
         import organvm_engine.pulse.inference_bridge as bridge
+        from organvm_engine.cli.cmd_pulse import cmd_pulse_blast
 
         monkeypatch.setattr(
             bridge, "blast_radius",
@@ -700,9 +697,8 @@ class TestCLIBlast:
         assert "error" in data
 
     def test_blast_human_error(self, monkeypatch, capsys):
-        from organvm_engine.cli.cmd_pulse import cmd_pulse_blast
-
         import organvm_engine.pulse.inference_bridge as bridge
+        from organvm_engine.cli.cmd_pulse import cmd_pulse_blast
 
         monkeypatch.setattr(
             bridge, "blast_radius",
@@ -799,9 +795,9 @@ class TestSeedToRelationMapping:
 
 class TestSyncSeedEdgesImportFail:
     def test_returns_empty_when_unavailable(self, monkeypatch):
-        from organvm_engine.pulse import edge_bridge
-
         import builtins
+
+        from organvm_engine.pulse import edge_bridge
 
         real_import = builtins.__import__
 
@@ -845,12 +841,11 @@ class TestCLIEdges:
             def list_entities(self, entity_type=None):
                 return []
 
-        import organvm_engine.cli.cmd_pulse as pulse_mod
 
         # Patch the import inside the function
         import sys as _sys
         mock_ontologia = type(_sys)("ontologia.registry.store")
-        mock_ontologia.open_store = lambda: MockStore()
+        mock_ontologia.open_store = MockStore
         monkeypatch.setitem(_sys.modules, "ontologia.registry.store", mock_ontologia)
 
         mock_identity = type(_sys)("ontologia.entity.identity")
@@ -865,10 +860,9 @@ class TestCLIEdges:
         assert data["relation_edges"] == 1
 
     def test_edges_sync_json(self, monkeypatch, capsys):
+        import organvm_engine.pulse.edge_bridge as bridge
         from organvm_engine.cli.cmd_pulse import cmd_pulse_edges
         from organvm_engine.pulse.edge_bridge import EdgeSyncResult
-
-        import organvm_engine.pulse.edge_bridge as bridge
 
         monkeypatch.setattr(
             bridge, "sync_seed_edges",

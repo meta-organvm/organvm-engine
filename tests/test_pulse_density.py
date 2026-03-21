@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from organvm_engine.metrics.gates import GateResult, RepoProgress, ScaffoldInfo
 from organvm_engine.metrics.organism import OrganOrganism, SystemOrganism
-from organvm_engine.pulse.density import DensityProfile, compute_density
+from organvm_engine.pulse.density import compute_density
 from organvm_engine.seed.graph import SeedGraph
-
 
 # ---------------------------------------------------------------------------
 # Helper: build minimal test objects

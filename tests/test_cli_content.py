@@ -81,7 +81,7 @@ def test_build_parser_has_content_command():
 def test_build_parser_content_new_args():
     parser = build_parser()
     args = parser.parse_args(
-        ["content", "new", "my-slug", "--title", "My Title", "--hook", "The hook"]
+        ["content", "new", "my-slug", "--title", "My Title", "--hook", "The hook"],
     )
     assert args.slug == "my-slug"
     assert args.title == "My Title"

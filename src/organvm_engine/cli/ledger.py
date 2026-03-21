@@ -256,7 +256,7 @@ def cmd_ledger_repair(args: argparse.Namespace) -> int:
     # Verify after repair
     post = verify_chain(path)
 
-    print(f"\n  Chain Repair Complete")
+    print("\n  Chain Repair Complete")
     print(f"  {'=' * 48}")
     print(f"  Events read:    {result['events_read']}")
     print(f"  Events repaired: {result['events_repaired']}")

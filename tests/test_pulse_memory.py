@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from organvm_engine.pulse.memory import (
     EntityMemory,
     _gather_insights,
@@ -18,7 +16,6 @@ from organvm_engine.pulse.memory import (
     _gather_pulse_events,
     aggregate_entity_memory,
 )
-
 
 # ---------------------------------------------------------------------------
 # EntityMemory dataclass

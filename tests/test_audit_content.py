@@ -17,10 +17,10 @@ def _registry_with_repo(name, ci_workflow="", platinum=False, tier="standard"):
                         "ci_workflow": ci_workflow,
                         "platinum_status": platinum,
                         "tier": tier,
-                    }
+                    },
                 ],
-            }
-        }
+            },
+        },
     }
 
 
@@ -150,8 +150,8 @@ class TestContentAudit:
                         "org": "org",
                         "implementation_status": "ARCHIVED",
                     }],
-                }
-            }
+                },
+            },
         }
         report = audit_content(registry, tmp_path)
         assert not any(f.repo == "archived-repo" for f in report.findings)

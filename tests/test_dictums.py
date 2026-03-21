@@ -154,7 +154,7 @@ class TestAxiomValidators:
         (org_dir / "seed.yaml").write_text(
             "organ: ORGAN-II\n"
             "consumes:\n"
-            "  - source: organvm-i-theoria/recursive-engine\n"
+            "  - source: organvm-i-theoria/recursive-engine\n",
         )
 
         violations = validate_epistemic_membranes(registry, workspace=tmp_path)
@@ -352,7 +352,7 @@ class TestRegistryCoherence:
 
     def test_empty_name(self, registry):
         registry["organs"]["ORGAN-I"]["repositories"].append(
-            {"name": "", "org": "organvm-i-theoria"}
+            {"name": "", "org": "organvm-i-theoria"},
         )
         violations = validate_registry_coherence(registry)
         empty = [v for v in violations if "empty name" in v.message]
@@ -443,7 +443,7 @@ class TestLogosWriteScope:
             "produces:\n"
             "  - type: essay\n"
             "    targets:\n"
-            "      - ORGAN-III\n"
+            "      - ORGAN-III\n",
         )
         violations = validate_logos_write_scope(registry, workspace=tmp_path)
         assert len(violations) == 1
@@ -466,7 +466,7 @@ class TestLogosWriteScope:
             "produces:\n"
             "  - type: essay\n"
             "    targets:\n"
-            "      - ORGAN-V\n"
+            "      - ORGAN-V\n",
         )
         violations = validate_logos_write_scope(registry, workspace=tmp_path)
         assert violations == []
@@ -495,7 +495,7 @@ class TestKerygmaConsumer:
         (d / "seed.yaml").write_text(
             "organ: ORGAN-VII\n"
             "consumes:\n"
-            "  - source: ORGAN-III\n"
+            "  - source: ORGAN-III\n",
         )
         violations = validate_kerygma_consumer(registry, workspace=tmp_path)
         assert violations == []
@@ -517,7 +517,7 @@ class TestKerygmaConsumer:
             "produces:\n"
             "  - type: original-content\n"
             "    targets:\n"
-            "      - ORGAN-III\n"
+            "      - ORGAN-III\n",
         )
         violations = validate_kerygma_consumer(registry, workspace=tmp_path)
         assert len(violations) == 1

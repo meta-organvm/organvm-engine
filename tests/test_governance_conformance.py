@@ -12,7 +12,6 @@ from organvm_engine.governance.conformance import (
 )
 from organvm_engine.governance.state_machine import FALLBACK_TRANSITIONS
 
-
 # ---------------------------------------------------------------------------
 # TraceEntry
 # ---------------------------------------------------------------------------

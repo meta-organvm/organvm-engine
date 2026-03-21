@@ -1,6 +1,5 @@
 """Tests for audit absorption layer."""
 
-import time
 
 from organvm_engine.audit.absorption import (
     _format_bytes,

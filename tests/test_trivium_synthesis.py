@@ -51,7 +51,6 @@ def test_translation_matrix_markdown_empty():
 
 def test_translation_matrix_markdown_with_data():
     from organvm_engine.trivium.translator import (
-        TranslationEvidence,
         translation_matrix,
     )
     with FIXTURE_PATH.open() as f:

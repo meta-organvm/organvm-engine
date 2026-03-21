@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from organvm_engine.content.reader import ContentPost, discover_posts, filter_posts
+from organvm_engine.content.reader import discover_posts, filter_posts
 from organvm_engine.paths import PathConfig
 
 

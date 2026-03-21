@@ -11,7 +11,6 @@ import pytest
 import yaml
 
 from organvm_engine.network import NETWORK_MAP_FILENAME
-from organvm_engine.network.schema import MirrorEntry, NetworkMap
 from organvm_engine.network.mapper import (
     discover_network_maps,
     merge_mirrors,
@@ -19,7 +18,7 @@ from organvm_engine.network.mapper import (
     validate_network_map,
     write_network_map,
 )
-
+from organvm_engine.network.schema import MirrorEntry, NetworkMap
 
 # ─── Helpers ──────────────────────────────────────────────────────────────
 
