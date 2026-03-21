@@ -56,6 +56,15 @@ def mock_registry():
     }
 
 
+@pytest.fixture(autouse=True)
+def _git_identity(monkeypatch):
+    """Ensure git has a user identity for commit operations in CI."""
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "test")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "test@test")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "test")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "test@test")
+
+
 class TestSuperproject:
     """Tests for superproject initialization and management."""
 

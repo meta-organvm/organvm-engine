@@ -320,7 +320,11 @@ class TestRegistryCommands:
 
 class TestGovernanceCommands:
     def test_governance_audit(self, capsys):
-        with patch("sys.argv", ["organvm", "--registry", MOCK_REGISTRY, "governance", "audit"]):
+        rules = str(FIXTURES / "governance-rules-test.json")
+        with patch(
+            "sys.argv",
+            ["organvm", "--registry", MOCK_REGISTRY, "governance", "audit", "--rules", rules],
+        ):
             main()
         out = capsys.readouterr().out
         assert "Governance Audit" in out

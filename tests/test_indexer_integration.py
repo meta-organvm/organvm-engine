@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -332,6 +334,15 @@ class TestAMMOIToContextmd:
 # ---------------------------------------------------------------------------
 
 
+try:
+    import organvm_mcp  # noqa: F401
+
+    _has_organvm_mcp = True
+except ImportError:
+    _has_organvm_mcp = False
+
+
+@pytest.mark.skipif(not _has_organvm_mcp, reason="organvm-mcp-server not installed")
 class TestMCPIndexerTools:
     """Verify MCP indexer tools are registered and dispatchable."""
 
