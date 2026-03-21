@@ -3,8 +3,16 @@
 Extends the constitutional EventSpine (events/spine.py) with cryptographic
 hash-linking, Merkle checkpoints, tier classification, and digest assembly.
 The EventSpine records events; the ledger makes them tamper-evident.
+
+Ring 4 (anchor) provides data structures for external chain anchoring —
+Merkle checkpoint roots prepared for on-chain submission.
 """
 
+from organvm_engine.ledger.anchor import (
+    AnchorRecord,
+    compute_anchor_hash,
+    verify_anchor,
+)
 from organvm_engine.ledger.chain import (
     GENESIS_PREV_HASH,
     ChainVerificationResult,
@@ -33,6 +41,7 @@ from organvm_engine.ledger.rotation import (
 from organvm_engine.ledger.tiers import EventTier, classify_event_tier
 
 __all__ = [
+    "AnchorRecord",
     "GENESIS_PREV_HASH",
     "ChainIndex",
     "ChainVerificationResult",
@@ -42,6 +51,7 @@ __all__ = [
     "all_chain_files",
     "assemble_digest",
     "classify_event_tier",
+    "compute_anchor_hash",
     "compute_event_hash",
     "compute_merkle_root",
     "generate_merkle_proof",
@@ -51,6 +61,7 @@ __all__ = [
     "rotate_chain",
     "save_index",
     "testament_emit",
+    "verify_anchor",
     "verify_chain",
     "verify_chain_link",
     "verify_hash",

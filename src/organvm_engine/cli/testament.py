@@ -312,6 +312,70 @@ def _render_all_repos(
     return 0
 
 
+def cmd_testament_play(args: argparse.Namespace) -> int:
+    """Render system metrics as sonic parameters and emit OSC messages.
+
+    Produces YAML for BrahmaModBus.sc and a list of OSC message strings
+    suitable for piping to SuperCollider's TestamentReceiver.sc.
+    """
+    from organvm_engine.testament.renderers.sonic import (
+        render_osc_messages,
+        render_sonic_params,
+        render_sonic_yaml,
+    )
+    from organvm_engine.testament.sources import density_data, omega_data, topology_data
+
+    as_json = getattr(args, "json", False)
+    osc_only = getattr(args, "osc", False)
+    yaml_only = getattr(args, "yaml", False)
+    registry_path = getattr(args, "registry", None)
+    if registry_path:
+        registry_path = Path(registry_path)
+
+    # Gather live system data
+    topo = topology_data(registry_path)
+    omega = omega_data(registry_path)
+    dens = density_data(registry_path)
+    met_ratio = omega["met_count"] / omega["total"] if omega["total"] else 0
+
+    testament = render_sonic_params(
+        organ_densities=dens["organ_densities"],
+        organ_repo_counts=topo["organ_repo_counts"],
+        status_distribution={},
+        met_ratio=met_ratio,
+        total_repos=topo["total_repos"],
+    )
+
+    osc_msgs = render_osc_messages(testament)
+
+    if as_json:
+        import dataclasses
+        data = dataclasses.asdict(testament)
+        data["osc_messages"] = osc_msgs
+        print(json.dumps(data, indent=2))
+        return 0
+
+    if osc_only:
+        for msg in osc_msgs:
+            print(msg)
+        return 0
+
+    if yaml_only:
+        print(render_sonic_yaml(testament))
+        return 0
+
+    # Default: show both
+    yaml_out = render_sonic_yaml(testament)
+    print(yaml_out)
+    print("# OSC Messages")
+    for msg in osc_msgs:
+        print(f"#   {msg}")
+    print(f"\n# {len(testament.voices)} voices, "
+          f"{testament.rhythm.bpm if testament.rhythm else 120} BPM, "
+          f"master {testament.master_amplitude}")
+    return 0
+
+
 def _resolve_output_dir(args: argparse.Namespace) -> Path:
     """Resolve the output directory for testament artifacts."""
     output = getattr(args, "output_dir", None)
