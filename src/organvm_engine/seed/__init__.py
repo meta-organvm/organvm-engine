@@ -12,6 +12,14 @@ from organvm_engine.seed.ownership import (
     has_ownership,
 )
 from organvm_engine.seed.reader import read_seed
+from organvm_engine.seed.signals import (
+    SignalEdge,
+    SignalGraph,
+    SignalPort,
+    build_signal_graph,
+    get_signal_inputs,
+    get_signal_outputs,
+)
 
 __all__ = [
     "discover_seeds",
@@ -25,4 +33,10 @@ __all__ = [
     "actor_access",
     "load_workspace_manifest",
     "is_partial_workspace",
+    "get_signal_inputs",
+    "get_signal_outputs",
+    "build_signal_graph",
+    "SignalPort",
+    "SignalEdge",
+    "SignalGraph",
 ]

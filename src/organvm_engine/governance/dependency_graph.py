@@ -1,7 +1,11 @@
-"""Dependency graph validation — cycle detection, back-edge checking, DAG analysis."""
+"""Dependency graph validation — cycle detection, back-edge checking, DAG analysis.
+
+Implements: AX-008 (Multiplex Flow Governance) — typed edge support.
+"""
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from enum import Enum
 
 from organvm_engine.registry.query import all_repos
 
@@ -18,6 +22,120 @@ ORGAN_LEVELS = {
     "meta-organvm": 8,
 }
 RESTRICTED_LEVELS = {1, 2, 3}
+
+
+class FlowType(Enum):
+    """Types of inter-repo flow in the multiplex graph.
+
+    AX-008 requires distinguishing at least four flow types:
+    - DEPENDENCY: build/runtime dependency (the only type previously tracked)
+    - INFORMATION: data/artifact flow (produces/consumes from seed.yaml)
+    - GOVERNANCE: policy propagation (governance rules, dictums, audit)
+    - EVOLUTION: promotion state transitions and lifecycle events
+    """
+
+    DEPENDENCY = "dependency"
+    INFORMATION = "information"
+    GOVERNANCE = "governance"
+    EVOLUTION = "evolution"
+
+
+@dataclass
+class TypedEdge:
+    """An edge in the multiplex graph with a flow type annotation."""
+
+    source: str
+    target: str
+    flow_type: FlowType
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TypedEdge):
+            return NotImplemented
+        return (
+            self.source == other.source
+            and self.target == other.target
+            and self.flow_type == other.flow_type
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.source, self.target, self.flow_type))
+
+
+@dataclass
+class MultiplexGraph:
+    """Multiplex graph containing typed edges across all flow layers.
+
+    Each flow type forms an independent graph layer with its own edge set.
+    The legacy dependency-only graph is the DEPENDENCY layer.
+    """
+
+    edges: list[TypedEdge] = field(default_factory=list)
+
+    def edges_by_type(self, flow_type: FlowType) -> list[TypedEdge]:
+        """Return edges filtered to a single flow type."""
+        return [e for e in self.edges if e.flow_type == flow_type]
+
+    def layer_counts(self) -> dict[str, int]:
+        """Return edge count per flow type."""
+        counts: dict[str, int] = {}
+        for ft in FlowType:
+            n = sum(1 for e in self.edges if e.flow_type == ft)
+            if n > 0:
+                counts[ft.value] = n
+        return counts
+
+    def nodes(self) -> set[str]:
+        """Return all unique node identifiers across all layers."""
+        result: set[str] = set()
+        for e in self.edges:
+            result.add(e.source)
+            result.add(e.target)
+        return result
+
+    def summary(self) -> str:
+        """Human-readable summary of the multiplex graph."""
+        counts = self.layer_counts()
+        total = len(self.edges)
+        lines = [f"Multiplex graph: {total} edges across {len(counts)} layer(s)"]
+        for layer, count in sorted(counts.items()):
+            lines.append(f"  {layer}: {count} edge(s)")
+        return "\n".join(lines)
+
+
+def build_multiplex_graph(
+    registry: dict,
+    seed_graph: object | None = None,
+) -> MultiplexGraph:
+    """Build a multiplex graph from registry dependency edges and optional seed graph.
+
+    The registry provides DEPENDENCY edges (from repo dependencies fields).
+    If a SeedGraph is provided, its produces/consumes edges become INFORMATION edges.
+
+    Args:
+        registry: Loaded registry dict.
+        seed_graph: Optional SeedGraph instance (from seed.graph.build_seed_graph).
+
+    Returns:
+        MultiplexGraph with typed edges.
+    """
+    graph = MultiplexGraph()
+
+    # Layer 1: DEPENDENCY edges from registry
+    for _organ_key, repo in all_repos(registry):
+        key = f"{repo['org']}/{repo['name']}"
+        for dep in repo.get("dependencies", []):
+            graph.edges.append(TypedEdge(source=key, target=dep, flow_type=FlowType.DEPENDENCY))
+
+    # Layer 2: INFORMATION edges from seed graph (produces/consumes)
+    if seed_graph is not None:
+        seed_edges = getattr(seed_graph, "edges", [])
+        for edge in seed_edges:
+            if len(edge) >= 2:
+                graph.edges.append(
+                    TypedEdge(source=edge[0], target=edge[1], flow_type=FlowType.INFORMATION),
+                )
+
+    return graph
 
 
 @dataclass
