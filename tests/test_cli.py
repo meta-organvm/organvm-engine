@@ -592,6 +592,55 @@ class TestOrganismCommands:
         assert len(organism_files) == 1
 
 
+# ── Completion commands ──────────────────────────────────────────
+
+
+class TestCompletionCommands:
+    """Verify the completion subcommand parses and produces output."""
+
+    def test_completion_subcommand_parses(self):
+        parser = build_parser()
+        for shell in ["bash", "zsh", "fish"]:
+            args = parser.parse_args(["completion", shell])
+            assert args.command == "completion"
+            assert args.shell == shell
+
+    def test_completion_help_exits_zero(self):
+        parser = build_parser()
+        with pytest.raises(SystemExit) as exc_info:
+            parser.parse_args(["completion", "--help"])
+        assert exc_info.value.code == 0
+
+    def test_completion_bash_output(self, capsys):
+        with patch("sys.argv", ["organvm", "completion", "bash"]):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "register-python-argcomplete" in out
+        assert "bashrc" in out or "bash_profile" in out
+
+    def test_completion_zsh_output(self, capsys):
+        with patch("sys.argv", ["organvm", "completion", "zsh"]):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "register-python-argcomplete" in out
+        assert "zshrc" in out
+
+    def test_completion_fish_output(self, capsys):
+        with patch("sys.argv", ["organvm", "completion", "fish"]):
+            rc = main()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "register-python-argcomplete" in out
+        assert "fish" in out
+
+    def test_completion_invalid_shell_rejected(self):
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["completion", "powershell"])
+
+
 # ── Error handling ───────────────────────────────────────────────
 
 

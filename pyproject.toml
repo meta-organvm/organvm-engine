@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 schema = []
+completion = ["argcomplete>=3.1"]
 ontologia = ["organvm-ontologia>=0.1.0"]
 neon = ["psycopg[binary]>=3.1"]
 dev = ["pytest>=8.0", "ruff>=0.4", "pyright>=1.1"]

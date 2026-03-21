@@ -82,6 +82,7 @@ from organvm_engine.cli.cmd_pulse import (
     cmd_pulse_temporal,
     cmd_pulse_tensions,
 )
+from organvm_engine.cli.completion import cmd_completion
 from organvm_engine.cli.content import (
     cmd_content_list,
     cmd_content_new,
@@ -89,6 +90,7 @@ from organvm_engine.cli.content import (
 )
 from organvm_engine.cli.context import cmd_context_surfaces, cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
+from organvm_engine.cli.debt import cmd_debt_scan, cmd_debt_stats
 from organvm_engine.cli.dispatch import cmd_dispatch_validate
 from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_actions,
@@ -2312,6 +2314,23 @@ def build_parser() -> argparse.ArgumentParser:
     pulse_entity_mem.add_argument("--no-continuity", action="store_true")
     pulse_entity_mem.add_argument("--no-metrics", action="store_true")
 
+    # debt — DEBT header detection and tracking
+    debt = sub.add_parser(
+        "debt",
+        help="Scan for DEBT markers (emergency maintenance protocol)",
+    )
+    debt_sub = debt.add_subparsers(dest="subcommand")
+
+    debt_scan = debt_sub.add_parser("scan", help="Scan source files for DEBT markers")
+    debt_scan.add_argument("--organ", default=None, help="Scan only this organ (e.g. META, I)")
+    debt_scan.add_argument("--path", default=None, help="Scan a specific directory instead")
+    debt_scan.add_argument("--json", action="store_true", help="Output JSON")
+
+    debt_stats_p = debt_sub.add_parser("stats", help="Show DEBT summary statistics")
+    debt_stats_p.add_argument("--organ", default=None, help="Scan only this organ (e.g. META, I)")
+    debt_stats_p.add_argument("--path", default=None, help="Scan a specific directory instead")
+    debt_stats_p.add_argument("--json", action="store_true", help="Output JSON")
+
     # irf — Index Rerum Faciendarum
     irf = sub.add_parser(
         "irf",
@@ -2338,11 +2357,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show summary statistics for the IRF document",
     ).add_argument("--json", action="store_true", help="Output JSON")
 
+    # completion — shell completion script generation
+    comp = sub.add_parser("completion", help="Generate shell completion scripts")
+    comp.add_argument(
+        "shell",
+        choices=["bash", "zsh", "fish"],
+        help="Shell type to generate completion for",
+    )
+
     return parser
 
 
 def main() -> int:
     parser = build_parser()
+
+    # Enable shell completion if argcomplete is installed.
+    try:
+        import argcomplete
+
+        argcomplete.autocomplete(parser)
+    except ImportError:
+        pass
+
     args = parser.parse_args()
 
     if not args.command:
@@ -2401,6 +2437,8 @@ def main() -> int:
         return cmd_status(args)
     if args.command == "deadlines":
         return cmd_deadlines(args)
+    if args.command == "completion":
+        return cmd_completion(args)
     if args.command == "refresh":
         return cmd_refresh(args)
     if args.command == "lint-vars":
@@ -2678,6 +2716,16 @@ def main() -> int:
         if not sub_cmd:
             return cmd_pulse_show(args)
         parser.parse_args(["pulse", "--help"])
+        return 0
+    if args.command == "debt":
+        debt_dispatch = {
+            "scan": cmd_debt_scan,
+            "stats": cmd_debt_stats,
+        }
+        handler = debt_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["debt", "--help"])
         return 0
     if args.command == "irf":
         irf_dispatch = {
