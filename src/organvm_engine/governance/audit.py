@@ -1,14 +1,21 @@
 """Full system audit against governance rules."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
-from organvm_engine.governance.dependency_graph import validate_dependencies
+from organvm_engine.governance.dependency_graph import DependencyResult, validate_dependencies
 from organvm_engine.governance.rules import (
     get_audit_thresholds,
     get_organ_requirements,
     load_governance_rules,
 )
+
+if TYPE_CHECKING:
+    from organvm_engine.ci.mandate import CIMandateReport
+    from organvm_engine.governance.dictums import DictumReport
 
 
 @dataclass
@@ -18,9 +25,9 @@ class AuditResult:
     critical: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     info: list[str] = field(default_factory=list)
-    dependency_result: object = None
-    ci_mandate: object = None  # CIMandateReport when verify_ci=True
-    dictum_report: object = None  # DictumReport when check_dictums=True
+    dependency_result: DependencyResult | None = None
+    ci_mandate: CIMandateReport | None = None
+    dictum_report: DictumReport | None = None
 
     @property
     def passed(self) -> bool:
@@ -47,8 +54,8 @@ class AuditResult:
 
 
 def run_audit(
-    registry: dict,
-    rules: dict | None = None,
+    registry: dict[str, Any],
+    rules: dict[str, Any] | None = None,
     verify_ci: bool = False,
     check_dictums: bool = True,
 ) -> AuditResult:
