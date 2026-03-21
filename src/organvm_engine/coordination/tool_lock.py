@@ -2,6 +2,9 @@
 
 Implements: SPEC-014, RSRC-003 (resource constraints and tool checkout)
 
+Lifecycle phases are defined once in ``lifecycle.py`` (SPEC-013 is the
+canonical source); this module references them rather than duplicating.
+
 Before running a heavy command (pytest, npm test, build), an agent checks out
 the tool. If another agent already has it checked out, the requesting agent
 must wait. Light commands (git status, ls) can run concurrently.
@@ -23,6 +26,12 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
+from organvm_engine.coordination.lifecycle import (
+    ResourceWeight,  # noqa: F401 — re-exported for backward compat
+    append_event,
+    read_events,
+)
 
 # Auto-expiry: commands shouldn't take longer than 5 minutes.
 # If they do, the checkout is stale and can be reclaimed.
@@ -92,11 +101,9 @@ class ToolCheckout:
 
 
 def _read_tool_events() -> list[dict]:
-    """Read tool checkout/checkin events from the claims file."""
-    from organvm_engine.coordination.claims import _read_events
-
+    """Read tool checkout/checkin events from the shared event log."""
     return [
-        e for e in _read_events()
+        e for e in read_events()
         if e.get("event_type", "").startswith("tool.")
     ]
 
@@ -157,8 +164,6 @@ def tool_checkout(
         {cleared: True, checkout_id: "..."} if the lane is clear.
         {wait: True, queue: [...], suggestion: "..."} if blocked.
     """
-    from organvm_engine.coordination.claims import _append_event
-
     if weight is None:
         weight = classify_command(command_hint)
 
@@ -213,7 +218,7 @@ def tool_checkout(
         "timestamp": now,
         "iso_time": datetime.now(timezone.utc).isoformat(),
     }
-    _append_event(event)
+    append_event(event)
 
     return {
         "cleared": True,
@@ -233,8 +238,6 @@ def tool_checkin(checkout_id: str) -> dict[str, Any]:
     Returns:
         {released: True} on success.
     """
-    from organvm_engine.coordination.claims import _append_event
-
     if not checkout_id:
         return {"released": True, "note": "No checkout to release (was light)."}
 
@@ -257,7 +260,7 @@ def tool_checkin(checkout_id: str) -> dict[str, Any]:
         "iso_time": datetime.now(timezone.utc).isoformat(),
         "duration_seconds": found.age_seconds,
     }
-    _append_event(event)
+    append_event(event)
 
     return {
         "released": True,

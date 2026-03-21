@@ -23,22 +23,34 @@ punch-in/punch-out pairs and TTL expiry.
 
 from __future__ import annotations
 
-import json
-import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
+
+from organvm_engine.coordination.lifecycle import (
+    WEIGHT_COSTS,  # noqa: F401 — re-exported for backward compat
+    AgentPhase,  # noqa: F401 — re-exported for backward compat
+    ResourceWeight,  # noqa: F401 — re-exported for backward compat
+    normalise_weight,
+    weight_cost,
+)
+from organvm_engine.coordination.lifecycle import (
+    append_event as _append_event,
+)
+from organvm_engine.coordination.lifecycle import (
+    claims_file_path as _claims_file,  # noqa: F401 — re-exported for backward compat
+)
+from organvm_engine.coordination.lifecycle import (
+    read_events as _read_events,
+)
 
 # Default TTL for claims: 4 hours
 DEFAULT_CLAIM_TTL_SECONDS = 4 * 60 * 60
 
-# Resource weight categories and their cost units.
 # On a 16GB M3, we budget ~6 capacity units (leaving room for OS + background).
 # light=1 (read-only, search, planning), medium=2 (code gen, tests),
 # heavy=3 (full build, parallel subagents, large file generation).
-WEIGHT_COSTS = {"light": 1, "medium": 2, "heavy": 3}
 DEFAULT_CAPACITY = 6  # max concurrent weight units
 
 # Handle word pools — each agent type gets a thematic set.
@@ -69,16 +81,11 @@ _DEFAULT_POOL = [
     "gamma", "kappa", "omega", "sigma", "theta",
 ]
 
-_CLAIMS_DIR = Path.home() / ".organvm"
-_CLAIMS_FILE = _CLAIMS_DIR / "claims.jsonl"
 
-
-def _claims_file() -> Path:
-    """Return the path to the claims registry file."""
-    env = os.environ.get("ORGANVM_CLAIMS_FILE")
-    if env:
-        return Path(env)
-    return _CLAIMS_FILE
+# _claims_file, _append_event, and _read_events are now imported from
+# organvm_engine.coordination.lifecycle and aliased above.  The old names
+# are preserved as module-level aliases so that tool_lock.py (and any other
+# in-tree caller) can keep using ``from .claims import _read_events``.
 
 
 def _generate_handle(agent: str, existing_handles: set[str]) -> str:
@@ -123,7 +130,7 @@ class WorkClaim:
     @property
     def cost(self) -> int:
         """Resource cost units for this claim."""
-        return WEIGHT_COSTS.get(self.resource_weight, 2)
+        return weight_cost(self.resource_weight)
 
     @property
     def is_expired(self) -> bool:
@@ -182,29 +189,6 @@ class ClaimConflict:
     overlap_type: str  # organ, repo, file, module
     overlap_values: list[str]
 
-
-def _append_event(event: dict) -> None:
-    """Append a JSON event to the claims file."""
-    path = _claims_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a") as f:
-        f.write(json.dumps(event) + "\n")
-
-
-def _read_events() -> list[dict]:
-    """Read all events from the claims file."""
-    path = _claims_file()
-    if not path.is_file():
-        return []
-    events = []
-    for raw_line in path.read_text().splitlines():
-        stripped = raw_line.strip()
-        if stripped:
-            try:
-                events.append(json.loads(stripped))
-            except json.JSONDecodeError:
-                continue
-    return events
 
 
 def _build_active_claims(events: list[dict]) -> list[WorkClaim]:
@@ -353,8 +337,7 @@ def punch_in(
     modules = modules or []
     test_obligations = test_obligations or []
 
-    if resource_weight not in WEIGHT_COSTS:
-        resource_weight = "medium"
+    resource_weight = normalise_weight(resource_weight)
 
     # Generate a unique handle (name tag)
     existing_handles = {c.handle for c in active_claims() if c.handle}
@@ -365,7 +348,7 @@ def punch_in(
 
     # Check capacity before claiming
     cap = capacity_status()
-    proposed_cost = WEIGHT_COSTS.get(resource_weight, 2)
+    proposed_cost = weight_cost(resource_weight)
     capacity_warning = None
     if cap["at_capacity"]:
         capacity_warning = (
