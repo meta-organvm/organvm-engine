@@ -250,6 +250,7 @@ from organvm_engine.cli.study import (
     cmd_study_consilience,
     cmd_study_feedback,
 )
+from organvm_engine.cli.taxonomy import cmd_taxonomy_audit, cmd_taxonomy_classify
 from organvm_engine.cli.testament import (
     cmd_testament_cascade,
     cmd_testament_catalog,
@@ -2537,6 +2538,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show summary statistics for the IRF document",
     ).add_argument("--json", action="store_true", help="Output JSON")
 
+    # taxonomy — functional classification
+    tax = sub.add_parser("taxonomy", help="Functional taxonomy commands")
+    tax_sub = tax.add_subparsers(dest="subcommand")
+
+    tax_cls = tax_sub.add_parser("classify", help="Classify repos by heuristic")
+    tax_cls.add_argument("--organ", help="Filter by organ key")
+    tax_cls.add_argument("--dry-run", action="store_true", help="Show without writing")
+    tax_cls.add_argument("--json", action="store_true", dest="as_json")
+
+    tax_aud = tax_sub.add_parser("audit", help="Audit classification drift")
+    tax_aud.add_argument("--organ", help="Filter by organ key")
+    tax_aud.add_argument("--json", action="store_true", dest="as_json")
+
     # completion — shell completion script generation
     comp = sub.add_parser("completion", help="Generate shell completion scripts")
     comp.add_argument(
@@ -2613,6 +2627,8 @@ def main() -> int:
         ("omega", "status"): cmd_omega_status,
         ("omega", "check"): cmd_omega_check,
         ("omega", "update"): cmd_omega_update,
+        ("taxonomy", "classify"): cmd_taxonomy_classify,
+        ("taxonomy", "audit"): cmd_taxonomy_audit,
     }
 
     # Handle top-level commands (no subcommand)
