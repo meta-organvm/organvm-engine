@@ -443,3 +443,111 @@ def cmd_fossil_drift(args) -> int:
                   f"mutations={len(d.mutations)}  shadows={len(d.shadows)}")
 
     return 0
+
+
+def cmd_fossil_witness(args) -> int:
+    """Witness subcommands: install hooks, check status, record a commit."""
+    witness_sub = getattr(args, "witness_subcommand", None)
+    if witness_sub is None:
+        print("Usage: organvm fossil witness {install|status|record}")
+        return 1
+
+    if witness_sub == "install":
+        return _witness_install(args)
+    if witness_sub == "status":
+        return _witness_status(args)
+    if witness_sub == "record":
+        return _witness_record(args)
+
+    print(f"Unknown witness subcommand: {witness_sub}")
+    return 1
+
+
+def _witness_install(args) -> int:
+    """Install post-commit hooks across the workspace."""
+    from organvm_engine.fossil.witness import install_hooks
+    from organvm_engine.paths import fossil_record_path, workspace_root
+
+    workspace = Path(args.workspace).expanduser() if getattr(args, "workspace", None) else None
+    if workspace is None:
+        workspace = workspace_root()
+    if workspace is None or not workspace.is_dir():
+        print(f"Workspace not found: {workspace}", file=sys.stderr)
+        return 1
+
+    write = getattr(args, "write", False)
+    fossil_path = fossil_record_path()
+
+    result = install_hooks(workspace, fossil_path, dry_run=not write)
+
+    if write:
+        print(f"Installed hooks in {len(result)} repo(s).")
+        for p in result:
+            print(f"  {p}")
+    else:
+        print(f"Dry-run: would install hooks in {len(result)} repo(s).")
+        for p in result:
+            print(f"  {p}")
+        print("Use --write to install.")
+
+    return 0
+
+
+def _witness_status(args) -> int:
+    """Show witness coverage across the workspace."""
+    from organvm_engine.fossil.witness import witness_status
+    from organvm_engine.paths import workspace_root
+
+    workspace = Path(args.workspace).expanduser() if getattr(args, "workspace", None) else None
+    if workspace is None:
+        workspace = workspace_root()
+    if workspace is None or not workspace.is_dir():
+        print(f"Workspace not found: {workspace}", file=sys.stderr)
+        return 1
+
+    as_json = getattr(args, "json", False)
+    result = witness_status(workspace)
+
+    if as_json:
+        json.dump(result, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print(f"Witness Coverage — {result['total_repos']} repo(s)")
+        print(f"  Witnessed: {result['witnessed']}")
+        print(f"  Dark:      {result['dark']}")
+        if result["repos"]:
+            print()
+            for repo in result["repos"]:
+                icon = "W" if repo["witnessed"] else "."
+                print(f"  [{icon}] {repo['name']}")
+
+    return 0
+
+
+def _witness_record(args) -> int:
+    """Record a single witnessed commit (called by hook)."""
+    from organvm_engine.fossil.witness import record_witnessed_commit
+    from organvm_engine.paths import fossil_record_path, workspace_root
+
+    repo_path = Path(args.repo_path).expanduser() if getattr(args, "repo_path", None) else None
+    if repo_path is None:
+        print("--repo-path is required", file=sys.stderr)
+        return 1
+
+    workspace = Path(args.workspace).expanduser() if getattr(args, "workspace", None) else None
+    if workspace is None:
+        workspace = workspace_root()
+
+    fossil_path = (
+        Path(args.fossil_path).expanduser() if getattr(args, "fossil_path", None) else None
+    )
+    if fossil_path is None:
+        fossil_path = fossil_record_path()
+
+    record = record_witnessed_commit(repo_path, workspace, fossil_path)
+    if record is None:
+        print("Failed to record commit.", file=sys.stderr)
+        return 1
+
+    print(f"Witnessed: {record.commit_sha[:8]} [{record.organ}] {record.message}")
+    return 0

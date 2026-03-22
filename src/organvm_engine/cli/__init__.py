@@ -2605,6 +2605,42 @@ def build_parser() -> argparse.ArgumentParser:
     fossil_drift = fossil_sub.add_parser("drift", help="Analyze intention-reality divergence")
     fossil_drift.add_argument("--json", action="store_true", help="Output JSON")
 
+    fossil_witness = fossil_sub.add_parser(
+        "witness", help="Real-time capture: install hooks, check status, record commits",
+    )
+    fossil_witness_sub = fossil_witness.add_subparsers(dest="witness_subcommand")
+
+    fossil_witness_install = fossil_witness_sub.add_parser(
+        "install", help="Install post-commit hooks across workspace (dry-run by default)",
+    )
+    fossil_witness_install.add_argument(
+        "--workspace", default=None, help="Workspace root directory",
+    )
+    fossil_witness_install.add_argument(
+        "--write", action="store_true", help="Actually install hooks (default is dry-run)",
+    )
+
+    fossil_witness_status_p = fossil_witness_sub.add_parser(
+        "status", help="Show witness coverage across repos",
+    )
+    fossil_witness_status_p.add_argument(
+        "--workspace", default=None, help="Workspace root directory",
+    )
+    fossil_witness_status_p.add_argument("--json", action="store_true", help="Output JSON")
+
+    fossil_witness_record = fossil_witness_sub.add_parser(
+        "record", help="Record a single witnessed commit (called by hook)",
+    )
+    fossil_witness_record.add_argument(
+        "--repo-path", dest="repo_path", default=None, help="Path to the git repo",
+    )
+    fossil_witness_record.add_argument(
+        "--workspace", default=None, help="Workspace root directory",
+    )
+    fossil_witness_record.add_argument(
+        "--fossil-path", dest="fossil_path", default=None, help="Path to fossil-record.jsonl",
+    )
+
     # taxonomy — functional classification
     tax = sub.add_parser("taxonomy", help="Functional taxonomy commands")
     tax_sub = tax.add_subparsers(dest="subcommand")
@@ -3015,6 +3051,7 @@ def main() -> int:
             cmd_fossil_excavate,
             cmd_fossil_intentions,
             cmd_fossil_stratum,
+            cmd_fossil_witness,
         )
         fossil_dispatch = {
             "excavate": cmd_fossil_excavate,
@@ -3023,6 +3060,7 @@ def main() -> int:
             "drift": cmd_fossil_drift,
             "epochs": cmd_fossil_epochs,
             "stratum": cmd_fossil_stratum,
+            "witness": cmd_fossil_witness,
         }
         handler = fossil_dispatch.get(getattr(args, "subcommand", "") or "")
         if handler:
