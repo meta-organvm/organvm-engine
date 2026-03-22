@@ -1,5 +1,6 @@
 # seed.yaml — Automation Contract for meta-organvm/organvm-engine
 # Schema: seed/v1.0
+# IRF-SYS-010: Full seed.yaml refresh — 2026-03-21
 
 schema_version: "1.0"
 organ: Meta
@@ -10,11 +11,21 @@ org: meta-organvm
 metadata:
   implementation_status: ACTIVE
   tier: flagship
-  promotion_status: CANDIDATE
-  last_validated: "2026-02-17"
+  promotion_status: GRADUATED
+  last_validated: "2026-03-21"
   generated: "2026-02-17"
   sprint: "INFRASTRUCTURE"
   language: python
+  note: >-
+    Core Python package: 30+ domain modules, 4 foundation modules,
+    34 CLI command groups. Registry, governance, seed discovery,
+    metrics, dispatch, git superproject management, context file sync,
+    omega scorecard, CI triage, session analysis, plan atomization,
+    prompt narrative extraction, atom linking, ecosystem profiling,
+    SOP resolver, IRF parser, event spine, testament protocol,
+    ontologia integration, pulse system, trivium dialect translation,
+    network testament, content syndication, debt tracking, and the
+    unified 'organvm' CLI.
 
 agents:
   - name: ci
@@ -27,8 +38,41 @@ produces:
     description: "Registry validation, dependency checking, governance audit results"
     consumers: [ORGAN-IV, META-ORGANVM]
   - type: registry
-    description: "Programmatic registry access and updates"
+    description: "Programmatic registry access, queries, and updates"
     consumers: [ORGAN-IV, META-ORGANVM]
+  - type: metrics
+    description: "System metrics calculation, propagation, timeseries, variable resolution"
+    consumers: [META-ORGANVM]
+  - type: omega-scorecard
+    description: "17-criterion binary maturity scorecard for the entire system"
+    consumers: [META-ORGANVM]
+  - type: context-files
+    description: "Auto-generated CLAUDE.md/GEMINI.md/AGENTS.md across all repos"
+    consumers: [ORGAN-I, ORGAN-II, ORGAN-III, ORGAN-IV, ORGAN-V, ORGAN-VI, ORGAN-VII, META-ORGANVM]
+  - type: session-analysis
+    description: "Multi-agent session transcript parsing, plan auditing, prompt analysis"
+    consumers: [META-ORGANVM]
+  - type: plan-atoms
+    description: "Atomized tasks from plan .md files with tags, file refs, status, project metadata"
+    consumers: [META-ORGANVM]
+  - type: prompt-narratives
+    description: "Extracted and classified user prompts threaded into narrative episodes"
+    consumers: [META-ORGANVM]
+  - type: atom-links
+    description: "Jaccard-matched task-to-prompt links and git-reconciled completion verdicts"
+    consumers: [META-ORGANVM]
+  - type: testament-artifacts
+    description: "Hash-chained event ledger, genesis blocks, checkpoint verification"
+    consumers: [META-ORGANVM]
+  - type: ci-reports
+    description: "CI health triage reports from soak-test data"
+    consumers: [META-ORGANVM]
+  - type: pitch-decks
+    description: "HTML pitch deck generation per repo"
+    consumers: [META-ORGANVM]
+  - type: ecosystem-profiles
+    description: "Product business profiles, competitive matrix, gap analysis, action items"
+    consumers: [META-ORGANVM]
 
 consumes:
   - type: registry
@@ -37,8 +81,87 @@ consumes:
   - type: schema
     source: META-ORGANVM
     description: "Uses JSON Schema definitions for validation"
+  - type: governance-rules
+    source: META-ORGANVM
+    description: "Reads governance-rules.json for promotion and dependency enforcement"
+  - type: soak-data
+    source: META-ORGANVM
+    description: "Reads soak-test results for CI health triage"
+  - type: seed-files
+    source: META-ORGANVM
+    description: "Discovers and parses seed.yaml files across the entire workspace"
+  - type: session-transcripts
+    source: META-ORGANVM
+    description: "Reads multi-agent session transcripts (Claude, Gemini, Codex) for analysis"
+  - type: plan-files
+    source: META-ORGANVM
+    description: "Reads plan .md files from .claude/plans/, .gemini/plans/, .codex/plans/"
 
 subscriptions:
   - event: registry.updated
     source: META-ORGANVM
-    action: Re-validate registry against governance rules
+    action: "Re-validate registry against governance rules"
+  - event: governance.promotion_changed
+    source: META-ORGANVM
+    action: "Update omega scorecard and context files for promoted repo"
+  - event: seed.edge_added
+    source: META-ORGANVM
+    action: "Re-validate dependency graph for new edge"
+  - event: entity.created
+    source: META-ORGANVM
+    action: "Bootstrap context files and registry entry for new entity"
+  - event: metrics.organism_computed
+    source: META-ORGANVM
+    action: "Propagate computed metrics into markdown/JSON targets"
+  - event: ci.health
+    source: META-ORGANVM
+    action: "Triage CI health changes and update soak dashboard"
+
+signal_inputs:
+  - name: governance-policy
+    class: governance
+    description: "Receives governance rules updates for audit and enforcement"
+  - name: registry-data
+    class: data
+    description: "Receives registry-v2.json as the source of truth for all repos"
+  - name: promotion-events
+    class: lifecycle
+    description: "Receives promotion state transitions for re-validation"
+  - name: soak-results
+    class: data
+    description: "Receives soak-test results for CI health triage"
+  - name: seed-declarations
+    class: data
+    description: "Receives seed.yaml files for edge graph construction"
+  - name: session-data
+    class: content
+    description: "Receives session transcripts for multi-agent analysis"
+
+signal_outputs:
+  - name: audit-results
+    class: governance
+    description: "Emits governance audit reports (dependency violations, rule compliance)"
+  - name: governance-primacy
+    class: governance
+    description: "Emits promotion gate evaluations and state machine verdicts"
+  - name: omega-scorecard
+    class: data
+    description: "Emits 17-criterion binary maturity scorecard"
+  - name: system-metrics
+    class: data
+    description: "Emits calculated system metrics and timeseries observations"
+  - name: context-sync
+    class: data
+    description: "Emits generated CLAUDE.md/GEMINI.md/AGENTS.md files to all repos"
+  - name: testament-events
+    class: event
+    description: "Emits hash-chained constitutional events to the event spine"
+  - name: debt-reports
+    class: error
+    description: "Emits technical debt analysis and tracking reports"
+  - name: ecosystem-analysis
+    class: data
+    description: "Emits product business profiles and competitive gap analysis"
+  - name: atom-pipeline
+    class: data
+    description: "Emits atomized tasks, prompt narratives, and cross-linked artifacts"
