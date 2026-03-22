@@ -2538,6 +2538,54 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show summary statistics for the IRF document",
     ).add_argument("--json", action="store_true", help="Output JSON")
 
+    # fossil — archaeological reconstruction of system history
+    fossil = sub.add_parser(
+        "fossil",
+        help="Fossil record — archaeological reconstruction of ORGANVM git history",
+    )
+    fossil_sub = fossil.add_subparsers(dest="subcommand")
+
+    fossil_exc = fossil_sub.add_parser(
+        "excavate",
+        help="Crawl git history and produce fossil-record.jsonl (dry-run by default)",
+    )
+    fossil_exc.add_argument(
+        "--since",
+        default=None,
+        help="Only include commits after this date (YYYY-MM-DD)",
+    )
+    fossil_exc.add_argument(
+        "--organ",
+        default=None,
+        help="Filter to specific organ key (e.g. META, I)",
+    )
+    fossil_exc.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory",
+    )
+    fossil_exc.add_argument(
+        "--write",
+        action="store_true",
+        help="Append new records to fossil-record.jsonl (default is dry-run)",
+    )
+
+    fossil_epochs = fossil_sub.add_parser("epochs", help="List all declared epochs")
+    fossil_epochs.add_argument("--json", action="store_true", help="Output JSON")
+
+    fossil_stratum = fossil_sub.add_parser("stratum", help="Query the fossil record")
+    fossil_stratum.add_argument(
+        "--organ",
+        default=None,
+        help="Filter by organ key",
+    )
+    fossil_stratum.add_argument(
+        "--archetype",
+        default=None,
+        help="Filter by Jungian archetype (shadow, anima, animus, self, trickster, mother, father, individuation)",
+    )
+    fossil_stratum.add_argument("--json", action="store_true", help="Output JSON")
+
     # taxonomy — functional classification
     tax = sub.add_parser("taxonomy", help="Functional taxonomy commands")
     tax_sub = tax.add_subparsers(dest="subcommand")
@@ -2939,6 +2987,22 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["irf", "--help"])
+        return 0
+    if args.command == "fossil":
+        from organvm_engine.cli.fossil import (
+            cmd_fossil_epochs,
+            cmd_fossil_excavate,
+            cmd_fossil_stratum,
+        )
+        fossil_dispatch = {
+            "excavate": cmd_fossil_excavate,
+            "epochs": cmd_fossil_epochs,
+            "stratum": cmd_fossil_stratum,
+        }
+        handler = fossil_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["fossil", "--help"])
         return 0
 
     subcommand: str | None = getattr(args, "subcommand", None)
