@@ -176,6 +176,37 @@ def compute_affinity(
     if kw_score >= 20:
         matched_inc.append("Name/description keywords match organ domain")
 
+    # ── Functional class affinity ────────────────────────────────
+    func_class = (repo.get("functional_class") or "").upper()
+    if func_class:
+        # CHARTER outside META is suspicious
+        if func_class == "CHARTER" and organ_key != "META-ORGANVM":
+            score -= 15
+            triggered_exc.append("CHARTER class outside META-ORGANVM")
+        elif func_class == "CHARTER" and organ_key == "META-ORGANVM":
+            score += 10
+            matched_inc.append("CHARTER class in META-ORGANVM (natural home)")
+
+        # OPERATIONS class has affinity for META and ORGAN-IV (Taxis)
+        if func_class == "OPERATIONS" and organ_key in ("META-ORGANVM", "ORGAN-IV"):
+            score += 10
+            matched_inc.append(f"OPERATIONS class fits {organ_key}")
+
+        # ENGINE class has affinity for ORGAN-I and META
+        if func_class == "ENGINE" and organ_key in ("ORGAN-I", "META-ORGANVM"):
+            score += 5
+            matched_inc.append(f"ENGINE class fits {organ_key}")
+
+        # APPLICATION class has affinity for ORGAN-III
+        if func_class == "APPLICATION" and organ_key == "ORGAN-III":
+            score += 10
+            matched_inc.append("APPLICATION class fits ORGAN-III")
+
+        # CORPUS class has affinity for ORGAN-V (Logos) and META
+        if func_class == "CORPUS" and organ_key in ("ORGAN-V", "META-ORGANVM"):
+            score += 10
+            matched_inc.append(f"CORPUS class fits {organ_key}")
+
     # ── CI/implementation signals ────────────────────────────────
     if organ_key == "ORGAN-III" and not repo.get("ci_workflow"):
         score -= 5

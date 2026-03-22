@@ -44,7 +44,7 @@ class TestStateMachine:
 
     def test_execute_transition_records_promotion_history(self):
         """F-002: execute_transition writes promotion_history when registry_entry given."""
-        entry = {"name": "test-repo", "promotion_status": "LOCAL"}
+        entry = {"name": "test-repo", "promotion_status": "LOCAL", "functional_class": "ENGINE"}
         ok, msg = execute_transition(
             repo_name="test-repo",
             current_state="LOCAL",

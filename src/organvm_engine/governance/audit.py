@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from organvm_engine.governance.dependency_graph import DependencyResult, validate_dependencies
@@ -51,6 +52,82 @@ class AuditResult:
             lines.append("\nAll governance checks passed.")
         lines.append(f"\nResult: {'PASS' if self.passed else 'FAIL'}")
         return "\n".join(lines)
+
+
+def check_functional_classification(repo: dict[str, Any]) -> list[str]:
+    """Check repo has functional_class and it's consistent.
+
+    Returns a list of issue strings (empty if no issues found).
+    """
+    from organvm_engine.governance.functional_taxonomy import (
+        FunctionalClass,
+        classify_repo,
+        validate_classification,
+    )
+
+    issues: list[str] = []
+    name = repo.get("name", "?")
+    recorded = repo.get("functional_class", "")
+    if not recorded:
+        issues.append(f"UNCLASSIFIED: {name} has no functional_class")
+        return issues
+
+    try:
+        fc = FunctionalClass(recorded)
+    except ValueError:
+        issues.append(f"INVALID_CLASS: {name} has unknown functional_class '{recorded}'")
+        return issues
+
+    _valid, warnings = validate_classification(repo, fc)
+    for w in warnings:
+        issues.append(f"CLASSIFICATION_WARNING: {name}: {w}")
+
+    heuristic = classify_repo(repo)
+    if heuristic.value != recorded:
+        issues.append(f"DRIFT: {name} recorded={recorded} heuristic={heuristic.value}")
+
+    return issues
+
+
+def audit_formation_signals(workspace: Path) -> list[str]:
+    """Discover formation.yaml files and validate signal law compliance.
+
+    Walks workspace for formation.yaml files, parses each, and runs
+    validate_formation() against the mapped data.
+
+    Args:
+        workspace: Root directory to search for formation.yaml files.
+
+    Returns:
+        List of issue strings (empty if all formations are valid).
+    """
+    import yaml
+
+    from organvm_engine.governance.formations import validate_formation
+
+    issues: list[str] = []
+    for fyaml in workspace.rglob("formation.yaml"):
+        try:
+            data = yaml.safe_load(fyaml.read_text())
+        except Exception as exc:
+            issues.append(f"FORMATION_PARSE_ERROR: {fyaml}: {exc}")
+            continue
+        if not isinstance(data, dict):
+            issues.append(f"FORMATION_PARSE_ERROR: {fyaml}: not a YAML mapping")
+            continue
+        mapped = {
+            "formation_type": data.get("formation_type", ""),
+            "host_organ": data.get("host_organ_primary", ""),
+            "host_repo": fyaml.parent.name,
+            "signals_in": data.get("signal_inputs", []),
+            "signals_out": data.get("signal_outputs", []),
+            "maturity": data.get("maturity", 0.5),
+        }
+        valid, errs = validate_formation(mapped)
+        if not valid:
+            for e in errs:
+                issues.append(f"FORMATION_SIGNAL: {fyaml.parent.name}: {e}")
+    return issues
 
 
 def run_audit(
@@ -171,6 +248,16 @@ def run_audit(
                     result.warnings.append(
                         f"{organ_key}/{name}: malformed last_validated date '{last_validated}'",
                     )
+
+            # Functional classification check (post-flood constitutional)
+            classification_issues = check_functional_classification(repo)
+            for ci in classification_issues:
+                if ci.startswith("UNCLASSIFIED:"):
+                    result.warnings.append(f"{organ_key}/{ci}")
+                elif ci.startswith("INVALID_CLASS:"):
+                    result.critical.append(f"{organ_key}/{ci}")
+                else:
+                    result.info.append(f"{organ_key}/{ci}")
 
     # Dictum compliance check (when dictums section exists in rules)
     if check_dictums and rules.get("dictums"):

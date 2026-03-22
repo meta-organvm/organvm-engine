@@ -19,7 +19,8 @@
           "last_validated": "2026-02-17",
           "documentation_status": "FLAGSHIP README DEPLOYED",
           "ci_workflow": "ci-python.yml",
-          "platinum_status": true
+          "platinum_status": true,
+          "functional_class": "ENGINE"
         },
         {
           "name": "ontological-framework",

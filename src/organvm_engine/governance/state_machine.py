@@ -223,6 +223,17 @@ def execute_transition(
     if not ok:
         return ok, msg
 
+    # Post-flood constitutional gate: repos above LOCAL must have functional_class
+    if (
+        target_state in ("CANDIDATE", "PUBLIC_PROCESS", "GRADUATED")
+        and registry_entry
+        and not registry_entry.get("functional_class")
+    ):
+        return False, (
+            "Cannot promote above LOCAL without functional_class "
+            "(post-flood constitutional requirement)"
+        )
+
     # Infrastructure check (The Descent Protocol)
     if enforce_infrastructure and repo_path is not None and target_state != "ARCHIVED":
         try:
