@@ -277,3 +277,62 @@ def organ_org_dirs() -> list[str]:
 def dir_to_registry_key() -> dict[str, str]:
     """Map workspace directory names → registry keys."""
     return {v["dir"]: v["registry_key"] for v in get_organ_map().values()}
+
+
+# ---------------------------------------------------------------------------
+# Named-function bridge (liquid model)
+# ---------------------------------------------------------------------------
+
+# Maps function names → workspace directories.
+FUNCTION_DIR_MAP: dict[str, str] = {
+    "theoria": "organvm-i-theoria",
+    "poiesis": "organvm-ii-poiesis",
+    "ergon": "organvm-iii-ergon",
+    "taxis": "organvm-iv-taxis",
+    "logos": "organvm-v-logos",
+    "koinonia": "organvm-vi-koinonia",
+    "kerygma": "organvm-vii-kerygma",
+    "mneme": "organvm-i-theoria",  # Mneme repos live alongside Theoria for now
+    "meta": "meta-organvm",
+}
+
+
+def resolve_function(key: str) -> str | None:
+    """Resolve any key (organ key, registry key, function name, display name) to a function name.
+
+    Accepts: 'I', 'ORGAN-I', 'theoria', 'Theoria', 'META', 'META-ORGANVM', 'genome', etc.
+
+    Returns the canonical function name (lowercase) or None if unresolvable.
+    """
+    from organvm_engine.governance.named_functions import (
+        NAMED_FUNCTIONS,
+        VALID_FUNCTION_NAMES,
+        organ_to_function,
+    )
+
+    lowered = key.lower()
+
+    # Direct function name match
+    if lowered in VALID_FUNCTION_NAMES:
+        return lowered
+
+    # Display name match (e.g., 'Theoria' → 'theoria', 'Genome' → 'meta')
+    for fn_key, meta in NAMED_FUNCTIONS.items():
+        if meta["display_name"].lower() == lowered:
+            return fn_key
+
+    # CLI short key match (e.g., 'I' → 'theoria')
+    result = organ_to_function(key.upper())
+    if result:
+        return result
+
+    # Registry key match (e.g., 'ORGAN-I' → 'theoria', 'META-ORGANVM' → 'meta')
+    upper = key.upper()
+    organ_map = get_organ_map()
+    for cli_key, entry in organ_map.items():
+        if entry["registry_key"] == upper:
+            result = organ_to_function(cli_key)
+            if result:
+                return result
+
+    return None

@@ -115,6 +115,7 @@ from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_sync_dna,
     cmd_ecosystem_validate,
 )
+from organvm_engine.cli.functions import cmd_functions_list, cmd_functions_resolve
 from organvm_engine.cli.git_cmds import (
     cmd_git_add_submodule,
     cmd_git_diff_pinned,
@@ -2538,6 +2539,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show summary statistics for the IRF document",
     ).add_argument("--json", action="store_true", help="Output JSON")
 
+    # functions — named functions (liquid model)
+    functions = sub.add_parser(
+        "functions",
+        help="Named functions — the liquid constitutional model",
+    )
+    functions_sub = functions.add_subparsers(dest="subcommand")
+
+    functions_sub.add_parser("list", help="List all named functions").add_argument(
+        "--json", action="store_true", help="Output JSON",
+    )
+
+    fn_resolve = functions_sub.add_parser(
+        "resolve", help="Resolve any identifier to a canonical function name",
+    )
+    fn_resolve.add_argument("key", help="Organ key, function name, or display name")
+    fn_resolve.add_argument("--json", action="store_true", help="Output JSON")
+
     # fossil — archaeological reconstruction of system history
     fossil = sub.add_parser(
         "fossil",
@@ -3042,6 +3060,16 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["irf", "--help"])
+        return 0
+    if args.command == "functions":
+        functions_dispatch = {
+            "list": cmd_functions_list,
+            "resolve": cmd_functions_resolve,
+        }
+        handler = functions_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["functions", "--help"])
         return 0
     if args.command == "fossil":
         from organvm_engine.cli.fossil import (
