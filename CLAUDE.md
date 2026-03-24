@@ -36,7 +36,7 @@ Every other module imports from these; change them carefully.
 
 - **`project_slug.py`** — Canonical project slug derivation (`meta-organvm/organvm-engine` form). Converts filesystem paths, plan directory names, and raw slugs to a normalized slash-separated format. Shared across `prompts/`, `plans/`, and `session/`.
 
-### Domain modules (22)
+### Domain modules (23)
 
 | Module | Role |
 |--------|------|

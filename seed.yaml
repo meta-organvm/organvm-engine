@@ -73,6 +73,12 @@ produces:
   - type: ecosystem-profiles
     description: "Product business profiles, competitive matrix, gap analysis, action items"
     consumers: [META-ORGANVM]
+  - type: fossil-record
+    description: "Archaeological reconstruction — hash-linked commit records classified by Jungian archetype, epoch chronicles, intention capture, drift analysis"
+    consumers: [META-ORGANVM]
+  - type: witness-hooks
+    description: "Git post-commit hooks for real-time WITNESSED provenance recording across all workspace repos"
+    consumers: [ALL]
 
 consumes:
   - type: registry
