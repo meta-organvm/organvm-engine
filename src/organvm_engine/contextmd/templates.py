@@ -28,7 +28,16 @@ REPO_SECTION = """\
 {governance_block}
 
 *Last synced: {timestamp}*
-<!-- ORGANVM:AUTO:END -->"""
+<!-- ORGANVM:AUTO:END -->
+
+## Active Handoff Protocol
+
+If `.conductor/active-handoff.md` exists, **READ IT FIRST** before doing any work.
+It contains constraints, locked files, conventions, and completed work from the
+originating agent. You MUST honor all constraints listed there.
+
+If the handoff says "CROSS-VERIFICATION REQUIRED", your self-assessment will
+NOT be trusted. A different agent will verify your output against these constraints."""
 
 # ── Agents-level template (AGENTS.md) ─────────────────────────────
 
@@ -51,7 +60,20 @@ This repo participates in the **{organ_key} ({organ_name})** swarm.
 {governance_block}
 
 *Last synced: {timestamp}*
-<!-- ORGANVM:AUTO:END -->"""
+<!-- ORGANVM:AUTO:END -->
+
+## Active Handoff Protocol
+
+If `.conductor/active-handoff.md` exists, read it before starting work.
+It contains constraints you must honor, files you must not modify, and
+conventions you must follow. Violating these constraints will cause your
+work to be rejected during cross-verification.
+
+Key sections to obey:
+- **Locked Constraints** — decisions you cannot override
+- **Locked Files** — files you cannot modify
+- **Conventions** — naming/style rules to follow exactly
+- **Receiver Restrictions** — file patterns you must not touch"""
 
 # ── Organ-level template ──────────────────────────────────────────
 
