@@ -1,0 +1,44 @@
+# skeletal--define.yaml — test fixture gate contract
+
+identity:
+  name: skeletal--define
+  mechanism: skeletal
+  verb: define
+  signal_inputs: [RULE, KNOWLEDGE, CONTRACT]
+  signal_outputs: [CONTRACT, KNOWLEDGE, STATE]
+
+sources:
+  - repo: meta-organvm/organvm-engine
+    modules: [registry/, organ_config.py, paths.py]
+    lines: 2643
+  - repo: meta-organvm/schema-definitions
+    modules: [schemas/]
+    lines: 200
+
+gate:
+  - id: G1
+    check: CANONICAL_REGISTRY
+    condition: "ONE registry loader — all isotopes dissolved"
+    status: PENDING
+
+  - id: G2
+    check: CANONICAL_ORGAN_MAP
+    condition: "ONE organ/mechanism config"
+    status: PENDING
+
+  - id: G3
+    check: TESTS_PASS
+    condition: "registry tests pass under ratified import spine"
+    status: PENDING
+
+dna:
+  - registry/ — load/save/query/validate/update registry-v2.json
+  - organ_config.py — canonical organ key/directory mappings
+  - paths.py — workspace path resolution
+  - schemas/ — JSON Schema definitions
+
+defect:
+  - 6 isotopes of organ_config exist across repos
+  - registry save_registry() has 50-repo guard — correct but brittle
+
+state: CALLING

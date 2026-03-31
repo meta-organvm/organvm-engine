@@ -99,6 +99,15 @@ from organvm_engine.cli.context import cmd_context_surfaces, cmd_context_sync
 from organvm_engine.cli.deadlines import cmd_deadlines
 from organvm_engine.cli.debt import cmd_debt_scan, cmd_debt_stats
 from organvm_engine.cli.dispatch import cmd_dispatch_validate
+from organvm_engine.cli.exit_interview import (
+    cmd_exit_interview_counter,
+    cmd_exit_interview_discover,
+    cmd_exit_interview_full,
+    cmd_exit_interview_generate,
+    cmd_exit_interview_orphans,
+    cmd_exit_interview_plan,
+    cmd_exit_interview_rectify,
+)
 from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_actions,
     cmd_ecosystem_audit,
@@ -2610,6 +2619,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show summary statistics for the IRF document",
     ).add_argument("--json", action="store_true", help="Output JSON")
 
+    # exit-interview — presidential handoff protocol (A9: Alchemical Inheritance)
+    ei = sub.add_parser(
+        "exit-interview",
+        help="Exit interview protocol — V1→V2 governance handoff",
+    )
+    ei_sub = ei.add_subparsers(dest="subcommand")
+
+    ei_discover = ei_sub.add_parser("discover", help="Parse gate contracts, build demand/supply maps")
+    ei_discover.add_argument("--gate-dir", default=None, help="Gate contract directory (default: ~/Workspace/a-organvm)")
+    ei_discover.add_argument("--json", action="store_true", help="Output full discovery as YAML")
+
+    ei_generate = ei_sub.add_parser("generate", help="Generate V1 testimony (exit interviews)")
+    ei_generate.add_argument("--gate", default=None, help="Scope to one gate contract name")
+    ei_generate.add_argument("--gate-dir", default=None, help="Gate contract directory")
+
+    ei_counter = ei_sub.add_parser("counter", help="Generate V2 counter-testimony (expectations)")
+    ei_counter.add_argument("--gate", default=None, help="Scope to one gate contract name")
+    ei_counter.add_argument("--gate-dir", default=None, help="Gate contract directory")
+
+    ei_rectify = ei_sub.add_parser("rectify", help="Three-voice rectification (V1 vs V2 vs reality)")
+    ei_rectify.add_argument("--gate", default=None, help="Scope to one gate contract name")
+    ei_rectify.add_argument("--gate-dir", default=None, help="Gate contract directory")
+
+    ei_plan = ei_sub.add_parser("plan", help="Generate remediation plan from rectification")
+    ei_plan.add_argument("--gate", default=None, help="Scope to one gate contract name")
+    ei_plan.add_argument("--gate-dir", default=None, help="Gate contract directory")
+    ei_plan.add_argument("--format", choices=["yaml", "plan", "issues"], default="plan", help="Output format")
+
+    ei_full = ei_sub.add_parser("full", help="Run all 5 phases: discover → generate → counter → rectify → plan")
+    ei_full.add_argument("--gate-dir", default=None, help="Gate contract directory")
+    ei_full.add_argument("--dry-run", action="store_true", default=True, help="Preview without writing (default)")
+    ei_full.add_argument("--write", action="store_true", help="Persist output to corpus data directory")
+
+    ei_orphans = ei_sub.add_parser("orphans", help="Show V1 modules not claimed by any gate")
+    ei_orphans.add_argument("--gate-dir", default=None, help="Gate contract directory")
+
     # functions — named functions (liquid model)
     functions = sub.add_parser(
         "functions",
@@ -3158,6 +3203,21 @@ def main() -> int:
         if handler:
             return handler(args)
         parser.parse_args(["irf", "--help"])
+        return 0
+    if args.command == "exit-interview":
+        ei_dispatch = {
+            "discover": cmd_exit_interview_discover,
+            "generate": cmd_exit_interview_generate,
+            "counter": cmd_exit_interview_counter,
+            "rectify": cmd_exit_interview_rectify,
+            "plan": cmd_exit_interview_plan,
+            "full": cmd_exit_interview_full,
+            "orphans": cmd_exit_interview_orphans,
+        }
+        handler = ei_dispatch.get(getattr(args, "subcommand", "") or "")
+        if handler:
+            return handler(args)
+        parser.parse_args(["exit-interview", "--help"])
         return 0
     if args.command == "functions":
         functions_dispatch = {

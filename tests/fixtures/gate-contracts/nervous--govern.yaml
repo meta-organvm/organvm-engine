@@ -1,0 +1,43 @@
+# nervous--govern.yaml — test fixture gate contract
+
+identity:
+  name: nervous--govern
+  mechanism: nervous
+  verb: govern
+  signal_inputs: [TRACE, REPORT, STATE, VALIDATION]
+  signal_outputs: [RULE, STATE, VALIDATION, CONSTRAINT]
+
+sources:
+  - repo: meta-organvm/organvm-engine
+    modules: [governance/, coordination/]
+    lines: 10500
+  - repo: meta-organvm/organvm-ontologia
+    modules: [governance/]
+    lines: 365
+
+gate:
+  - id: G1
+    check: ISOTOPES_RESOLVED
+    condition: "conductor/governance.py imports from engine governance"
+    status: PENDING
+
+  - id: G2
+    check: SIGNAL_DECLARED
+    condition: "signal_inputs and signal_outputs match actual imports/exports"
+    status: PENDING
+
+  - id: G3
+    check: TESTS_PASS
+    condition: "all governance + coordination tests pass"
+    status: PENDING
+
+dna:
+  - governance/ — promotion state machine, dependency graph validation, audit
+  - coordination/ — multi-agent claims registry, tool checkout line
+  - governance-rules.json — codified dependency rules
+
+defect:
+  - conductor/governance.py was isotope — must import from canonical
+  - governance tests assume V1 organ structure
+
+state: CALLING

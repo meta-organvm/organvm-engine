@@ -1,0 +1,7 @@
+# signal-graph.yaml — structural file, NOT a gate contract
+# Should be filtered out by discovery
+
+signals:
+  QUERY: {flow: request}
+  KNOWLEDGE: {flow: response}
+  TRACE: {flow: observation}
