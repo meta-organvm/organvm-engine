@@ -276,3 +276,25 @@ Strongest translations: {strongest_pairs}
 
 Scan: `organvm trivium scan {organ_key} <OTHER>` | Matrix: `organvm trivium matrix` | Synthesize: `organvm trivium synthesize`
 """
+
+LOGOS_SECTION = """\
+
+## Logos Documentation Layer
+
+**Status:** {logos_status} | **Symmetry:** {symmetry_score}
+
+Nature demands a documentation counterpart. This formation maintains its narrative record in `docs/logos/`.
+
+### The Tetradic Counterpart
+- **[Telos (Idealized Form)](../docs/logos/telos.md)** — The dream and theoretical grounding.
+- **[Pragma (Concrete State)](../docs/logos/pragma.md)** — The honest account of what exists.
+- **[Praxis (Remediation Plan)](../docs/logos/praxis.md)** — The attack vectors for evolution.
+- **[Receptio (Reception)](../docs/logos/receptio.md)** — The account of the constructed polis.
+
+### Alchemical I/O
+- **[Source & Transmutation](../docs/logos/alchemical-io.md)** — Narrative of inputs, process, and returns.
+
+{logos_essay_link}
+
+*Compliance: {logos_compliance_note}*
+"""

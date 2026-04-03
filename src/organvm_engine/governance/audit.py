@@ -263,8 +263,10 @@ def run_audit(
     if check_dictums and rules.get("dictums"):
         try:
             from organvm_engine.governance.dictums import check_all_dictums
+            from organvm_engine.paths import workspace_root
 
-            dictum_report = check_all_dictums(registry, rules)
+            ws = workspace_root()
+            dictum_report = check_all_dictums(registry, rules, workspace=ws)
             result.dictum_report = dictum_report
             for v in dictum_report.violations:
                 msg = f"[{v.dictum_id}] "

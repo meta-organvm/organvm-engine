@@ -589,6 +589,57 @@ def validate_logos_write_scope(
     return violations
 
 
+def validate_logos_layer(
+    registry: dict,
+    workspace: Path | None = None,
+) -> list[DictumViolation]:
+    """LEX-XI: Ensure repos at PUBLIC_PROCESS or GRADUATED status have a Logos Layer."""
+    violations: list[DictumViolation] = []
+
+    if workspace is None:
+        return violations
+
+    for organ_key, organ_data in registry.get("organs", {}).items():
+        for repo in organ_data.get("repositories", []):
+            status = repo.get("promotion_status", "LOCAL")
+            if status not in ("PUBLIC_PROCESS", "GRADUATED"):
+                continue
+            
+            org = repo.get("org", "")
+            name = repo.get("name", "")
+            logos_dir = workspace / org / name / "docs" / "logos"
+            
+            if not logos_dir.exists():
+                violations.append(
+                    DictumViolation(
+                        dictum_id="LEX-XI",
+                        dictum_name="Symmetry (Logos Layer)",
+                        severity="warning",
+                        message="Missing Logos Layer (docs/logos/ directory).",
+                        organ=organ_key,
+                        repo=name,
+                    )
+                )
+                continue
+            
+            # Check for required files
+            required_files = ["telos.md", "pragma.md", "praxis.md", "receptio.md", "alchemical-io.md"]
+            for f in required_files:
+                if not (logos_dir / f).exists():
+                    violations.append(
+                        DictumViolation(
+                            dictum_id="LEX-XI",
+                            dictum_name="Symmetry (Logos Layer)",
+                            severity="warning",
+                            message=f"Logos Layer missing required narrative: {f}",
+                            organ=organ_key,
+                            repo=name,
+                        )
+                    )
+
+    return violations
+
+
 def validate_organ_placement(
     registry: dict,
     workspace: Path | None = None,
@@ -883,6 +934,7 @@ _VALIDATORS: dict[str, typing.Callable[..., list]] = {
     "validate_kerygma_consumer": lambda reg, rules, ws: validate_kerygma_consumer(reg, ws),
     "validate_organ_placement": lambda reg, rules, ws: validate_organ_placement(reg, ws),
     "validate_signal_closure": lambda reg, rules, ws: validate_signal_closure(reg, rules, ws),
+    "validate_logos_layer": lambda reg, rules, ws: validate_logos_layer(reg, ws),
 }
 
 

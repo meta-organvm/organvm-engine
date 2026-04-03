@@ -20,6 +20,7 @@ from organvm_engine.contextmd.templates import (
     ATOMS_NOT_RUN_HINT,
     ATOMS_REPO_QUEUE_SECTION,
     ECOSYSTEM_STATUS_SECTION,
+    LOGOS_SECTION,
     NETWORK_STATUS_SECTION,
     ONTOLOGIA_STATUS_SECTION,
     ORGAN_SECTION,
@@ -144,6 +145,9 @@ def generate_repo_section(
         trivium_section = _build_trivium_context(organ_key)
         if trivium_section:
             injected += "\n" + trivium_section
+        logos_section = _build_logos_context(repo_name, repo_data)
+        if logos_section:
+            injected += "\n" + logos_section
         section = section.replace(
             end_marker,
             injected + "\n" + end_marker,
@@ -795,6 +799,76 @@ def _build_trivium_context(registry_organ_key: str) -> str:
         )
     except Exception:
         return ""
+
+
+def _build_logos_context(repo_name: str, repo_data: dict) -> str:
+    """Build the Logos Documentation Layer section.
+
+    Args:
+        repo_name: Repository name.
+        repo_data: Registry entry for the repo.
+    """
+    from pathlib import Path
+    
+    # Standard workspace resolution
+    workspace = Path.home() / "Workspace"
+    
+    from organvm_engine.organ_config import get_organ_map
+    organ_map = get_organ_map()
+    
+    # Try to find the repo on disk
+    repo_path = None
+    for organ_info in organ_map.values():
+        candidate = workspace / organ_info["dir"] / repo_name
+        if candidate.exists():
+            repo_path = candidate
+            break
+    
+    if not repo_path:
+        # Fallback to current directory if not found in workspace
+        repo_path = Path.cwd()
+
+    logos_dir = repo_path / "docs" / "logos"
+    logos_status = "ACTIVE" if logos_dir.exists() else "MISSING"
+    
+    # Simple symmetry check
+    src_dir = repo_path / "src"
+    # Nature exists if there are code files in src/
+    has_nature = False
+    if src_dir.exists():
+        for ext in ["*.py", "*.ts", "*.js", "*.go", "*.rs"]:
+            if any(src_dir.glob(f"**/{ext}")):
+                has_nature = True
+                break
+    
+    # Counterpart exists if there are markdown files in docs/logos/
+    has_counterpart = logos_dir.exists() and any(logos_dir.glob("*.md"))
+    
+    if has_nature and not has_counterpart:
+        symmetry_score = "0.5 (GHOST)"
+        logos_compliance_note = "Implementation exists without record."
+    elif not has_nature and has_counterpart:
+        symmetry_score = "0.5 (DREAM)"
+        logos_compliance_note = "Record exists without implementation."
+    elif has_nature and has_counterpart:
+        symmetry_score = "1.0 (SYMMETRIC)"
+        logos_compliance_note = "Nature and Counterpart are in balance."
+    else:
+        # Default for infrastructure/meta which might not have src/
+        symmetry_score = "1.0 (SYMMETRIC)" if has_counterpart else "0.0 (VACUUM)"
+        logos_compliance_note = "Nature and Counterpart are in balance." if has_counterpart else "Formation is currently void."
+
+    # Essay link (if flagship or explicitly mapped)
+    essay_link = ""
+    if repo_data.get("tier") == "flagship":
+        essay_link = "- **[Public Essay](https://organvm-v-logos.github.io/public-process/)** — System-wide narrative entry."
+
+    return LOGOS_SECTION.format(
+        logos_status=logos_status,
+        symmetry_score=symmetry_score,
+        logos_essay_link=essay_link,
+        logos_compliance_note=logos_compliance_note
+    )
 
 
 def _timestamp() -> str:
