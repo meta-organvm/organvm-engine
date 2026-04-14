@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from organvm_engine.plans.index import PlanIndex
 
+from organvm_engine.contextmd import AUTO_END, AUTO_START
 from organvm_engine.contextmd.templates import (
     AGENTS_SECTION,
     AMMOI_SECTION,
@@ -57,7 +58,7 @@ def generate_repo_section(
     else:
         result = find_repo(registry, repo_name)
         if not result:
-            return f"<!-- ERROR: Repo '{repo_name}' not found -->"
+            return f"{AUTO_START}\n<!-- ERROR: Repo '{repo_name}' not found -->\n{AUTO_END}"
         organ_key, repo_data = result
     organ_data = registry.get("organs", {}).get(organ_key, {})
 
@@ -171,7 +172,7 @@ def generate_agents_section(
 
     result = find_repo(registry, repo_name)
     if not result:
-        return f"<!-- ERROR: Repo '{repo_name}' not found -->"
+        return f"{AUTO_START}\n<!-- ERROR: Repo '{repo_name}' not found -->\n{AUTO_END}"
 
     organ_key, _ = result
     organ_data = registry.get("organs", {}).get(organ_key, {})
@@ -251,7 +252,7 @@ def generate_organ_section(
 
     organ_data = registry.get("organs", {}).get(organ_key, {})
     if not organ_data:
-        return f"<!-- ERROR: Organ '{organ_key}' not found -->"
+        return f"{AUTO_START}\n<!-- ERROR: Organ '{organ_key}' not found -->\n{AUTO_END}"
 
     repos = organ_data.get("repositories", [])
 

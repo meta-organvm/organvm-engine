@@ -250,6 +250,10 @@ def _inject_section(file_path: Path, new_section: str, dry_run: bool = False) ->
     handoff_pattern = r"\n+## Active Handoff Protocol.*?(?=\n+##|" + re.escape(AUTO_END) + r"|$)"
     content = re.sub(handoff_pattern, "", content, flags=re.DOTALL)
 
+    # Heal stale error lines injected without AUTO markers (pre-fix accumulation)
+    error_pattern = r"\n*<!-- ERROR: (?:Organ|Repo) '[^']+' not found -->"
+    content = re.sub(error_pattern, "", content)
+
     # Clean up any trailing whitespace left by the removal
     content = content.strip()
 
