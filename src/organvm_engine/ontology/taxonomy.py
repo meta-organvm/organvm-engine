@@ -57,12 +57,14 @@ class EntitySubCategory(str, Enum):
 # Values are (EntityCategory, EntitySubCategory) tuples.
 
 CATEGORY_MAP: dict[str, tuple[EntityCategory, EntitySubCategory]] = {
-    # Independent continuants — exist on their own, persist through time
+    # Independent continuants — SPEC-000 primitive: Entity
+    # ONT-004, ONT-005, ONT-006: exist on their own, persist through time
     "organ": (EntityCategory.CONTINUANT, EntitySubCategory.INDEPENDENT_CONTINUANT),
     "repo": (EntityCategory.CONTINUANT, EntitySubCategory.INDEPENDENT_CONTINUANT),
     "module": (EntityCategory.CONTINUANT, EntitySubCategory.INDEPENDENT_CONTINUANT),
 
-    # Specifically dependent continuants — inhere in a particular bearer
+    # Specifically dependent continuants — SPEC-000 primitive: Value
+    # ONT-008, ONT-009: data/qualities inhering in a bearer entity
     "variable": (
         EntityCategory.CONTINUANT,
         EntitySubCategory.SPECIFICALLY_DEPENDENT_CONTINUANT,
@@ -72,13 +74,15 @@ CATEGORY_MAP: dict[str, tuple[EntityCategory, EntitySubCategory]] = {
         EntitySubCategory.SPECIFICALLY_DEPENDENT_CONTINUANT,
     ),
 
-    # Generically dependent continuants — can migrate between bearers
+    # Generically dependent continuants — SPEC-000 primitive: Entity
+    # ONT-011: information content entities that can migrate between bearers
     "document": (
         EntityCategory.CONTINUANT,
         EntitySubCategory.GENERICALLY_DEPENDENT_CONTINUANT,
     ),
 
-    # Occurrent: processes — unfold over a temporal interval
+    # Occurrent: processes — SPEC-000 primitive: Event
+    # ONT-015: bounded agent work episodes unfolding over a temporal interval
     "session": (EntityCategory.OCCURRENT, EntitySubCategory.PROCESS),
 }
 
