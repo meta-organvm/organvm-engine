@@ -144,7 +144,7 @@ All pipeline outputs go to `corpus_dir/data/atoms/` with a `pipeline-manifest.js
 ### Governance
 - *Standard ORGANVM governance applies*
 
-*Last synced: 2026-04-14T21:20:45Z*
+*Last synced: 2026-04-14T21:32:15Z*
 
 ## Active Handoff Protocol
 
@@ -313,15 +313,15 @@ Resolve: `organvm ontologia resolve organvm-engine` | History: `organvm ontologi
 | `total_words_numeric` | 0 | global | 2026-04-14 |
 | `total_words_short` | 0K+ | global | 2026-04-14 |
 
-Metrics: 9 registered | Observations: 32112 recorded
+Metrics: 9 registered | Observations: 32128 recorded
 Resolve: `organvm ontologia status` | Refresh: `organvm refresh`
 
 
 ## System Density (auto-generated)
 
-AMMOI: 58% | Edges: 42 | Tensions: 33 | Clusters: 5 | Adv: 23 | Events(24h): 32325
+AMMOI: 58% | Edges: 42 | Tensions: 33 | Clusters: 5 | Adv: 23 | Events(24h): 32336
 Structure: 8 organs / 145 repos / 1654 components (depth 17) | Inference: 98% | Organs: META-ORGANVM:65%, ORGAN-I:53%, ORGAN-II:48%, ORGAN-III:54% +5 more
-Last pulse: 2026-04-14T21:20:06 | Δ24h: -1.0% | Δ7d: n/a
+Last pulse: 2026-04-14T21:31:36 | Δ24h: -1.0% | Δ7d: n/a
 
 
 ## Dialect Identity (Trivium)
