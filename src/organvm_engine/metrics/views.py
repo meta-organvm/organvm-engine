@@ -2,9 +2,19 @@
 
 Each function is a pure transform: SystemOrganism -> dict.
 No consumer should compute metrics directly — all derive from these views.
+
+The fabrica projection (project_fabrica_dashboard) is independent of
+SystemOrganism — it reads directly from the fabrica store and heartbeat
+logs. It lives here for consumer uniformity: all dashboard projections
+import from this module.
 """
 
 from __future__ import annotations
+
+import json
+import time
+from datetime import datetime, timezone
+from typing import Any
 
 from organvm_engine.metrics.organism import SystemOrganism
 
@@ -216,3 +226,155 @@ def project_organism_cli(
         return {"error": f"Organ '{organ}' not found"}
 
     return organism.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Fabrica dashboard projection (SPEC-024 Phase 7)
+# ---------------------------------------------------------------------------
+
+
+def _format_age(seconds: float) -> str:
+    """Format elapsed seconds as a human-readable age string."""
+    if seconds < 0:
+        return "0s"
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds / 60)}m"
+    if seconds < 86400:
+        hours = int(seconds / 3600)
+        mins = int((seconds % 3600) / 60)
+        return f"{hours}h {mins}m" if mins else f"{hours}h"
+    days = int(seconds / 86400)
+    hours = int((seconds % 86400) / 3600)
+    return f"{days}d {hours}h" if hours else f"{days}d"
+
+
+def _load_latest_heartbeat() -> dict[str, Any] | None:
+    """Read the latest heartbeat report from the fabrica logs directory.
+
+    Returns None if no report exists or the file is unreadable.
+    """
+    from organvm_engine.fabrica.store import fabrica_dir
+
+    report_path = fabrica_dir() / "logs" / "heartbeat-latest.json"
+    if not report_path.is_file():
+        return None
+    try:
+        return json.loads(report_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def project_fabrica_dashboard(
+    *,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Dashboard projection for the fabrica section.
+
+    Aggregates fabrica state into a shape optimized for dashboard rendering:
+    - Active relay cycles with phase, age, and dispatch count
+    - Dispatch records with backend, status, target, and time since dispatch
+    - Health summary (active/completed/failed/pending_review)
+    - Last heartbeat timestamp and result
+
+    Args:
+        now: Current timestamp for age calculation. Defaults to time.time().
+             Exposed for deterministic testing.
+
+    Returns:
+        Dict with cycles, health, and heartbeat sections.
+    """
+    from organvm_engine.fabrica.mcp_tools import fabrica_health, fabrica_status
+
+    if now is None:
+        now = time.time()
+
+    # --- Relay cycles with computed fields ---
+    raw_status = fabrica_status(limit=100)
+    cycles: list[dict[str, Any]] = []
+    for cycle in raw_status.get("cycles", []):
+        age_seconds = now - cycle.get("timestamp", now)
+
+        # Shape each dispatch record for display
+        dispatch_rows: list[dict[str, Any]] = []
+        for d in cycle.get("dispatches", []):
+            dispatched_at = d.get("dispatched_at", 0)
+            since_dispatch = now - dispatched_at if dispatched_at else 0
+
+            dispatch_rows.append({
+                "id": d.get("id", ""),
+                "backend": d.get("backend", "unknown"),
+                "status": d.get("status", "unknown"),
+                "target": d.get("target", ""),
+                "dispatched_at": dispatched_at,
+                "time_since_dispatch": _format_age(since_dispatch),
+                "pr_url": d.get("pr_url"),
+                "verdict": d.get("verdict"),
+            })
+
+        cycles.append({
+            "packet_id": cycle.get("packet_id", ""),
+            "raw_text": cycle.get("raw_text", ""),
+            "source": cycle.get("source", ""),
+            "organ_hint": cycle.get("organ_hint"),
+            "tags": cycle.get("tags", []),
+            "current_phase": cycle.get("current_phase", "unknown"),
+            "age": _format_age(age_seconds),
+            "age_seconds": age_seconds,
+            "dispatch_count": cycle.get("dispatch_count", 0),
+            "vector_count": cycle.get("vector_count", 0),
+            "transition_count": cycle.get("transition_count", 0),
+            "dispatches": dispatch_rows,
+        })
+
+    # --- Health summary ---
+    raw_health = fabrica_health()
+    health_summary: dict[str, Any] = {
+        "total_packets": raw_health.get("total_packets", 0),
+        "total_dispatches": raw_health.get("total_dispatches", 0),
+        "total_transitions": raw_health.get("total_transitions", 0),
+        "by_phase": raw_health.get("by_phase", {}),
+        "by_backend": raw_health.get("by_backend", {}),
+        "active": raw_health.get("summary", {}).get("active", 0),
+        "completed": raw_health.get("summary", {}).get("completed", 0),
+        "failed": raw_health.get("summary", {}).get("failed", 0),
+        "pending_review": raw_health.get("summary", {}).get("pending_review", 0),
+    }
+
+    # --- Last heartbeat ---
+    heartbeat_report = _load_latest_heartbeat()
+    heartbeat: dict[str, Any]
+    if heartbeat_report:
+        hb_ts = heartbeat_report.get("timestamp", 0)
+        heartbeat = {
+            "available": True,
+            "timestamp": hb_ts,
+            "timestamp_iso": datetime.fromtimestamp(
+                hb_ts, tz=timezone.utc,
+            ).isoformat() if hb_ts else None,
+            "age": _format_age(now - hb_ts) if hb_ts else "unknown",
+            "polled": heartbeat_report.get("polled", 0),
+            "changed": heartbeat_report.get("changed", 0),
+            "errors": heartbeat_report.get("errors", 0),
+            "duration_seconds": heartbeat_report.get("duration_seconds", 0.0),
+        }
+    else:
+        heartbeat = {
+            "available": False,
+            "timestamp": None,
+            "timestamp_iso": None,
+            "age": None,
+            "polled": 0,
+            "changed": 0,
+            "errors": 0,
+            "duration_seconds": 0.0,
+        }
+
+    return {
+        "total_cycles": len(cycles),
+        "cycles": cycles,
+        "health": health_summary,
+        "heartbeat": heartbeat,
+        "generated": datetime.now(timezone.utc).isoformat(),
+    }
