@@ -273,6 +273,9 @@ def _apply_organ_boosts(organ: str, scores: dict[Archetype, float]) -> None:
         scores[Archetype.ANIMUS] += 0.3
     elif org in ("LIMINAL", "LIMINAL_ALT"):
         scores[Archetype.MOTHER] += 0.5
+    elif org == "SIGMA_E":
+        scores[Archetype.FATHER] += 2.0
+        scores[Archetype.ANIMUS] += 1.5
 
 
 def classify_commit(

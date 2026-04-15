@@ -64,3 +64,21 @@ def test_returns_ranked_list():
 def test_context_sync_is_self():
     result = classify_commit("chore: context sync — refresh auto-generated context files", "chore", "some-repo", "I")
     assert result[0] == Archetype.SELF
+
+
+def test_sigma_e_father_primary():
+    """sigma-E organ boost makes FATHER primary for adjudicatory commits."""
+    result = classify_commit(
+        "feat: Law 7 enforcement — convergence audit",
+        "feat", "system-system--system", "SIGMA_E",
+    )
+    assert result[0] == Archetype.FATHER
+
+
+def test_sigma_e_animus_formal():
+    """sigma-E organ boost elevates ANIMUS for formal/proof commits."""
+    result = classify_commit(
+        "feat: axiom proof for dependency graph",
+        "feat", "system-system--system", "SIGMA_E",
+    )
+    assert Archetype.ANIMUS in result[:2]
