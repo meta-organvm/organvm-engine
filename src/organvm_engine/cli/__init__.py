@@ -395,6 +395,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run signal closure validation (AX-6)",
     )
     aud.add_argument(
+        "--self-knowledge",
+        action="store_true",
+        help="Run tetradic self-knowledge validation (AX-7)",
+    )
+    aud.add_argument(
         "--workspace",
         default=None,
         help="Workspace root directory",

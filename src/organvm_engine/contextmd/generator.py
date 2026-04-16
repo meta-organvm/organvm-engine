@@ -243,6 +243,88 @@ def generate_agents_section(
     )
 
 
+def _build_organ_edges(organ_key: str, seeds: list[dict] | None = None) -> str:
+    """Build inter-organ edge lines from the seed graph for one organ."""
+    if not seeds:
+        return "- *No seed data available*"
+
+    try:
+        from organvm_engine.organ_config import dir_to_registry_key
+        from organvm_engine.seed.graph import SeedGraph
+        from organvm_engine.seed.reader import seed_identity
+
+        d2k = dir_to_registry_key()
+
+        # Build a lightweight graph from the passed seeds
+        graph = SeedGraph()
+        for seed in seeds:
+            identity = seed_identity(seed)
+            graph.nodes.append(identity)
+            for entry in seed.get("consumes", []) or []:
+                source = entry.get("source", "") if isinstance(entry, dict) else str(entry)
+                ctype = entry.get("type", "data") if isinstance(entry, dict) else "data"
+                if source and isinstance(source, str):
+                    graph.edges.append((source, identity, ctype))
+            for entry in seed.get("produces", []) or []:
+                if isinstance(entry, dict):
+                    ptype = entry.get("type", "artifact")
+                    # Handle "target" (singular string)
+                    target = entry.get("target")
+                    if isinstance(target, str) and target:
+                        graph.edges.append((identity, target, ptype))
+                    # Handle "targets" (list of strings)
+                    for t in entry.get("targets", []) or []:
+                        if isinstance(t, str):
+                            graph.edges.append((identity, t, ptype))
+                    # Handle "consumers" — string or dict with "organ" key
+                    for consumer in entry.get("consumers", []) or []:
+                        if isinstance(consumer, str) and consumer != "ALL":
+                            graph.edges.append((identity, consumer, ptype))
+                        elif isinstance(consumer, dict) and consumer.get("organ"):
+                            graph.edges.append((identity, consumer["organ"], ptype))
+
+        # Resolve org part of identity → registry key
+        # Handles: "organvm-i-theoria/repo", "meta-organvm", "ORGAN-IV", "META-ORGANVM"
+        def _organ_of(identity: str) -> str:
+            org_part = identity.split("/")[0] if "/" in identity else identity
+            # Direct dir→key lookup
+            if org_part in d2k:
+                return d2k[org_part]
+            # Already a registry key (e.g., "ORGAN-IV", "META-ORGANVM")
+            if org_part.startswith("ORGAN-") or org_part == "META-ORGANVM":
+                return org_part
+            return "UNKNOWN"
+
+        # Filter to edges involving this organ where the other end is different
+        lines: list[str] = []
+        seen: set[str] = set()
+        for src, tgt, etype in graph.edges:
+            src_organ = _organ_of(src)
+            tgt_organ = _organ_of(tgt)
+            if src_organ == tgt_organ:
+                continue
+            if "UNKNOWN" in (src_organ, tgt_organ):
+                continue
+            if organ_key not in (src_organ, tgt_organ):
+                continue
+            key = f"{src_organ}→{tgt_organ}"
+            if key in seen:
+                continue
+            seen.add(key)
+            src_name = src.split("/")[-1] if "/" in src else src
+            tgt_name = tgt.split("/")[-1] if "/" in tgt else tgt
+            if src_organ == organ_key:
+                lines.append(f"- {src_name} → {tgt_organ} ({etype})")
+            else:
+                lines.append(f"- {src_organ} → {tgt_name} ({etype})")
+
+        if not lines:
+            return "- *No inter-organ edges detected*"
+        return "\n".join(sorted(lines))
+    except Exception:
+        return "- *Edges computed from system-wide seed graph*"
+
+
 def generate_organ_section(
     organ_key: str,
     registry: dict,
@@ -271,6 +353,9 @@ def generate_organ_section(
         dist[s] = dist.get(s, 0) + 1
     promotion_block = ", ".join(f"{k}: {v}" for k, v in sorted(dist.items()))
 
+    # Compute inter-organ edges from seed graph
+    organ_edges_block = _build_organ_edges(organ_key, seeds)
+
     section = ORGAN_SECTION.format(
         organ_key=organ_key,
         organ_name=organ_data.get("name", organ_key),
@@ -278,7 +363,7 @@ def generate_organ_section(
         flagship_count=len([r for r in repos if r.get("tier") == "flagship"]),
         standard_count=len([r for r in repos if r.get("tier") == "standard"]),
         infra_count=len([r for r in repos if r.get("tier") == "infrastructure"]),
-        organ_edges_block="- *Edges computed from system-wide seed graph*",
+        organ_edges_block=organ_edges_block,
         repo_list_block=repo_list_block,
         promotion_block=promotion_block,
         timestamp=_timestamp(),

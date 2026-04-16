@@ -82,6 +82,33 @@
         "validator": "validate_registry_coherence",
         "references": ["constitution.md Article I"],
         "severity": "critical"
+      },
+      {
+        "id": "AX-7",
+        "name": "Tetradic Self-Knowledge",
+        "statement": "Every non-archived formation must articulate telos, pragma, praxis, receptio.",
+        "enforcement": "audit",
+        "validator": "validate_tetradic_self_knowledge",
+        "references": ["constitution.md Amendment G"],
+        "severity": "warning"
+      },
+      {
+        "id": "AX-8",
+        "name": "Constructed Polis",
+        "statement": "Every non-archived formation must construct its own idealized critical society.",
+        "enforcement": "audit",
+        "validator": "validate_constructed_polis",
+        "references": ["constitution.md Amendment H"],
+        "severity": "warning"
+      },
+      {
+        "id": "AX-9",
+        "name": "Triple Reference Invariant",
+        "statement": "Every referenceable system item must exist in exactly three places.",
+        "enforcement": "audit",
+        "validator": "validate_triple_reference",
+        "references": ["SPEC-025 Predicate 3"],
+        "severity": "warning"
       }
     ],
     "organ_dictums": {
@@ -180,6 +207,16 @@
         "references": ["constitution.md Article VI"],
         "severity": "warning",
         "applies_to": "all repos"
+      },
+      {
+        "id": "RR-9",
+        "name": "Effect Obligation",
+        "statement": "Every non-archived repo must produce at least one traceable effect.",
+        "enforcement": "audit",
+        "validator": "validate_effect_obligation",
+        "references": ["SPEC-025 Predicate 3 (EFFECT)"],
+        "severity": "warning",
+        "applies_to": "all non-archived repos with seed.yaml"
       }
     ]
   }

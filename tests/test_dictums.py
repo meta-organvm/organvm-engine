@@ -57,12 +57,15 @@ class TestDictumLoading:
 
     def test_get_axioms(self, rules):
         axioms = get_axioms(rules)
-        assert len(axioms) == 4
+        assert len(axioms) == 7
         ids = [a["id"] for a in axioms]
         assert "AX-1" in ids
         assert "AX-2" in ids
         assert "AX-3" in ids
         assert "AX-4" in ids
+        assert "AX-7" in ids
+        assert "AX-8" in ids
+        assert "AX-9" in ids
 
     def test_get_axioms_missing(self):
         assert get_axioms({}) == []
@@ -77,13 +80,14 @@ class TestDictumLoading:
 
     def test_get_repo_rules(self, rules):
         rr = get_repo_rules(rules)
-        assert len(rr) == 5
+        assert len(rr) == 6
         ids = [r["id"] for r in rr]
         assert "RR-1" in ids
         assert "RR-2" in ids
         assert "RR-3" in ids
         assert "RR-4" in ids
         assert "RR-5" in ids
+        assert "RR-9" in ids
 
     def test_get_repo_rules_missing(self):
         assert get_repo_rules({}) == []
@@ -92,8 +96,8 @@ class TestDictumLoading:
 class TestListAllDictums:
     def test_list_all(self, rules):
         all_d = list_all_dictums(rules)
-        # 4 axioms + 4 organ dictums (OD-III, OD-IV, OD-V, OD-VII) + 5 repo rules = 13
-        assert len(all_d) == 13
+        # 7 axioms + 4 organ dictums (OD-III, OD-IV, OD-V, OD-VII) + 6 repo rules = 17
+        assert len(all_d) == 17
 
     def test_list_has_level_tags(self, rules):
         all_d = list_all_dictums(rules)

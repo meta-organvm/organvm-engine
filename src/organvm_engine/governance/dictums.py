@@ -640,6 +640,269 @@ def validate_logos_layer(
     return violations
 
 
+# ── AX-7/8/9: Governance enforcement validators ─────────────────
+
+
+_TETRADIC_DIMENSIONS = ("telos", "pragma", "praxis", "receptio")
+
+
+def validate_tetradic_self_knowledge(
+    registry: dict,
+    workspace: Path | None = None,
+) -> list[DictumViolation]:
+    """AX-7: Every non-archived formation must articulate telos, pragma, praxis, receptio.
+
+    Checks two evidence surfaces per dimension:
+      Path A — seed.yaml fields (future-proof for IRF-SYS-030 schema extension)
+      Path B — docs/logos/{dimension}.md files on disk
+
+    Either path satisfies for a given dimension.  Each dimension is checked
+    independently; partial coverage produces per-dimension violations.
+    """
+    violations: list[DictumViolation] = []
+
+    if workspace is None:
+        return violations
+
+    from organvm_engine.registry.query import all_repos
+
+    for organ_key, repo in all_repos(registry):
+        if repo.get("implementation_status") == "ARCHIVED":
+            continue
+
+        org = repo.get("org", "")
+        name = repo.get("name", "")
+        repo_path = workspace / org / name
+
+        if not repo_path.exists():
+            continue
+
+        # Path A: seed.yaml tetradic fields
+        seed_fields: set[str] = set()
+        seed_path = repo_path / "seed.yaml"
+        if seed_path.exists():
+            try:
+                import yaml
+
+                seed_data = yaml.safe_load(seed_path.read_text(encoding="utf-8")) or {}
+                for dim in _TETRADIC_DIMENSIONS:
+                    if seed_data.get(dim):
+                        seed_fields.add(dim)
+            except Exception:
+                pass
+
+        # Path B: docs/logos/{dimension}.md files
+        logos_dir = repo_path / "docs" / "logos"
+
+        for dim in _TETRADIC_DIMENSIONS:
+            has_seed = dim in seed_fields
+            has_file = logos_dir.is_dir() and (logos_dir / f"{dim}.md").exists()
+
+            if not has_seed and not has_file:
+                violations.append(
+                    DictumViolation(
+                        dictum_id="AX-7",
+                        dictum_name="Tetradic Self-Knowledge",
+                        severity="warning",
+                        message=f"Missing {dim} — no seed.yaml field or docs/logos/{dim}.md",
+                        organ=organ_key,
+                        repo=name,
+                    )
+                )
+
+    return violations
+
+
+def validate_constructed_polis(
+    registry: dict,
+    workspace: Path | None = None,
+) -> list[DictumViolation]:
+    """AX-8: Non-archived formations at PUBLIC_PROCESS+ must construct a polis.
+
+    Checks for evidence of constructed reception via directory presence:
+      - polis/ at repo root
+      - docs/polis/
+      - docs/reception/
+      - docs/logos/receptio.md (receptio file counts as polis evidence per AX-8 → AX-7 link)
+
+    Only enforced for PUBLIC_PROCESS and GRADUATED repos — LOCAL/CANDIDATE
+    are too early in the lifecycle for constructed reception.
+    """
+    violations: list[DictumViolation] = []
+
+    if workspace is None:
+        return violations
+
+    from organvm_engine.registry.query import all_repos
+
+    for organ_key, repo in all_repos(registry):
+        if repo.get("implementation_status") == "ARCHIVED":
+            continue
+
+        status = repo.get("promotion_status", "LOCAL")
+        if status not in ("PUBLIC_PROCESS", "GRADUATED"):
+            continue
+
+        org = repo.get("org", "")
+        name = repo.get("name", "")
+        repo_path = workspace / org / name
+
+        if not repo_path.exists():
+            continue
+
+        # Check any of the four polis evidence surfaces
+        has_polis = (
+            (repo_path / "polis").is_dir()
+            or (repo_path / "docs" / "polis").is_dir()
+            or (repo_path / "docs" / "reception").is_dir()
+            or (repo_path / "docs" / "logos" / "receptio.md").is_file()
+        )
+
+        if not has_polis:
+            violations.append(
+                DictumViolation(
+                    dictum_id="AX-8",
+                    dictum_name="Constructed Polis",
+                    severity="warning",
+                    message="No polis evidence — missing polis/, docs/polis/, docs/reception/, or docs/logos/receptio.md",
+                    organ=organ_key,
+                    repo=name,
+                )
+            )
+
+    return violations
+
+
+def validate_triple_reference(
+    registry: dict,
+    workspace: Path | None = None,
+) -> list[DictumViolation]:
+    """AX-9: GRADUATED repos must show evidence of triple-reference materialization.
+
+    The full triple-reference invariant requires: (1) IRF entry, (2) repo-level
+    reference, (3) GitHub Issue.  A complete check would need IRF parsing and
+    GitHub API access.  This seed-level implementation checks local evidence:
+
+      Leg 1 (repo reference): trivially true — the repo exists in the registry.
+      Leg 2 (IRF reference): seed.yaml has ``irf_references`` field.
+      Leg 3 (external tracking): ``.github/ISSUE_TEMPLATE/`` exists, or seed.yaml
+        has a ``tracking`` field.
+
+    Flags GRADUATED repos lacking evidence of legs 2 or 3.
+    """
+    violations: list[DictumViolation] = []
+
+    if workspace is None:
+        return violations
+
+    from organvm_engine.registry.query import all_repos
+
+    for organ_key, repo in all_repos(registry):
+        if repo.get("implementation_status") == "ARCHIVED":
+            continue
+
+        status = repo.get("promotion_status", "LOCAL")
+        if status != "GRADUATED":
+            continue
+
+        org = repo.get("org", "")
+        name = repo.get("name", "")
+        repo_path = workspace / org / name
+
+        if not repo_path.exists():
+            continue
+
+        # Read seed.yaml for tracking/irf_references fields
+        has_irf_ref = False
+        has_tracking = False
+        seed_path = repo_path / "seed.yaml"
+        if seed_path.exists():
+            try:
+                import yaml
+
+                seed_data = yaml.safe_load(seed_path.read_text(encoding="utf-8")) or {}
+                has_irf_ref = bool(seed_data.get("irf_references"))
+                has_tracking = bool(seed_data.get("tracking"))
+            except Exception:
+                pass
+
+        # Filesystem evidence for external tracking
+        has_issue_templates = (repo_path / ".github" / "ISSUE_TEMPLATE").is_dir()
+
+        missing_legs: list[str] = []
+        if not has_irf_ref:
+            missing_legs.append("IRF reference (seed.yaml irf_references)")
+        if not has_tracking and not has_issue_templates:
+            missing_legs.append("external tracking (seed.yaml tracking or .github/ISSUE_TEMPLATE/)")
+
+        if missing_legs:
+            violations.append(
+                DictumViolation(
+                    dictum_id="AX-9",
+                    dictum_name="Triple Reference Invariant",
+                    severity="warning",
+                    message=f"Incomplete triple reference — missing: {'; '.join(missing_legs)}",
+                    organ=organ_key,
+                    repo=name,
+                )
+            )
+
+    return violations
+
+
+def validate_effect_obligation(
+    registry: dict,
+    workspace: Path | None = None,
+) -> list[DictumViolation]:
+    """RR-6: Every non-archived repo must produce ≥1 traceable effect.
+
+    SPEC-025 Predicate 3 (EFFECT): an entity that produces nothing is
+    structurally inert — it consumes resources without contributing to
+    the signal graph.  Checks seed.yaml for a non-empty ``produces``
+    list.  Repos without seed.yaml are already flagged by RR-1 and
+    are skipped here to avoid duplicate noise.
+    """
+    violations: list[DictumViolation] = []
+
+    if workspace is None:
+        return violations
+
+    from organvm_engine.registry.query import all_repos
+
+    for organ_key, repo in all_repos(registry):
+        if repo.get("implementation_status") == "ARCHIVED":
+            continue
+
+        org = repo.get("org", "")
+        name = repo.get("name", "")
+        seed_path = workspace / org / name / "seed.yaml"
+
+        if not seed_path.exists():
+            continue  # RR-1 handles missing seed.yaml
+
+        try:
+            import yaml
+
+            seed_data = yaml.safe_load(seed_path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            continue
+
+        produces = seed_data.get("produces", []) or []
+        if not produces:
+            violations.append(
+                DictumViolation(
+                    dictum_id="RR-9",
+                    dictum_name="Effect Obligation",
+                    severity="warning",
+                    message="No produces edges — entity is structurally inert in the signal graph",
+                    organ=organ_key,
+                    repo=name,
+                )
+            )
+
+    return violations
+
+
 def validate_organ_placement(
     registry: dict,
     workspace: Path | None = None,
@@ -935,6 +1198,13 @@ _VALIDATORS: dict[str, typing.Callable[..., list]] = {
     "validate_organ_placement": lambda reg, rules, ws: validate_organ_placement(reg, ws),
     "validate_signal_closure": lambda reg, rules, ws: validate_signal_closure(reg, rules, ws),
     "validate_logos_layer": lambda reg, rules, ws: validate_logos_layer(reg, ws),
+    "validate_tetradic_self_knowledge": lambda reg, rules, ws: validate_tetradic_self_knowledge(reg, ws),
+    "validate_constructed_polis": lambda reg, rules, ws: validate_constructed_polis(reg, ws),
+    "validate_triple_reference": lambda reg, rules, ws: validate_triple_reference(reg, ws),
+    "validate_effect_obligation": lambda reg, rules, ws: validate_effect_obligation(reg, ws),
+    # Aliases: production governance-rules.json uses these names for RR-6/RR-7
+    "validate_tetradic_articulation": lambda reg, rules, ws: validate_tetradic_self_knowledge(reg, ws),
+    "validate_polis_declaration": lambda reg, rules, ws: validate_constructed_polis(reg, ws),
 }
 
 

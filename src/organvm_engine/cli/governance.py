@@ -11,6 +11,8 @@ def cmd_governance_audit(args: argparse.Namespace) -> int:
 
     if getattr(args, "signal_closure", False):
         return cmd_signal_closure(args)
+    if getattr(args, "self_knowledge", False):
+        return cmd_self_knowledge(args)
 
     registry = load_registry(args.registry)
     rules_path = args.rules if hasattr(args, "rules") and args.rules else None
@@ -29,6 +31,39 @@ def cmd_governance_audit(args: argparse.Namespace) -> int:
 
 def cmd_signal_closure(args: argparse.Namespace) -> int:
     """Run signal closure validation (AX-6)."""
+    import json
+    from pathlib import Path
+
+    from organvm_engine.governance.dictums import (
+        DictumReport,
+        check_all_dictums,
+    )
+    from organvm_engine.governance.rules import load_governance_rules
+
+    registry = load_registry(args.registry)
+    rules_path = args.rules if hasattr(args, "rules") and args.rules else None
+    rules = load_governance_rules(rules_path) if rules_path else load_governance_rules()
+
+    workspace = getattr(args, "workspace", None)
+    ws = Path(workspace) if workspace else None
+
+    if ws is None:
+        from organvm_engine.paths import workspace_root
+
+        ws = workspace_root()
+
+    report = check_all_dictums(registry, rules, ws)
+
+    if getattr(args, "json", False):
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(report.summary())
+
+    return 0 if report.all_passed else 1
+
+
+def cmd_self_knowledge(args: argparse.Namespace) -> int:
+    """Run tetradic self-knowledge validation (AX-7)."""
     import json
     from pathlib import Path
 
