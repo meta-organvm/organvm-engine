@@ -260,8 +260,8 @@ class TestWriteSnapshot:
         path = write_snapshot(scorecard, corpus_dir=tmp_path)
         data = json.loads(path.read_text())
         assert data["score"] == scorecard.met_count
-        assert data["total"] == 19
-        assert len(data["criteria"]) == 19
+        assert data["total"] == 20
+        assert len(data["criteria"]) == 20
 
     def test_creates_omega_dir(self, registry, soak_dir, tmp_path):
         scorecard = evaluate(registry=registry, soak_dir=soak_dir)

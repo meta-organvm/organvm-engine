@@ -134,9 +134,9 @@ class TestDetectDrift:
         reg["organs"]["ORGAN-I"]["repositories"][0]["promotion_status"] = "PUBLIC_PROCESS"
         registry_file.write_text(json.dumps(reg))
 
-        # Rename file to simulate earlier date
+        # Rename file to simulate earlier date (must be within 30-day prune window)
         old_file = list(snapshots_dir.glob("*.json"))[0]
-        old_file.rename(snapshots_dir / "snapshot-2026-03-12.json")
+        old_file.rename(snapshots_dir / "snapshot-2026-04-10.json")
 
         create_system_snapshot(registry_file, snapshots_dir)
 
@@ -154,7 +154,7 @@ class TestDetectDrift:
         registry_file.write_text(json.dumps(reg))
 
         old_file = list(snapshots_dir.glob("*.json"))[0]
-        old_file.rename(snapshots_dir / "snapshot-2026-03-12.json")
+        old_file.rename(snapshots_dir / "snapshot-2026-04-10.json")
 
         create_system_snapshot(registry_file, snapshots_dir)
 
@@ -225,9 +225,9 @@ class TestPruneSnapshots:
     def test_removes_old_snapshots(self, snapshots_dir):
         snapshots_dir.mkdir(parents=True)
         (snapshots_dir / "snapshot-2024-01-01.json").write_text("{}")
-        (snapshots_dir / "snapshot-2026-03-13.json").write_text("{}")
+        (snapshots_dir / "snapshot-2026-04-10.json").write_text("{}")
 
         removed = _prune_old_snapshots(snapshots_dir, keep_days=30)
         assert removed == 1
         assert not (snapshots_dir / "snapshot-2024-01-01.json").exists()
-        assert (snapshots_dir / "snapshot-2026-03-13.json").exists()
+        assert (snapshots_dir / "snapshot-2026-04-10.json").exists()
