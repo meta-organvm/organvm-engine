@@ -52,11 +52,13 @@ FALLBACK_ORGAN_MAP: dict[str, dict[str, str]] = {
         "org": "organvm-vii-kerygma",
     },
     "META": {"dir": "meta-organvm", "registry_key": "META-ORGANVM", "org": "meta-organvm"},
-    # LIMINAL/PERSONAL (4444J99/) is the personal workspace namespace.
-    "LIMINAL": {"dir": "4444J99", "registry_key": "PERSONAL", "org": "4444j99"},
     # sigma-E (system-system--system) is the formal adjudicatory layer.
     # Lives within 4444J99/ but has sovereign governance status.
     "SIGMA_E": {"dir": "4444J99", "registry_key": "SIGMA-E", "org": "4444j99"},
+    # LIMINAL/PERSONAL (4444J99/) is the personal workspace namespace.
+    # Must come AFTER SIGMA_E so that dir_to_key comprehensions resolve 4444J99 → LIMINAL
+    # by default (last-writer-wins in dict comprehensions).
+    "LIMINAL": {"dir": "4444J99", "registry_key": "PERSONAL", "org": "4444j99"},
 }
 
 # Backward-compatible alias — existing code imports ORGANS directly

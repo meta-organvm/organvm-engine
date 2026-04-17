@@ -216,7 +216,7 @@ class TestSweepCandidates:
             qualified_id="fresh",
             path="/plans/new.md",
             status="active",
-            date="2026-03-19",  # yesterday
+            date="2026-04-14",  # recent
             task_count=5,
             completed_count=0,
             slug="fresh",

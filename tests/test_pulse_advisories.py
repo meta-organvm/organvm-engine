@@ -81,7 +81,7 @@ class TestBuildRepoState:
             "ci_workflow": True,
             "platinum_status": True,
             "implementation_status": "ACTIVE",
-            "last_validated": "2026-03-01T00:00:00Z",
+            "last_validated": "2026-04-10T00:00:00Z",
         }
         state = _build_repo_state(repo)
         assert state["promotion_status"] == "CANDIDATE"

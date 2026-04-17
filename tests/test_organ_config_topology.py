@@ -57,7 +57,7 @@ class TestBackwardCompat:
         assert ORGANS is FALLBACK_ORGAN_MAP
 
     def test_fallback_has_all_keys(self):
-        expected = {"I", "II", "III", "IV", "V", "VI", "VII", "META", "LIMINAL"}
+        expected = {"I", "II", "III", "IV", "V", "VI", "VII", "META", "LIMINAL", "SIGMA_E"}
         assert set(FALLBACK_ORGAN_MAP.keys()) == expected
 
     def test_get_organ_map_returns_fallback_by_default(self):
@@ -85,7 +85,9 @@ class TestBackwardCompat:
 
         org_dirs = organ_org_dirs()
         assert "organvm-i-theoria" in org_dirs
-        assert "4444J99" not in org_dirs
+        # 4444J99 is now included — SIGMA_E has sovereign governance status
+        # and is discoverable (registry_key != "PERSONAL")
+        assert "4444J99" in org_dirs
 
 
 # ---------------------------------------------------------------------------

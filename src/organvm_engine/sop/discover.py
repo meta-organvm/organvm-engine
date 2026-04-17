@@ -11,8 +11,10 @@ import yaml
 from organvm_engine.organ_config import ORGANS
 from organvm_engine.paths import workspace_root
 
-# All org directories including PERSONAL (4444J99)
-ALL_ORG_DIRS = [v["dir"] for v in ORGANS.values()]
+# All org directories including PERSONAL (4444J99).
+# Use dict.fromkeys to deduplicate while preserving insertion order
+# (LIMINAL and SIGMA_E share dir "4444J99").
+ALL_ORG_DIRS = list(dict.fromkeys(v["dir"] for v in ORGANS.values()))
 
 # Filename patterns (case-insensitive matching)
 _SOP_PATTERNS = re.compile(

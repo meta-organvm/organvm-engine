@@ -1,6 +1,6 @@
-"""Omega scorecard — 19 criteria for system completion.
+"""Omega scorecard — 20 criteria for system completion.
 
-Evaluates the 19 omega criteria defined in there+back-again.md.
+Evaluates the 20 omega criteria defined in there+back-again.md.
 Criteria that can be auto-assessed from soak data or registry are
 evaluated automatically; others report their manual status.
 
@@ -146,7 +146,7 @@ class OmegaCriterion:
 
 @dataclass
 class OmegaScorecard:
-    """Complete omega scorecard with all 19 criteria."""
+    """Complete omega scorecard with all 20 criteria."""
 
     criteria: list[OmegaCriterion]
     soak: SoakStreak

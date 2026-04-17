@@ -138,7 +138,7 @@ class TestPulseHistory:
         from organvm_engine.pulse.ammoi import _append_history
 
         _append_history(AMMOI(
-            timestamp="2026-03-13T10:00:00Z",
+            timestamp="2026-04-12T10:00:00Z",
             system_density=0.5,
         ))
         result = pulse_history()

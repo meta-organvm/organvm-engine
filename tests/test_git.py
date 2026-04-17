@@ -71,7 +71,7 @@ class TestSuperproject:
     def test_organ_dir_map_has_all_organs(self):
         from organvm_engine.git.superproject import ORGAN_DIR_MAP
 
-        expected = {"I", "II", "III", "IV", "V", "VI", "VII", "META", "LIMINAL"}
+        expected = {"I", "II", "III", "IV", "V", "VI", "VII", "META", "LIMINAL", "SIGMA_E"}
         assert set(ORGAN_DIR_MAP.keys()) == expected
 
     def test_superproject_remotes_map(self):

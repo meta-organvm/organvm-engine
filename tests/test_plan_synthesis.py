@@ -89,7 +89,7 @@ class TestSynthesizeOrgan:
     def test_stale_count(self):
         entries = [
             _entry(date="2025-01-01", task_count=3, completed_count=0),
-            _entry(slug="b", date="2026-03-05", task_count=3, completed_count=0),
+            _entry(slug="b", date="2026-04-10", task_count=3, completed_count=0),
         ]
         s = synthesize_organ("III", entries, stale_days=30)
         assert s.stale_count == 1  # Only the 2025 one is stale
