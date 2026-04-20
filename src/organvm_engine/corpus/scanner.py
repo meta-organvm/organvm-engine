@@ -219,6 +219,129 @@ def _resolve_provenance(sidecar_path: Path, graph: CorpusGraph) -> None:
     graph.edges = resolved_edges
 
 
+# Numbered SPEC directories → human-meaningful concept IDs.
+# Named SPECs (SPEC-019-system-manifestation) and pure-named dirs (era-model)
+# derive their concept ID from the directory name itself.
+_NUMBERED_SPEC_CONCEPTS: dict[str, str] = {
+    "SPEC-000": "system_manifesto",
+    "SPEC-001": "ontology_charter",
+    "SPEC-002": "entity_primitives",
+    "SPEC-003": "invariant_register",
+    "SPEC-004": "logical_specification",
+    "SPEC-005": "architectural_specification",
+    "SPEC-006": "traceability_matrix",
+    "SPEC-007": "verification_plan",
+    "SPEC-008": "evolution_law",
+    "SPEC-009": "architectural_patterns",
+    "SPEC-010": "pipeline_stages",
+    "SPEC-011": "system_dynamics",
+    "SPEC-012": "workspace_topology",
+    "SPEC-013": "agent_swarm_topology",
+    "SPEC-014": "resource_compute_constraints",
+    "SPEC-015": "escalation_attention_policy",
+    "SPEC-016": "epistemic_routing",
+    "SPEC-017": "agent_authority_matrix",
+}
+
+# Directories in specs/ that are not concepts
+_SPEC_SKIP_DIRS = {"library", "sources", "__pycache__"}
+
+# Files that indicate a directory defines a concept
+_CONCEPT_INDICATORS = {"grounding.md", "specification.md", "spec.md"}
+
+
+def _derive_concept_id(dirname: str) -> str | None:
+    """Derive a concept ID from a SPEC directory name.
+
+    Returns None if the directory is not a concept-defining SPEC.
+    """
+    # Exact match in numbered mapping
+    if dirname in _NUMBERED_SPEC_CONCEPTS:
+        return _NUMBERED_SPEC_CONCEPTS[dirname]
+
+    # Named SPEC: SPEC-NNN-some-name → some_name
+    if dirname.startswith("SPEC-") and "-" in dirname[5:]:
+        # Strip SPEC-NNN- prefix, convert hyphens to underscores
+        parts = dirname.split("-", 2)  # ['SPEC', 'NNN', 'rest-of-name']
+        if len(parts) >= 3:
+            return parts[2].replace("-", "_")
+
+    # Pure named directory: era-model → era_model
+    if not dirname.startswith("SPEC-"):
+        return dirname.replace("-", "_")
+
+    return None
+
+
+def _scan_spec_directories(corpus_dir: Path, graph: CorpusGraph) -> None:
+    """Discover concept nodes from SPEC directories in specs/.
+
+    Each SPEC directory that contains a grounding.md, specification.md,
+    or spec.md is treated as defining a concept. Concepts already present
+    in the graph (from cross_trunk_concepts) are skipped.
+    """
+    specs_dir = corpus_dir / "specs"
+    if not specs_dir.is_dir():
+        return
+
+    for entry in sorted(specs_dir.iterdir()):
+        if not entry.is_dir():
+            continue
+        dirname = entry.name
+
+        # Skip non-concept directories
+        if dirname in _SPEC_SKIP_DIRS:
+            continue
+
+        # Must contain a concept-indicating file
+        if not any((entry / f).is_file() for f in _CONCEPT_INDICATORS):
+            continue
+
+        concept_id = _derive_concept_id(dirname)
+        if concept_id is None:
+            continue
+
+        uid = f"concept:{concept_id}"
+
+        # Skip if concept already exists (from cross_trunk_concepts)
+        if graph.get_node(uid) is not None:
+            continue
+
+        # Read description from grounding.md frontmatter or first heading
+        description = ""
+        for indicator in _CONCEPT_INDICATORS:
+            indicator_path = entry / indicator
+            if indicator_path.is_file():
+                fm = _read_yaml_frontmatter(indicator_path)
+                description = fm.get("description", fm.get("title", ""))
+                if not description:
+                    # Fall back to first markdown heading
+                    text = indicator_path.read_text(encoding="utf-8", errors="ignore")
+                    for line in text.splitlines():
+                        if line.startswith("# "):
+                            description = line[2:].strip()
+                            break
+                break
+
+        graph.add_node(GraphNode(
+            uid=uid,
+            node_type="concept",
+            title=concept_id,
+            metadata={
+                "description": description,
+                "source": f"specs/{dirname}",
+                "discovery": "spec_directory",
+            },
+        ))
+
+        # DEFINES edge from the spec directory (as a source reference)
+        graph.add_edge(GraphEdge(
+            source=f"spec_dir:{dirname}",
+            target=uid,
+            edge_type="DEFINES",
+        ))
+
+
 def scan_corpus(
     corpus_dir: Path | str,
     workspace_root: Path | str | None = None,
@@ -240,6 +363,8 @@ def scan_corpus(
 
     if sidecar.is_file():
         _scan_zettelkasten(sidecar, graph)
+
+    _scan_spec_directories(corpus_dir, graph)
 
     _scan_layer2_frontmatter(corpus_dir, graph)
 

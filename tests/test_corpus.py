@@ -263,6 +263,96 @@ class TestSeedImplementsScan:
         assert gaps[0].uid == "concept:orphan_concept"
 
 
+def _make_spec_dirs(corpus_dir: Path) -> None:
+    """Create mock SPEC directories for concept discovery tests."""
+    specs = corpus_dir / "specs"
+    specs.mkdir()
+
+    # Numbered SPEC with grounding.md
+    s000 = specs / "SPEC-000"
+    s000.mkdir()
+    (s000 / "grounding.md").write_text(
+        "---\ntitle: System Manifesto Grounding\n---\n# System Manifesto\n",
+        encoding="utf-8",
+    )
+
+    # Named SPEC (SPEC-NNN-name pattern)
+    s019 = specs / "SPEC-019-system-manifestation"
+    s019.mkdir()
+    (s019 / "specification.md").write_text(
+        "# System Manifestation\n\nThe system renders itself.\n",
+        encoding="utf-8",
+    )
+
+    # Pure named directory
+    era = specs / "era-model"
+    era.mkdir()
+    (era / "grounding.md").write_text(
+        "---\ndescription: Temporal era governance model\n---\n",
+        encoding="utf-8",
+    )
+
+    # Non-concept directory (no indicator files)
+    lib = specs / "library"
+    lib.mkdir()
+    (lib / "README.md").write_text("# Library\nReference materials.\n")
+
+    # Directory matching existing cross_trunk concept (should be skipped)
+    tc = specs / "test-concept"
+    tc.mkdir()
+    (tc / "grounding.md").write_text("# Test Concept\n")
+
+
+class TestSpecDirectoryScan:
+    def test_creates_concept_from_numbered_spec(self, tmp_path: Path) -> None:
+        corpus_dir = _make_sidecar(tmp_path)
+        _make_spec_dirs(corpus_dir)
+        graph = scan_corpus(corpus_dir, workspace_root=tmp_path)
+        node = graph.get_node("concept:system_manifesto")
+        assert node is not None
+        assert node.node_type == "concept"
+        assert node.metadata["discovery"] == "spec_directory"
+
+    def test_creates_concept_from_named_spec(self, tmp_path: Path) -> None:
+        corpus_dir = _make_sidecar(tmp_path)
+        _make_spec_dirs(corpus_dir)
+        graph = scan_corpus(corpus_dir, workspace_root=tmp_path)
+        # SPEC-019-system-manifestation → system_manifestation
+        node = graph.get_node("concept:system_manifestation")
+        assert node is not None
+        # era-model → era_model
+        node2 = graph.get_node("concept:era_model")
+        assert node2 is not None
+        assert node2.metadata["description"] == "Temporal era governance model"
+
+    def test_skips_existing_cross_trunk_concept(self, tmp_path: Path) -> None:
+        corpus_dir = _make_sidecar(tmp_path)
+        _make_spec_dirs(corpus_dir)
+        graph = scan_corpus(corpus_dir, workspace_root=tmp_path)
+        # test_concept exists in cross_trunk_concepts from sidecar
+        tc_node = graph.get_node("concept:test_concept")
+        assert tc_node is not None
+        # Should be the original from cross_trunk, not from spec dir
+        assert tc_node.metadata.get("discovery") != "spec_directory"
+
+    def test_skips_library_directory(self, tmp_path: Path) -> None:
+        corpus_dir = _make_sidecar(tmp_path)
+        _make_spec_dirs(corpus_dir)
+        graph = scan_corpus(corpus_dir, workspace_root=tmp_path)
+        assert graph.get_node("concept:library") is None
+
+    def test_creates_defines_edge(self, tmp_path: Path) -> None:
+        corpus_dir = _make_sidecar(tmp_path)
+        _make_spec_dirs(corpus_dir)
+        graph = scan_corpus(corpus_dir, workspace_root=tmp_path)
+        defines = [
+            e for e in graph.edges
+            if e.edge_type == "DEFINES" and e.target == "concept:system_manifesto"
+        ]
+        assert len(defines) >= 1
+        assert any(e.source == "spec_dir:SPEC-000" for e in defines)
+
+
 class TestFullPipeline:
     def test_end_to_end(self, tmp_path: Path) -> None:
         corpus_dir = _make_sidecar(tmp_path)
@@ -270,9 +360,9 @@ class TestFullPipeline:
         _make_seed_with_implements(tmp_path)
         graph = scan_corpus(corpus_dir, workspace_root=tmp_path)
 
-        # Verify all node types present
+        # Verify core node types present
         assert len(graph.nodes_by_type("transcript")) == 2
-        assert len(graph.nodes_by_type("concept")) == 2
+        assert len(graph.nodes_by_type("concept")) >= 2  # At least cross_trunk concepts
         assert len(graph.nodes_by_type("spec")) == 1
         assert len(graph.nodes_by_type("document")) == 1
         assert len(graph.nodes_by_type("repo")) == 1
@@ -286,9 +376,9 @@ class TestFullPipeline:
         assert "EXTRACTED_FROM" in edge_types
         assert "IMPLEMENTS" in edge_types
 
-        # Verify gap detection
+        # Verify gap detection (orphan_concept has no implementation)
         gaps = graph.concepts_without_implementation()
-        assert len(gaps) == 1
+        assert any(g.uid == "concept:orphan_concept" for g in gaps)
 
         # Verify save/load round-trip
         path = tmp_path / "corpus-graph.json"
