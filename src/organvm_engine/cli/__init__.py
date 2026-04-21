@@ -293,6 +293,22 @@ from organvm_engine.cli.verify import (
     cmd_verify_system,
     cmd_verify_temporal,
 )
+from organvm_engine.cli.formation import (
+    cmd_formation_invoke,
+    cmd_formation_list,
+    cmd_formation_show,
+)
+from organvm_engine.cli.primitives import (
+    cmd_primitive_guardian_add_watch,
+    cmd_primitive_guardian_check,
+    cmd_primitive_guardian_watchlist,
+    cmd_primitive_inspect,
+    cmd_primitive_invoke,
+    cmd_primitive_ledger_entries,
+    cmd_primitive_ledger_record,
+    cmd_primitive_ledger_snapshot,
+    cmd_primitive_list,
+)
 from organvm_engine.paths import registry_path as _default_registry_path
 
 
@@ -3062,6 +3078,92 @@ def build_parser() -> argparse.ArgumentParser:
         help="Shell type to generate completion for",
     )
 
+    # primitive — institutional primitives (SPEC-025)
+    prim = sub.add_parser(
+        "primitive",
+        help="Institutional primitives — invoke, inspect, manage",
+    )
+    prim_sub = prim.add_subparsers(dest="subcommand")
+
+    prim_sub.add_parser("list", help="List all registered primitives").add_argument(
+        "--json", action="store_true", help="Output JSON",
+    )
+
+    prim_insp = prim_sub.add_parser("inspect", help="Show primitive metadata")
+    prim_insp.add_argument("name", help="Primitive name (e.g. assessor)")
+    prim_insp.add_argument("--json", action="store_true", help="Output JSON")
+
+    prim_inv = prim_sub.add_parser("invoke", help="Invoke a primitive directly")
+    prim_inv.add_argument("name", help="Primitive name")
+    prim_inv.add_argument("--context", default=None, help="JSON context string")
+    prim_inv.add_argument(
+        "--frame",
+        default=None,
+        help="Frame type (legal, financial, strategic, operational, relational, reputational)",
+    )
+    prim_inv.add_argument(
+        "--stakes",
+        default=None,
+        help="Stakes level (routine, significant, critical)",
+    )
+    prim_inv.add_argument("--json", action="store_true", help="Output JSON")
+
+    # guardian subcommands
+    prim_guard = prim_sub.add_parser("guardian", help="Guardian watchlist operations")
+    guard_sub = prim_guard.add_subparsers(dest="guardian_subcommand")
+
+    guard_add = guard_sub.add_parser("add-watch", help="Add a watch item")
+    guard_add.add_argument("--category", required=True, help="deadline, threshold, registration, benefit")
+    guard_add.add_argument("--description", required=True, help="What to watch")
+    guard_add.add_argument("--threshold", required=True, help="Trigger value (date or number)")
+    guard_add.add_argument("--direction", default="approaching", help="above, below, approaching, expired")
+    guard_add.add_argument("--watched-value", dest="watched_value", default="", help="Key in state dict to monitor")
+    guard_add.add_argument("--alert-window", dest="alert_window", type=int, default=7, help="Days before deadline to alert")
+
+    guard_sub.add_parser("watchlist", help="Show current watchlist").add_argument(
+        "--json", action="store_true", help="Output JSON",
+    )
+    guard_sub.add_parser("check", help="Run a guardian check cycle")
+
+    # ledger subcommands
+    prim_ledger = prim_sub.add_parser("ledger", help="Institutional ledger operations")
+    ledger_sub = prim_ledger.add_subparsers(dest="ledger_subcommand")
+
+    led_rec = ledger_sub.add_parser("record", help="Record a ledger entry")
+    led_rec.add_argument("--category", required=True, help="income, expense, obligation, receivable, equity, asset")
+    led_rec.add_argument("--amount", required=True, help="Dollar amount")
+    led_rec.add_argument("--description", default="", help="Entry description")
+    led_rec.add_argument("--direction", default="", help="inflow, outflow, neutral")
+    led_rec.add_argument("--counterparty", default="", help="Who the entry is with")
+    led_rec.add_argument("--recurring", action="store_true", help="Is this recurring?")
+    led_rec.add_argument("--frequency", default="one-time", help="monthly, weekly, one-time, etc.")
+
+    ledger_sub.add_parser("snapshot", help="Show economic snapshot").add_argument(
+        "--json", action="store_true", help="Output JSON",
+    )
+    led_ent = ledger_sub.add_parser("entries", help="List ledger entries")
+    led_ent.add_argument("--category", default="", help="Filter by category")
+    led_ent.add_argument("--json", action="store_true", help="Output JSON")
+
+    # formation — crystallized compositions (INST-COMPOSITION)
+    form = sub.add_parser(
+        "formation",
+        help="Institutional formations — invoke, inspect, list",
+    )
+    form_sub = form.add_subparsers(dest="subcommand")
+
+    form_sub.add_parser("list", help="List registered formations").add_argument(
+        "--json", action="store_true", help="Output JSON",
+    )
+
+    form_show = form_sub.add_parser("show", help="Show formation details")
+    form_show.add_argument("name", help="Formation name (e.g. aegis)")
+
+    form_inv = form_sub.add_parser("invoke", help="Invoke a formation")
+    form_inv.add_argument("name", help="Formation name")
+    form_inv.add_argument("--context", default=None, help="JSON context string")
+    form_inv.add_argument("--json", action="store_true", help="Output JSON")
+
     return parser
 
 
@@ -3547,6 +3649,56 @@ def main() -> int:
         if not (getattr(args, "subcommand", "") or ""):
             return cmd_contrib_list(args)
         parser.parse_args(["contrib", "--help"])
+        return 0
+
+    if args.command == "primitive":
+        sub_cmd = getattr(args, "subcommand", "") or ""
+        if sub_cmd == "guardian":
+            guard_sub = getattr(args, "guardian_subcommand", "") or ""
+            guard_dispatch = {
+                "add-watch": cmd_primitive_guardian_add_watch,
+                "watchlist": cmd_primitive_guardian_watchlist,
+                "check": cmd_primitive_guardian_check,
+            }
+            handler = guard_dispatch.get(guard_sub)
+            if handler:
+                return handler(args)
+            parser.parse_args(["primitive", "guardian", "--help"])
+            return 0
+        if sub_cmd == "ledger":
+            ledger_sub = getattr(args, "ledger_subcommand", "") or ""
+            ledger_dispatch = {
+                "record": cmd_primitive_ledger_record,
+                "snapshot": cmd_primitive_ledger_snapshot,
+                "entries": cmd_primitive_ledger_entries,
+            }
+            handler = ledger_dispatch.get(ledger_sub)
+            if handler:
+                return handler(args)
+            parser.parse_args(["primitive", "ledger", "--help"])
+            return 0
+        prim_dispatch = {
+            "list": cmd_primitive_list,
+            "inspect": cmd_primitive_inspect,
+            "invoke": cmd_primitive_invoke,
+        }
+        handler = prim_dispatch.get(sub_cmd)
+        if handler:
+            return handler(args)
+        parser.parse_args(["primitive", "--help"])
+        return 0
+
+    if args.command == "formation":
+        form_dispatch = {
+            "list": cmd_formation_list,
+            "show": cmd_formation_show,
+            "invoke": cmd_formation_invoke,
+        }
+        sub_cmd = getattr(args, "subcommand", "") or ""
+        handler = form_dispatch.get(sub_cmd)
+        if handler:
+            return handler(args)
+        parser.parse_args(["formation", "--help"])
         return 0
 
     subcommand: str | None = getattr(args, "subcommand", None)

@@ -143,6 +143,14 @@ class EventType(str, enum.Enum):
     # -- Affective (pulse-origin) ---------------------------------------------
     MOOD_SHIFTED = "mood.shifted"
 
+    # -- Institutional primitives (SPEC-025) -----------------------------------
+    PRIMITIVE_INVOKED = "institutional.primitive_invoked"
+    PRIMITIVE_ESCALATED = "institutional.primitive_escalated"
+    FORMATION_INVOKED = "institutional.formation_invoked"
+    FORMATION_COMPLETED = "institutional.formation_completed"
+    GUARDIAN_ALERT = "institutional.guardian_alert"
+    DIRECTIVE_ISSUED = "institutional.directive_issued"
+
     # -- Self-referential (testament chain) ------------------------------------
     ARCHITECTURE_CHANGED = "architecture.changed"
     SCORECARD_EXPANDED = "scorecard.expanded"
