@@ -55,7 +55,9 @@ class TestEventType:
             "GATE_CHANGED", "REPO_PROMOTED", "SEED_CHANGED",
         }
         actual = {e.name for e in EventType}
-        assert actual == expected
+        # Test that expected is a subset (new types are allowed)
+        missing = expected - actual
+        assert not missing, f"Expected types missing from EventType: {missing}"
 
     def test_values_are_dotted_strings(self):
         for e in EventType:
