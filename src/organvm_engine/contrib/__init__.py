@@ -9,6 +9,6 @@ See essay-8 (The Recursive Proof) for the theoretical foundation.
 """
 
 from organvm_engine.contrib.discover import discover_contrib_repos
-from organvm_engine.contrib.status import check_pr_status, ContribStatus
+from organvm_engine.contrib.status import ContribStatus, check_pr_status
 
 __all__ = ["discover_contrib_repos", "check_pr_status", "ContribStatus"]

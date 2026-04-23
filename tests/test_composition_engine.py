@@ -11,11 +11,9 @@ from organvm_engine.composition.graph import (
 from organvm_engine.primitives.base import InstitutionalPrimitive
 from organvm_engine.primitives.registry import PrimitiveRegistry
 from organvm_engine.primitives.types import (
-    Frame,
-    FrameType,
     InstitutionalContext,
-    PrincipalPosition,
     PrimitiveOutput,
+    PrincipalPosition,
 )
 
 

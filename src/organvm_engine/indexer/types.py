@@ -49,8 +49,35 @@ class DirectoryNode:
             "line_count": self.line_count,
             "file_types": self.file_types,
             "has_init_py": self.has_init_py,
+            "has_package_json": self.has_package_json,
+            "has_go_mod": self.has_go_mod,
+            "has_cargo_toml": self.has_cargo_toml,
+            "has_barrel_file": self.has_barrel_file,
+            "build_manifests": self.build_manifests,
             "children": [c.to_dict() for c in self.children],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DirectoryNode:
+        return cls(
+            path=data.get("path", "."),
+            name=data.get("name", ""),
+            depth=data.get("depth", 0),
+            file_count=data.get("file_count", 0),
+            line_count=data.get("line_count", 0),
+            file_types=dict(data.get("file_types", {})),
+            has_init_py=data.get("has_init_py", False),
+            has_package_json=data.get("has_package_json", False),
+            has_go_mod=data.get("has_go_mod", False),
+            has_cargo_toml=data.get("has_cargo_toml", False),
+            has_barrel_file=data.get("has_barrel_file", False),
+            build_manifests=list(data.get("build_manifests", [])),
+            children=[
+                cls.from_dict(child)
+                for child in data.get("children", [])
+                if isinstance(child, dict)
+            ],
+        )
 
 
 @dataclass
@@ -81,6 +108,21 @@ class Component:
             "imports_from": self.imports_from,
             "imported_by": self.imported_by,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Component:
+        return cls(
+            repo=data.get("repo", ""),
+            organ=data.get("organ", ""),
+            path=data.get("path", ""),
+            cohesion_type=data.get("cohesion_type", ""),
+            depth=data.get("depth", 0),
+            file_count=data.get("file_count", 0),
+            line_count=data.get("line_count", 0),
+            dominant_language=data.get("dominant_language", "unknown"),
+            imports_from=list(data.get("imports_from", [])),
+            imported_by=list(data.get("imported_by", [])),
+        )
 
 
 @dataclass
@@ -115,6 +157,22 @@ class ComponentSeed:
             "fingerprint": self.fingerprint,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ComponentSeed:
+        return cls(
+            parent_repo=data.get("parent_repo", ""),
+            organ=data.get("organ", ""),
+            path=data.get("path", ""),
+            cohesion_type=data.get("cohesion_type", ""),
+            files=data.get("files", 0),
+            lines=data.get("lines", 0),
+            language=data.get("language", "unknown"),
+            produces=list(data.get("produces", [])),
+            consumes=list(data.get("consumes", [])),
+            depth=data.get("depth", 0),
+            fingerprint=data.get("fingerprint", ""),
+        )
+
 
 @dataclass
 class RepoIndex:
@@ -133,12 +191,35 @@ class RepoIndex:
         return {
             "repo": self.repo,
             "organ": self.organ,
+            "tree": self.tree.to_dict() if self.tree else None,
             "components": [c.to_dict() for c in self.components],
             "seeds": [s.to_dict() for s in self.seeds],
             "total_files": self.total_files,
             "total_lines": self.total_lines,
             "max_depth": self.max_depth,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RepoIndex:
+        tree_data = data.get("tree")
+        return cls(
+            repo=data.get("repo", ""),
+            organ=data.get("organ", ""),
+            tree=DirectoryNode.from_dict(tree_data) if isinstance(tree_data, dict) else None,
+            components=[
+                Component.from_dict(component)
+                for component in data.get("components", [])
+                if isinstance(component, dict)
+            ],
+            seeds=[
+                ComponentSeed.from_dict(seed)
+                for seed in data.get("seeds", [])
+                if isinstance(seed, dict)
+            ],
+            total_files=data.get("total_files", 0),
+            total_lines=data.get("total_lines", 0),
+            max_depth=data.get("max_depth", 0),
+        )
 
 
 @dataclass
@@ -165,3 +246,20 @@ class SystemIndex:
             "by_language": self.by_language,
             "by_cohesion": self.by_cohesion,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SystemIndex:
+        return cls(
+            schema_version=data.get("schema_version", "1.0"),
+            scan_timestamp=data.get("scan_timestamp", ""),
+            scanned_repos=data.get("scanned_repos", 0),
+            total_components=data.get("total_components", 0),
+            repos=[
+                RepoIndex.from_dict(repo)
+                for repo in data.get("repos", [])
+                if isinstance(repo, dict)
+            ],
+            by_organ=dict(data.get("by_organ", {})),
+            by_language=dict(data.get("by_language", {})),
+            by_cohesion=dict(data.get("by_cohesion", {})),
+        )

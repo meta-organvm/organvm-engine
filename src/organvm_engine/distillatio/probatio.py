@@ -7,7 +7,6 @@ No assertion without measurement. The universe speaks in numbers.
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -367,7 +366,7 @@ def run_depth_stress_test(workspace: Path, *, verbose: bool = False) -> None:
         print(
             f"{report.name:<45} {report.language:<14} "
             f"{report.mandatory_depth:>4} {report.actual_depth:>4} "
-            f"{report.compressible:>4}  {report.verdict}"
+            f"{report.compressible:>4}  {report.verdict}",
         )
 
         if verbose and report.compressible > 0:

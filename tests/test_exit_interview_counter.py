@@ -92,7 +92,7 @@ class TestGenerateAllCounterTestimonies:
         contracts = load_gate_contracts(FIXTURES)
         counter = generate_all_counter_testimonies(contracts)
         assert len(counter) > 0
-        for key, ct in counter.items():
+        for _key, ct in counter.items():
             assert isinstance(ct, CounterTestimony)
 
     def test_keys_match_supply_map_format(self):

@@ -9,9 +9,8 @@ from organvm_engine.primitives.types import (
     Frame,
     FrameType,
     InstitutionalContext,
-    PrincipalPosition,
     PrimitiveOutput,
-    StakesLevel,
+    PrincipalPosition,
 )
 
 

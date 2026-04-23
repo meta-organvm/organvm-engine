@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.governance.exit_interview.discovery import (
     DiscoveryResult,
     build_demand_map,
@@ -12,7 +10,6 @@ from organvm_engine.governance.exit_interview.discovery import (
     load_gate_contracts,
     parse_gate_contract,
 )
-from organvm_engine.governance.exit_interview.schemas import GateContract
 
 FIXTURES = Path(__file__).parent / "fixtures" / "gate-contracts"
 

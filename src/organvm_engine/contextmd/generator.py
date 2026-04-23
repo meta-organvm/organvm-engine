@@ -286,7 +286,7 @@ def _build_organ_edges(organ_key: str, seeds: list[dict] | None = None) -> str:
         # Resolve org part of identity → registry key
         # Handles: "organvm-i-theoria/repo", "meta-organvm", "ORGAN-IV", "META-ORGANVM"
         def _organ_of(identity: str) -> str:
-            org_part = identity.split("/")[0] if "/" in identity else identity
+            org_part = identity.split("/", maxsplit=1)[0] if "/" in identity else identity
             # Direct dir→key lookup
             if org_part in d2k:
                 return d2k[org_part]
@@ -976,13 +976,13 @@ def _build_logos_context(repo_name: str, repo_data: dict) -> str:
         repo_data: Registry entry for the repo.
     """
     from pathlib import Path
-    
+
     # Standard workspace resolution
     workspace = Path.home() / "Workspace"
-    
+
     from organvm_engine.organ_config import get_organ_map
     organ_map = get_organ_map()
-    
+
     # Try to find the repo on disk
     repo_path = None
     for organ_info in organ_map.values():
@@ -990,14 +990,14 @@ def _build_logos_context(repo_name: str, repo_data: dict) -> str:
         if candidate.exists():
             repo_path = candidate
             break
-    
+
     if not repo_path:
         # Fallback to current directory if not found in workspace
         repo_path = Path.cwd()
 
     logos_dir = repo_path / "docs" / "logos"
     logos_status = "ACTIVE" if logos_dir.exists() else "MISSING"
-    
+
     # Simple symmetry check
     src_dir = repo_path / "src"
     # Nature exists if there are code files in src/
@@ -1007,10 +1007,10 @@ def _build_logos_context(repo_name: str, repo_data: dict) -> str:
             if any(src_dir.glob(f"**/{ext}")):
                 has_nature = True
                 break
-    
+
     # Counterpart exists if there are markdown files in docs/logos/
     has_counterpart = logos_dir.exists() and any(logos_dir.glob("*.md"))
-    
+
     if has_nature and not has_counterpart:
         symmetry_score = "0.5 (GHOST)"
         logos_compliance_note = "Implementation exists without record."
@@ -1034,7 +1034,7 @@ def _build_logos_context(repo_name: str, repo_data: dict) -> str:
         logos_status=logos_status,
         symmetry_score=symmetry_score,
         logos_essay_link=essay_link,
-        logos_compliance_note=logos_compliance_note
+        logos_compliance_note=logos_compliance_note,
     )
 
 

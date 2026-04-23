@@ -120,7 +120,7 @@ class TestLoadSupplementaryPrompts:
         jsonl.write_text(
             json.dumps(good) + "\n"
             "not valid json\n"
-            "{malformed\n"
+            "{malformed\n",
         )
 
         loaded = load_supplementary_prompts(jsonl)

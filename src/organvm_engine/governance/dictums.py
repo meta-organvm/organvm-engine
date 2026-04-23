@@ -129,7 +129,7 @@ def validate_dag_invariant(registry: dict) -> list[DictumViolation]:
                 message=f"Back-edge: {_from} → {_to} ({from_org} → {to_org})",
                 organ=from_org,
                 repo=_from.split("/", 1)[-1] if "/" in _from else _from,
-            )
+            ),
         )
 
     for cycle in dep_result.cycles:
@@ -139,7 +139,7 @@ def validate_dag_invariant(registry: dict) -> list[DictumViolation]:
                 dictum_name="DAG Invariant",
                 severity="critical",
                 message=f"Cycle detected: {' → '.join(cycle)}",
-            )
+            ),
         )
 
     return violations
@@ -196,7 +196,7 @@ def validate_epistemic_membranes(
                     ),
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
             continue
 
@@ -229,7 +229,7 @@ def validate_epistemic_membranes(
                         message=(f"Dependency on {dep} not declared in seed.yaml consumes"),
                         organ=organ_key,
                         repo=name,
-                    )
+                    ),
                 )
 
     return violations
@@ -278,7 +278,7 @@ def validate_ttl_eviction(
                     ),
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
         # General staleness
@@ -291,7 +291,7 @@ def validate_ttl_eviction(
                     message=f"Stale — {days_ago} days since validation (threshold: {stale_days})",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -319,7 +319,7 @@ def validate_organ_iii_factory(registry: dict) -> list[DictumViolation]:
                     message="Missing revenue_model",
                     organ="ORGAN-III",
                     repo=name,
-                )
+                ),
             )
 
         if not repo.get("ci_workflow"):
@@ -331,7 +331,7 @@ def validate_organ_iii_factory(registry: dict) -> list[DictumViolation]:
                     message="Missing CI workflow",
                     organ="ORGAN-III",
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -364,7 +364,7 @@ def validate_seed_mandate(
                     message="No seed.yaml found",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -410,7 +410,7 @@ def validate_event_handshake(
                         message=f"Subscription '{event_type}' has no dotted namespace",
                         organ=organ_key,
                         repo=name,
-                    )
+                    ),
                 )
 
     return violations
@@ -441,7 +441,7 @@ def validate_registry_coherence(registry: dict) -> list[DictumViolation]:
                     severity="critical",
                     message="Repo entry with empty name",
                     organ=organ_key,
-                )
+                ),
             )
             continue
 
@@ -455,7 +455,7 @@ def validate_registry_coherence(registry: dict) -> list[DictumViolation]:
                     message=f"Duplicate repo: also in {seen_repos[key]}",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
         else:
             seen_repos[key] = organ_key
@@ -472,7 +472,7 @@ def validate_registry_coherence(registry: dict) -> list[DictumViolation]:
                     severity="warning",
                     message=(f"repository_count={declared} but actual count={actual}"),
                     organ=organ_key,
-                )
+                ),
             )
 
     return violations
@@ -498,7 +498,7 @@ def validate_readme_mandate(registry: dict) -> list[DictumViolation]:
                     message="Missing or empty documentation_status",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -531,7 +531,7 @@ def validate_promotion_integrity(registry: dict) -> list[DictumViolation]:
                     message=f"Invalid promotion_status: '{status}'",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -583,7 +583,7 @@ def validate_logos_write_scope(
                             message=f"Produces to external target: {target}",
                             organ="ORGAN-V",
                             repo=name,
-                        )
+                        ),
                     )
 
     return violations
@@ -604,11 +604,11 @@ def validate_logos_layer(
             status = repo.get("promotion_status", "LOCAL")
             if status not in ("PUBLIC_PROCESS", "GRADUATED"):
                 continue
-            
+
             org = repo.get("org", "")
             name = repo.get("name", "")
             logos_dir = workspace / org / name / "docs" / "logos"
-            
+
             if not logos_dir.exists():
                 violations.append(
                     DictumViolation(
@@ -618,10 +618,10 @@ def validate_logos_layer(
                         message="Missing Logos Layer (docs/logos/ directory).",
                         organ=organ_key,
                         repo=name,
-                    )
+                    ),
                 )
                 continue
-            
+
             # Check for required files
             required_files = ["telos.md", "pragma.md", "praxis.md", "receptio.md", "alchemical-io.md"]
             for f in required_files:
@@ -634,7 +634,7 @@ def validate_logos_layer(
                             message=f"Logos Layer missing required narrative: {f}",
                             organ=organ_key,
                             repo=name,
-                        )
+                        ),
                     )
 
     return violations
@@ -707,7 +707,7 @@ def validate_tetradic_self_knowledge(
                         message=f"Missing {dim} — no seed.yaml field or docs/logos/{dim}.md",
                         organ=organ_key,
                         repo=name,
-                    )
+                    ),
                 )
 
     return violations
@@ -767,7 +767,7 @@ def validate_constructed_polis(
                     message="No polis evidence — missing polis/, docs/polis/, docs/reception/, or docs/logos/receptio.md",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -844,7 +844,7 @@ def validate_triple_reference(
                     message=f"Incomplete triple reference — missing: {'; '.join(missing_legs)}",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -897,7 +897,7 @@ def validate_effect_obligation(
                     message="No produces edges — entity is structurally inert in the signal graph",
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -945,7 +945,7 @@ def validate_organ_placement(
                     message=(f"Has revenue_model='{revenue}' but is in {organ_key}, not ORGAN-III"),
                     organ=organ_key,
                     repo=name,
-                )
+                ),
             )
 
         # Check: ORGAN-I repos with no consumers may be misplaced
@@ -976,7 +976,7 @@ def validate_organ_placement(
                         ),
                         organ=organ_key,
                         repo=name,
-                    )
+                    ),
                 )
 
     return violations
@@ -1022,7 +1022,7 @@ def validate_kerygma_consumer(
                     ),
                     organ="ORGAN-VII",
                     repo=name,
-                )
+                ),
             )
 
     return violations
@@ -1046,10 +1046,7 @@ def _extract_organ_from_produces_entry(entry: str) -> str | None:
     if entry.startswith("ORGAN-"):
         return entry
 
-    if "/" in entry:
-        org_part = entry.split("/")[0]
-    else:
-        org_part = entry
+    org_part = entry.split("/")[0] if "/" in entry else entry
 
     if not org_part.startswith("organvm-"):
         return None
@@ -1174,7 +1171,7 @@ def validate_signal_closure(
                         f"required by {source_organ} activity"
                     ),
                     organ=source_organ,
-                )
+                ),
             )
 
     return violations
@@ -1196,7 +1193,7 @@ _VALIDATORS: dict[str, typing.Callable[..., list]] = {
     "validate_logos_write_scope": lambda reg, rules, ws: validate_logos_write_scope(reg, ws),
     "validate_kerygma_consumer": lambda reg, rules, ws: validate_kerygma_consumer(reg, ws),
     "validate_organ_placement": lambda reg, rules, ws: validate_organ_placement(reg, ws),
-    "validate_signal_closure": lambda reg, rules, ws: validate_signal_closure(reg, rules, ws),
+    "validate_signal_closure": validate_signal_closure,
     "validate_logos_layer": lambda reg, rules, ws: validate_logos_layer(reg, ws),
     "validate_tetradic_self_knowledge": lambda reg, rules, ws: validate_tetradic_self_knowledge(reg, ws),
     "validate_constructed_polis": lambda reg, rules, ws: validate_constructed_polis(reg, ws),

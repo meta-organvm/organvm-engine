@@ -131,12 +131,12 @@ def cmd_formation_invoke(args: argparse.Namespace) -> int:
         if result.metadata:
             for k, v in result.metadata.items():
                 print(f"  {k}: {v}")
-        print(f"\nOutput:")
+        print("\nOutput:")
         print(json.dumps(result.output, indent=2, default=str))
         print(f"\nAudit trail ({len(result.audit_trail)} entries):")
         for ae in result.audit_trail:
             print(
                 f"  [{ae.primitive_name}] {ae.operation} "
-                f"— {ae.rationale[:60]}"
+                f"— {ae.rationale[:60]}",
             )
     return 0

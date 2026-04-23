@@ -25,7 +25,7 @@ def cmd_corpus_scan(args: argparse.Namespace) -> int:
         print(f"Graph saved to {out_path}")
 
     stats = graph.stats()
-    print(f"\n  Corpus Knowledge Graph")
+    print("\n  Corpus Knowledge Graph")
     print(f"  {'═' * 50}")
     print(f"  Nodes: {stats['total_nodes']}")
     for ntype, count in sorted(stats["node_types"].items()):
@@ -72,15 +72,15 @@ def cmd_corpus_stats(args: argparse.Namespace) -> int:
         print(json.dumps(stats, indent=2))
         return 0
 
-    print(f"\n  Corpus Knowledge Graph Statistics")
+    print("\n  Corpus Knowledge Graph Statistics")
     print(f"  {'═' * 50}")
     print(f"  Total nodes: {stats['total_nodes']}")
     print(f"  Total edges: {stats['total_edges']}")
     print()
-    print(f"  Node types:")
+    print("  Node types:")
     for ntype, count in sorted(stats["node_types"].items()):
         print(f"    {ntype:>12}: {count}")
-    print(f"  Edge types:")
+    print("  Edge types:")
     for etype, count in sorted(stats["edge_types"].items()):
         print(f"    {etype:>16}: {count}")
     print()
@@ -112,25 +112,25 @@ def cmd_corpus_gaps(args: argparse.Namespace) -> int:
         }, indent=2))
         return 0
 
-    print(f"\n  Implementation Coverage")
+    print("\n  Implementation Coverage")
     print(f"  {'═' * 50}")
     print(f"  Concepts: {len(concepts)}")
     print(f"  Implemented: {len(concepts) - len(gaps)}")
     print(f"  Gaps: {len(gaps)}")
 
     if gaps:
-        print(f"\n  Unimplemented:")
+        print("\n  Unimplemented:")
         for g in gaps:
             desc = g.metadata.get("description", "")
             print(f"    {g.title}")
             if desc:
                 print(f"      {desc[:80]}")
     else:
-        print(f"\n  All concepts have at least one implementation.")
+        print("\n  All concepts have at least one implementation.")
 
     # Show implementation details for each concept
     if args.verbose:
-        print(f"\n  Implementation Map:")
+        print("\n  Implementation Map:")
         for concept in sorted(concepts, key=lambda c: c.uid):
             impls = [e for e in graph.edges_to(concept.uid) if e.edge_type == "IMPLEMENTS"]
             status = f"[{len(impls)} impl]" if impls else "[GAP]"
@@ -172,12 +172,12 @@ def cmd_corpus_trace(args: argparse.Namespace) -> int:
     print(f"  {'═' * 50}")
 
     if trace["definitions"]:
-        print(f"\n  Defined by:")
+        print("\n  Defined by:")
         for d in trace["definitions"]:
             print(f"    [{d['type']}] {d['title']}")
 
     if trace["documents"]:
-        print(f"\n  Referenced in:")
+        print("\n  Referenced in:")
         for d in trace["documents"]:
             print(f"    [{d['type']}] {d['title']}")
 
@@ -190,7 +190,7 @@ def cmd_corpus_trace(args: argparse.Namespace) -> int:
             if impl["aspect"]:
                 print(f"      {impl['aspect']}")
     else:
-        print(f"\n  [GAP] No implementations found.")
+        print("\n  [GAP] No implementations found.")
 
     if trace["organ_spread"]:
         print(f"\n  Organ spread: {', '.join(trace['organ_spread'])}")
@@ -221,14 +221,14 @@ def cmd_corpus_coverage(args: argparse.Namespace) -> int:
     fragile = [d for d in depth if d["fragile"]]
     robust = [d for d in depth if not d["fragile"]]
 
-    print(f"\n  Coverage Depth Report")
+    print("\n  Coverage Depth Report")
     print(f"  {'═' * 50}")
     print(f"  Total concepts: {len(depth)}")
     print(f"  Fragile (≤1 impl): {len(fragile)}")
     print(f"  Robust (≥2 impl): {len(robust)}")
 
     if fragile:
-        print(f"\n  Fragile concepts:")
+        print("\n  Fragile concepts:")
         for d in fragile:
             impls = d["implementations"]
             repos = ", ".join(d["repos"]) if d["repos"] else "none"
@@ -236,7 +236,7 @@ def cmd_corpus_coverage(args: argparse.Namespace) -> int:
             print(f"    {tag} {d['title']} ← {repos}")
 
     if args.verbose and robust:
-        print(f"\n  Robust concepts:")
+        print("\n  Robust concepts:")
         for d in robust:
             spread = f" ({', '.join(d['organs'])})" if d["organs"] else ""
             print(f"    [{d['implementations']} impl] {d['title']}{spread}")

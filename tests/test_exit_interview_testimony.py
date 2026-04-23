@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from organvm_engine.governance.exit_interview.discovery import discover, load_gate_contracts, build_supply_map
+from organvm_engine.governance.exit_interview.discovery import (
+    build_supply_map,
+    load_gate_contracts,
+)
 from organvm_engine.governance.exit_interview.schemas import Testimony
 from organvm_engine.governance.exit_interview.testimony import (
     generate_all_testimonies,
@@ -89,7 +92,7 @@ class TestGenerateAllTestimonies:
     def test_generates_multiple(self, workspace_root, supply_map):
         testimonies = generate_all_testimonies(supply_map.entries, workspace_root)
         assert len(testimonies) > 0
-        for key, t in testimonies.items():
+        for _key, t in testimonies.items():
             assert isinstance(t, Testimony)
 
     def test_nonexistent_module_still_generates(self, workspace_root, supply_map):

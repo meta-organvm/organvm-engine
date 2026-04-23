@@ -6,15 +6,12 @@ zettelkasten sidecar, Layer 2 frontmatter, and seed.yaml implements fields.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
 import yaml
 
 from organvm_engine.corpus.graph import CorpusGraph, GraphEdge, GraphNode
 from organvm_engine.corpus.scanner import scan_corpus
-
 
 # ── Fixtures ──────────────────────────────────────────────
 

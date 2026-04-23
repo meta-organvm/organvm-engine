@@ -13,8 +13,11 @@ from organvm_engine.indexer.cohesion import (
 from organvm_engine.indexer.scanner import walk_repo
 from organvm_engine.indexer.seed_gen import generate_seeds
 from organvm_engine.indexer.types import (
+    Component,
     ComponentSeed,
     DirectoryNode,
+    RepoIndex,
+    SystemIndex,
 )
 
 
@@ -365,6 +368,27 @@ class TestSeedGeneration:
         assert d["component"] is True
         assert d["parent_repo"] == "repo"
 
+    def test_seed_from_dict_roundtrip(self):
+        seed = ComponentSeed(
+            parent_repo="repo",
+            organ="ORGAN-I",
+            path="src/pkg/core",
+            cohesion_type="python_package",
+            files=3,
+            lines=100,
+            language="python",
+            produces=["core"],
+            consumes=["utils"],
+            depth=2,
+            fingerprint="abc123",
+        )
+
+        restored = ComponentSeed.from_dict(seed.to_dict())
+        assert restored.parent_repo == "repo"
+        assert restored.produces == ["core"]
+        assert restored.consumes == ["utils"]
+        assert restored.fingerprint == "abc123"
+
     def test_fingerprint_stability(self, tmp_path):
         _make_py_package(tmp_path / "src" / "pkg", "mod", [
             ("a.py", "x=1"),
@@ -535,7 +559,7 @@ class TestFullPipeline:
         assert index.scanned_repos == 0
 
     def test_serialization_roundtrip(self, tmp_path):
-        """to_dict produces valid JSON-serializable output."""
+        """RepoIndex round-trips through JSON without losing nested state."""
         _make_py_package(tmp_path / "src" / "pkg", "core", [("m.py", "x=1")])
 
         idx = index_repo(tmp_path, "test", "ORGAN-I")
@@ -543,8 +567,79 @@ class TestFullPipeline:
 
         json_str = json_mod.dumps(d)
         parsed = json_mod.loads(json_str)
-        assert parsed["repo"] == "test"
-        assert len(parsed["components"]) > 0
+        restored = RepoIndex.from_dict(parsed)
+
+        assert restored.repo == "test"
+        assert restored.tree is not None
+        assert restored.tree.children
+        assert len(restored.components) > 0
+        assert restored.components[0].path == idx.components[0].path
+        assert restored.seeds[0].fingerprint == idx.seeds[0].fingerprint
+
+    def test_directory_node_roundtrip_preserves_manifest_flags(self):
+        child = DirectoryNode(path="src/pkg", name="pkg", depth=1, has_init_py=True)
+        node = DirectoryNode(
+            path="src",
+            name="src",
+            depth=0,
+            file_count=2,
+            line_count=12,
+            file_types={".py": 2},
+            has_package_json=True,
+            has_go_mod=True,
+            has_cargo_toml=True,
+            has_barrel_file=True,
+            build_manifests=["pyproject.toml", "Makefile"],
+            children=[child],
+        )
+
+        restored = DirectoryNode.from_dict(node.to_dict())
+        assert restored.has_package_json is True
+        assert restored.has_go_mod is True
+        assert restored.has_cargo_toml is True
+        assert restored.has_barrel_file is True
+        assert restored.build_manifests == ["pyproject.toml", "Makefile"]
+        assert restored.children[0].path == "src/pkg"
+
+    def test_system_index_from_dict_restores_repo_tree(self):
+        component = Component(
+            repo="test",
+            organ="ORGAN-I",
+            path="src/pkg/core",
+            cohesion_type="python_package",
+            depth=2,
+            file_count=2,
+            line_count=20,
+            dominant_language="python",
+            imports_from=["src/pkg/utils"],
+            imported_by=["src/pkg/api"],
+        )
+        tree = DirectoryNode(path="src", name="src", depth=0)
+        repo_index = RepoIndex(
+            repo="test",
+            organ="ORGAN-I",
+            tree=tree,
+            components=[component],
+            seeds=[ComponentSeed(parent_repo="test", organ="ORGAN-I", path="src/pkg/core", cohesion_type="python_package")],
+            total_files=2,
+            total_lines=20,
+            max_depth=2,
+        )
+        system = SystemIndex(
+            scan_timestamp="2026-03-14T00:00:00Z",
+            scanned_repos=1,
+            total_components=1,
+            repos=[repo_index],
+            by_organ={"ORGAN-I": 1},
+            by_language={"python": 1},
+            by_cohesion={"python_package": 1},
+        )
+
+        restored = SystemIndex.from_dict(system.to_dict())
+        assert restored.scanned_repos == 1
+        assert restored.repos[0].tree is not None
+        assert restored.repos[0].tree.path == "src"
+        assert restored.repos[0].components[0].imported_by == ["src/pkg/api"]
 
     def test_max_depth_tracked(self, tmp_path):
         deep = tmp_path / "src" / "pkg" / "sub"

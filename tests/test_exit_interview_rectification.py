@@ -4,16 +4,15 @@ from pathlib import Path
 
 import pytest
 
+from organvm_engine.governance.exit_interview.rectification import (
+    rectify_module,
+)
 from organvm_engine.governance.exit_interview.schemas import (
     AxiomClaim,
     CounterTestimony,
     DimensionVerdict,
-    RectificationReport,
     Testimony,
     Verdict,
-)
-from organvm_engine.governance.exit_interview.rectification import (
-    rectify_module,
 )
 
 

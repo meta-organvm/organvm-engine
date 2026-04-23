@@ -69,18 +69,20 @@ class TestIndexerSerializationIntegrity:
         # Serialize → file → deserialize
         data = system.to_dict()
         json_str = json.dumps(data, indent=2)
-        restored = json.loads(json_str)
+        restored = SystemIndex.from_dict(json.loads(json_str))
 
-        assert restored["scanned_repos"] == 1
-        assert restored["total_components"] == len(idx.components)
-        assert restored["by_organ"]["ORGAN-I"] == len(idx.components)
+        assert restored.scanned_repos == 1
+        assert restored.total_components == len(idx.components)
+        assert restored.by_organ["ORGAN-I"] == len(idx.components)
+        assert restored.repos[0].tree is not None
+        assert restored.repos[0].tree.children
 
         # Components preserve structure
-        for repo_data in restored["repos"]:
-            for comp in repo_data["components"]:
-                assert "path" in comp
-                assert "cohesion_type" in comp
-                assert "dominant_language" in comp
+        for repo_data in restored.repos:
+            for comp in repo_data.components:
+                assert comp.path
+                assert comp.cohesion_type
+                assert comp.dominant_language
 
     def test_seed_to_dict_has_component_flag(self, tmp_path):
         """ComponentSeed.to_dict() sets component=True for identification."""

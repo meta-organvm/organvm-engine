@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from organvm_engine.primitives.base import InstitutionalPrimitive
+from organvm_engine.primitives.storage import primitive_store_dir
 from organvm_engine.primitives.types import (
     ExecutionMode,
     Frame,
@@ -29,7 +30,7 @@ from organvm_engine.primitives.types import (
     StakesLevel,
 )
 
-_DEFAULT_BASE = Path.home() / ".organvm" / "institutional" / "ledger"
+_DEFAULT_BASE = primitive_store_dir("ledger")
 
 
 # ---------------------------------------------------------------------------

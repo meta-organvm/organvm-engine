@@ -1,6 +1,6 @@
 """Tests for the Assessor primitive."""
 
-from organvm_engine.primitives.assessor import Assessor, AssessmentProfile
+from organvm_engine.primitives.assessor import Assessor
 from organvm_engine.primitives.types import (
     Frame,
     FrameType,

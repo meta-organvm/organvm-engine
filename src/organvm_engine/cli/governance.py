@@ -35,7 +35,6 @@ def cmd_signal_closure(args: argparse.Namespace) -> int:
     from pathlib import Path
 
     from organvm_engine.governance.dictums import (
-        DictumReport,
         check_all_dictums,
     )
     from organvm_engine.governance.rules import load_governance_rules
@@ -68,7 +67,6 @@ def cmd_self_knowledge(args: argparse.Namespace) -> int:
     from pathlib import Path
 
     from organvm_engine.governance.dictums import (
-        DictumReport,
         check_all_dictums,
     )
     from organvm_engine.governance.rules import load_governance_rules
@@ -531,7 +529,7 @@ def cmd_governance_graph_history(args: argparse.Namespace) -> int:
                 json_mod.dumps(
                     {"timestamp": at_ts, "edges": [e.to_dict() for e in edges]},
                     indent=2,
-                )
+                ),
             )
         else:
             print(f"Graph at {at_ts}: {len(edges)} active edges")

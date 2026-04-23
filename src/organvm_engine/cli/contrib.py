@@ -10,10 +10,9 @@ Commands:
 from __future__ import annotations
 
 import argparse
-import sys
 
 from organvm_engine.contrib.discover import discover_contrib_repos
-from organvm_engine.contrib.status import check_pr_status, PRState
+from organvm_engine.contrib.status import PRState, check_pr_status
 
 
 def cmd_contrib_list(args: argparse.Namespace) -> int:
@@ -78,10 +77,8 @@ def cmd_contrib_status(args: argparse.Namespace) -> int:
 def cmd_contrib_backflow(args: argparse.Namespace) -> int:
     """Generate backflow signal report from contribution statuses."""
     from organvm_engine.contrib.backflow import (
-        classify_contribution,
         generate_backflow_report,
         write_backflow_manifest,
-        SIGNAL_ORGAN_MAP,
     )
     from organvm_engine.contrib.status import check_all_statuses
     from organvm_engine.paths import workspace_root

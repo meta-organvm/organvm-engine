@@ -5,20 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import yaml
 
 from organvm_engine.contrib.backflow import (
-    BackflowSignal,
-    SignalType,
     SIGNAL_ORGAN_MAP,
+    SignalType,
     classify_contribution,
     generate_backflow_report,
     write_backflow_manifest,
 )
 from organvm_engine.contrib.discover import ContribRepo, discover_contrib_repos
 from organvm_engine.contrib.status import ContribStatus, PRState, check_pr_status
-
 
 # ── Fixtures ──────────────────────────────────────────────
 

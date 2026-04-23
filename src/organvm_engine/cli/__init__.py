@@ -107,15 +107,6 @@ from organvm_engine.cli.corpus import (
 from organvm_engine.cli.deadlines import cmd_deadlines
 from organvm_engine.cli.debt import cmd_debt_scan, cmd_debt_stats
 from organvm_engine.cli.dispatch import cmd_dispatch_validate
-from organvm_engine.cli.exit_interview import (
-    cmd_exit_interview_counter,
-    cmd_exit_interview_discover,
-    cmd_exit_interview_full,
-    cmd_exit_interview_generate,
-    cmd_exit_interview_orphans,
-    cmd_exit_interview_plan,
-    cmd_exit_interview_rectify,
-)
 from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_actions,
     cmd_ecosystem_audit,
@@ -131,6 +122,20 @@ from organvm_engine.cli.ecosystem import (
     cmd_ecosystem_sync,
     cmd_ecosystem_sync_dna,
     cmd_ecosystem_validate,
+)
+from organvm_engine.cli.exit_interview import (
+    cmd_exit_interview_counter,
+    cmd_exit_interview_discover,
+    cmd_exit_interview_full,
+    cmd_exit_interview_generate,
+    cmd_exit_interview_orphans,
+    cmd_exit_interview_plan,
+    cmd_exit_interview_rectify,
+)
+from organvm_engine.cli.formation import (
+    cmd_formation_invoke,
+    cmd_formation_list,
+    cmd_formation_show,
 )
 from organvm_engine.cli.functions import cmd_functions_list, cmd_functions_resolve
 from organvm_engine.cli.git_cmds import (
@@ -218,6 +223,17 @@ from organvm_engine.cli.plans import (
     cmd_plans_sweep,
     cmd_plans_tidy,
 )
+from organvm_engine.cli.primitives import (
+    cmd_primitive_guardian_add_watch,
+    cmd_primitive_guardian_check,
+    cmd_primitive_guardian_watchlist,
+    cmd_primitive_inspect,
+    cmd_primitive_invoke,
+    cmd_primitive_ledger_entries,
+    cmd_primitive_ledger_record,
+    cmd_primitive_ledger_snapshot,
+    cmd_primitive_list,
+)
 from organvm_engine.cli.prompts import (
     cmd_prompts_audit,
     cmd_prompts_clipboard,
@@ -292,22 +308,6 @@ from organvm_engine.cli.verify import (
     cmd_verify_ledger,
     cmd_verify_system,
     cmd_verify_temporal,
-)
-from organvm_engine.cli.formation import (
-    cmd_formation_invoke,
-    cmd_formation_list,
-    cmd_formation_show,
-)
-from organvm_engine.cli.primitives import (
-    cmd_primitive_guardian_add_watch,
-    cmd_primitive_guardian_check,
-    cmd_primitive_guardian_watchlist,
-    cmd_primitive_inspect,
-    cmd_primitive_invoke,
-    cmd_primitive_ledger_entries,
-    cmd_primitive_ledger_record,
-    cmd_primitive_ledger_snapshot,
-    cmd_primitive_list,
 )
 from organvm_engine.paths import registry_path as _default_registry_path
 
@@ -394,7 +394,7 @@ def build_parser() -> argparse.ArgumentParser:
     upd.add_argument("field")
     upd.add_argument("value")
     upd.add_argument(
-        "--reason", default="", help="Reason for the change (recorded for promotion_status)"
+        "--reason", default="", help="Reason for the change (recorded for promotion_status)",
     )
 
     rsplit = reg_sub.add_parser("split", help="Split registry into per-organ files")
@@ -2995,7 +2995,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Browse and extract unique prompt intentions",
     )
     fossil_intentions.add_argument(
-        "--scan", default=None, help="Directory to scan for session files"
+        "--scan", default=None, help="Directory to scan for session files",
     )
     fossil_intentions.add_argument("--write", action="store_true", help="Save extracted intentions")
     fossil_intentions.add_argument("--json", action="store_true", help="Output JSON")
@@ -3633,9 +3633,9 @@ def main() -> int:
 
     if args.command == "contrib":
         from organvm_engine.cli.contrib import (
+            cmd_contrib_backflow,
             cmd_contrib_list,
             cmd_contrib_status,
-            cmd_contrib_backflow,
         )
         contrib_dispatch = {
             "list": cmd_contrib_list,

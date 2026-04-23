@@ -6,8 +6,8 @@ from organvm_engine.primitives.types import (
     Frame,
     FrameType,
     InstitutionalContext,
-    PrincipalPosition,
     PrimitiveOutput,
+    PrincipalPosition,
     StakesLevel,
 )
 
@@ -30,7 +30,7 @@ def test_frame_frozen():
     # frozen dataclass
     try:
         f.frame_type = FrameType.FINANCIAL  # type: ignore[misc]
-        assert False, "Should be frozen"
+        raise AssertionError("Should be frozen")
     except AttributeError:
         pass
 

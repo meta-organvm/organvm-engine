@@ -9,8 +9,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from organvm_engine.governance.immutability import (
     load_amendments,
     record_amendment,
@@ -29,8 +27,8 @@ def _make_rules(tmp_path: Path, locked_paths: list[str] | None = None) -> Path:
         },
         "dictums": {
             "axioms": [
-                {"id": "AX-1", "name": "Test Axiom", "statement": "Test."}
-            ]
+                {"id": "AX-1", "name": "Test Axiom", "statement": "Test."},
+            ],
         },
         "dependency_rules": {
             "no_circular_dependencies": True,
@@ -96,7 +94,7 @@ class TestTamperingDetection:
     def test_no_amendments_file_detected(self, tmp_path: Path) -> None:
         rules_path = _make_rules(tmp_path)
         valid, errors = validate_constitutional_locks(
-            rules_path, tmp_path / "nonexistent.jsonl"
+            rules_path, tmp_path / "nonexistent.jsonl",
         )
         assert not valid
         assert any("No amendment log" in e for e in errors)
@@ -161,10 +159,10 @@ class TestAmendmentRecording:
         amendments_path = _make_genesis(tmp_path, rules_path)
 
         e1 = record_amendment(
-            rules_path, amendments_path, "x", 1, 2, "a", "test"
+            rules_path, amendments_path, "x", 1, 2, "a", "test",
         )
         e2 = record_amendment(
-            rules_path, amendments_path, "y", 3, 4, "b", "test"
+            rules_path, amendments_path, "y", 3, 4, "b", "test",
         )
         assert e1["sequence"] == 1
         assert e2["sequence"] == 2

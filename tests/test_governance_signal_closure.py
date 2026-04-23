@@ -1,6 +1,5 @@
 """Tests for validate_signal_closure (AX-6)."""
 
-import json
 from pathlib import Path
 from unittest import mock
 
@@ -91,7 +90,7 @@ def test_validate_signal_closure_no_entailments():
 
 
 def test_validate_signal_closure_missing_edges(
-    tmp_path, mock_registry_with_active_repos, mock_rules_with_entailments
+    tmp_path, mock_registry_with_active_repos, mock_rules_with_entailments,
 ):
     """Test that validator catches missing produces edges."""
     from organvm_engine.governance.dictums import validate_signal_closure
@@ -117,7 +116,7 @@ def test_validate_signal_closure_missing_edges(
 
 
 def test_validate_signal_closure_satisfied(
-    tmp_path, mock_registry_with_active_repos, mock_rules_with_entailments
+    tmp_path, mock_registry_with_active_repos, mock_rules_with_entailments,
 ):
     """Test that validator passes when produces edges exist."""
     from organvm_engine.governance.dictums import validate_signal_closure
@@ -129,10 +128,10 @@ def test_validate_signal_closure_satisfied(
     (workspace / "organvm-ii-poiesis" / "art-repo").mkdir(parents=True)
 
     (workspace / "organvm-i-theoria" / "test-repo" / "seed.yaml").write_text(
-        "produces:\n  - ORGAN-II\n  - ORGAN-V"
+        "produces:\n  - ORGAN-II\n  - ORGAN-V",
     )
     (workspace / "organvm-ii-poiesis" / "art-repo" / "seed.yaml").write_text(
-        "produces:\n  - ORGAN-III"
+        "produces:\n  - ORGAN-III",
     )
 
     violations = validate_signal_closure(
@@ -177,7 +176,7 @@ def test_validate_signal_closure_archived_repos_excluded(tmp_path, mock_rules_wi
 
 
 def test_validate_signal_closure_with_org_format(
-    tmp_path, mock_registry_with_active_repos, mock_rules_with_entailments
+    tmp_path, mock_registry_with_active_repos, mock_rules_with_entailments,
 ):
     """Test that validator handles org/repo format in produces."""
     from organvm_engine.governance.dictums import validate_signal_closure
@@ -188,7 +187,7 @@ def test_validate_signal_closure_with_org_format(
     (workspace / "organvm-i-theoria" / "test-repo").mkdir(parents=True)
 
     (workspace / "organvm-i-theoria" / "test-repo" / "seed.yaml").write_text(
-        "produces:\n  - organvm-ii-poiesis/art产出\n  - organvm-v-logos/blog"
+        "produces:\n  - organvm-ii-poiesis/art产出\n  - organvm-v-logos/blog",
     )
 
     violations = validate_signal_closure(
@@ -210,8 +209,8 @@ def test_get_entailment_flows():
         "entailment_flows": {
             "organ_entailments": [
                 {"source": "ORGAN-I", "entails": [{"target": "ORGAN-II"}]},
-            ]
-        }
+            ],
+        },
     }
 
     flows = get_entailment_flows(rules)

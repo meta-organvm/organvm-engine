@@ -74,6 +74,7 @@ def check_pr_status(repo: ContribRepo) -> ContribStatus:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return ContribStatus(repo=repo, state=PRState.UNKNOWN)

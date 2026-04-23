@@ -184,8 +184,9 @@ def write_backflow_manifest(
     Returns:
         Path to the written manifest file.
     """
-    import yaml
     from datetime import datetime, timezone
+
+    import yaml
 
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

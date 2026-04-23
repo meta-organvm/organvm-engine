@@ -16,11 +16,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
-from organvm_engine.formations.aegis import build_default_engine
-from organvm_engine.primitives.assessor import Assessor
 from organvm_engine.primitives.archivist import Archivist
+from organvm_engine.primitives.assessor import Assessor
 from organvm_engine.primitives.counselor import Counselor
 from organvm_engine.primitives.guardian import Guardian, GuardianState, WatchItem
 from organvm_engine.primitives.inst_ledger import InstitutionalLedger
@@ -31,7 +29,6 @@ from organvm_engine.primitives.types import (
     FrameType,
     InstitutionalContext,
     PrincipalPosition,
-    StakesLevel,
 )
 
 
@@ -71,7 +68,7 @@ def cmd_primitive_list(args: argparse.Namespace) -> int:
         for p in prims:
             print(
                 f"{p.PRIMITIVE_ID:<20} {p.PRIMITIVE_NAME:<15} "
-                f"{p.CLUSTER:<12} {p.DEFAULT_STAKES.value}"
+                f"{p.CLUSTER:<12} {p.DEFAULT_STAKES.value}",
             )
     return 0
 
@@ -140,7 +137,7 @@ def cmd_primitive_invoke(args: argparse.Namespace) -> int:
         print(f"Escalation: {result.escalation_flag}")
         print(f"Mode: {result.execution_mode.value}")
         print(f"Stakes: {result.stakes.value}")
-        print(f"\nOutput:")
+        print("\nOutput:")
         print(json.dumps(result.output, indent=2, default=str))
     return 0
 
@@ -180,7 +177,7 @@ def cmd_primitive_guardian_watchlist(args: argparse.Namespace) -> int:
             print(
                 f"  [{status_marker}] {item.item_id} "
                 f"[{item.category}] {item.description} "
-                f"(threshold={item.threshold}, dir={item.direction})"
+                f"(threshold={item.threshold}, dir={item.direction})",
             )
     return 0
 
@@ -263,7 +260,7 @@ def cmd_primitive_ledger_snapshot(args: argparse.Namespace) -> int:
             print(f"  Runway:         {runway:.1f} months")
         alerts = snap.get("alerts", [])
         if alerts:
-            print(f"\n  Alerts:")
+            print("\n  Alerts:")
             for a in alerts:
                 print(f"    ⚠ {a}")
     return 0
@@ -289,6 +286,6 @@ def cmd_primitive_ledger_entries(args: argparse.Namespace) -> int:
             amt = f"${e.amount:.2f}" if e.amount else "N/A"
             print(
                 f"  {e.entry_id} [{e.category}] {e.description[:50]} "
-                f"— {amt} ({e.direction})"
+                f"— {amt} ({e.direction})",
             )
     return 0

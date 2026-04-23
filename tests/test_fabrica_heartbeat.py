@@ -35,7 +35,6 @@ from organvm_engine.fabrica.models import (
     RelayPhase,
 )
 from organvm_engine.fabrica.store import (
-    load_dispatches,
     load_transitions,
     log_transition,
     save_dispatch,
@@ -43,7 +42,6 @@ from organvm_engine.fabrica.store import (
     save_packet,
     save_vector,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -10,14 +10,13 @@ from __future__ import annotations
 import json
 import re
 import shutil
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from organvm_engine.session.parser import (
     SessionExport,
     SessionMeta,
-    find_session,
     parse_any_session,
     render_any_prompts,
     render_any_transcript,
@@ -150,8 +149,8 @@ def archive_session(
     if not meta:
         return ArchiveResult(
             session_id=session_path.stem,
-            project_path=Path("."),
-            archive_dir=Path("."),
+            project_path=Path(),
+            archive_dir=Path(),
             files_written=[],
             error=f"Could not parse session: {session_path}",
         )
@@ -161,7 +160,7 @@ def archive_session(
         return ArchiveResult(
             session_id=meta.session_id,
             project_path=Path(meta.cwd or "."),
-            archive_dir=Path("."),
+            archive_dir=Path(),
             files_written=[],
             skipped=True,
             skip_reason=f"Project directory not found: {meta.cwd}",
@@ -281,10 +280,7 @@ def _resolve_since(since: str | None) -> str | None:
         n = int(m.group(1))
         unit = m.group(2)
         now = datetime.now(timezone.utc)
-        if unit == "d":
-            cutoff = now - timedelta(days=n)
-        else:
-            cutoff = now - timedelta(hours=n)
+        cutoff = now - timedelta(days=n) if unit == "d" else now - timedelta(hours=n)
         return cutoff.strftime("%Y-%m-%d")
 
     return since  # fallback: pass through and hope it's comparable
@@ -309,7 +305,6 @@ def discover_unarchived_sessions(
     )
 
     # Build a set of already-archived session IDs per project
-    archived_ids: set[str] = set()
 
     # Check archive states for known projects
     seen_projects: dict[str, dict] = {}
@@ -371,7 +366,7 @@ def archive_all(
     )
 
     results: list[ArchiveResult] = []
-    for session_path, meta in unarchived:
+    for session_path, _meta in unarchived:
         result = archive_session(
             session_path,
             dry_run=dry_run,

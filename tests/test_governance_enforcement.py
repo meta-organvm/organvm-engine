@@ -7,10 +7,7 @@ but had no validator implementations.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-
-import pytest
 
 from organvm_engine.governance.dictums import (
     validate_constructed_polis,
@@ -18,7 +15,6 @@ from organvm_engine.governance.dictums import (
     validate_tetradic_self_knowledge,
     validate_triple_reference,
 )
-
 
 # ── Helpers ──────────────────────────────────────────────────────
 
