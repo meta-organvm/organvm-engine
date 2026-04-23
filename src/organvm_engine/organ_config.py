@@ -107,13 +107,18 @@ def load_organ_topology(
     """
     global _loaded_topology, _topology_source
 
-    # Try explicit path first
+    # Try explicit path first — if caller gave a specific path, honor it
+    # exclusively: succeed or fall back, never search other sources.
     if config_path is not None:
         result = _load_from_path(Path(config_path))
         if result is not None:
             _loaded_topology = result
             _topology_source = str(config_path)
             return result
+        # Explicit path failed — return fallback, don't auto-discover
+        _loaded_topology = None
+        _topology_source = "fallback"
+        return FALLBACK_ORGAN_MAP
 
     # Try governance-rules.json organs section
     try:

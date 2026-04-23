@@ -28,6 +28,10 @@ def _block_production_paths(monkeypatch):
     monkeypatch.setattr(
         loader_mod, "_default_registry_path", lambda: _BLOCKED / "registry-v2.json",
     )
+    # Block env vars that bypass _DEFAULT_WORKSPACE, ensuring tests never
+    # touch production corpus/governance files.
+    monkeypatch.delenv("ORGANVM_WORKSPACE_DIR", raising=False)
+    monkeypatch.delenv("ORGANVM_CORPUS_DIR", raising=False)
 
 
 @pytest.fixture
