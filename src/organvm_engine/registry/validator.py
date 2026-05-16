@@ -20,7 +20,7 @@ _FALLBACK_REVENUE_MODELS = {
 }
 _FALLBACK_REVENUE_STATUSES = {"pre-launch", "beta", "live", "deprecated", "n/a"}
 _FALLBACK_PROMOTION_STATES = {"LOCAL", "CANDIDATE", "PUBLIC_PROCESS", "GRADUATED", "ARCHIVED"}
-_FALLBACK_TIERS = {"flagship", "standard", "stub", "archive", "infrastructure"}
+_FALLBACK_TIERS = {"flagship", "standard", "stub", "archive", "infrastructure", "sovereign"}
 
 
 def _load_schema_enums() -> dict[str, set[str]]:
