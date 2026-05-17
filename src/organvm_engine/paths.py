@@ -6,6 +6,7 @@ variables when available, falls back to conventional defaults.
 Environment variables:
     ORGANVM_WORKSPACE_DIR — workspace root (default: ~/Workspace)
     ORGANVM_CORPUS_DIR — corpus repo (default: <workspace>/meta-organvm/organvm-corpvs-testamentvm)
+    ORGANVM_ADDITIONAL_WORKSPACE_ROOTS — colon-separated flat workspace roots
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ class PathConfig:
 
     workspace_dir: Path | str | None = None
     corpus_root: Path | str | None = None
+    additional_workspace_roots: tuple[Path | str, ...] | None = None
 
     def workspace_root(self) -> Path:
         raw = self.workspace_dir
@@ -43,6 +45,12 @@ class PathConfig:
         if env:
             return _coerce_path(env)
         return self.workspace_root() / _DEFAULT_CORPUS_SUBPATH
+
+    def additional_roots(self) -> list[Path]:
+        raw = self.additional_workspace_roots
+        if raw is not None:
+            return [_coerce_path(p) for p in raw]
+        return additional_workspace_roots(workspace=self.workspace_root())
 
     def registry_path(self) -> Path:
         return self.corpus_dir() / "registry-v2.json"
@@ -73,9 +81,56 @@ def _coerce_path(value: Path | str) -> Path:
     return Path(value).expanduser()
 
 
+def _split_path_list(value: str) -> list[Path]:
+    return [_coerce_path(p) for p in value.split(":") if p]
+
+
+def _governance_config_path(workspace: Path) -> Path:
+    return workspace / "meta-organvm" / "organvm-corpvs-testamentvm" / "governance-config.yaml"
+
+
+def _load_governance_config_paths(workspace: Path) -> list[Path]:
+    config_path = _governance_config_path(workspace)
+    if not config_path.is_file():
+        return []
+
+    try:
+        import yaml
+
+        data = yaml.safe_load(config_path.read_text()) or {}
+    except Exception:
+        return []
+
+    roots = data.get("additional_workspace_roots", [])
+    if isinstance(roots, str):
+        return _split_path_list(roots)
+    if isinstance(roots, list):
+        return [_coerce_path(p) for p in roots if isinstance(p, str)]
+    return []
+
+
 def resolve_path_config(config: PathConfig | None = None) -> PathConfig:
     """Return an explicit path configuration object."""
     return config if config is not None else PathConfig()
+
+
+def additional_workspace_roots(
+    config: PathConfig | None = None,
+    workspace: Path | str | None = None,
+) -> list[Path]:
+    """Return additive flat workspace roots from env/config.
+
+    Environment configuration takes precedence over governance-config.yaml.
+    """
+    if config is not None and config.additional_workspace_roots is not None:
+        return [_coerce_path(p) for p in config.additional_workspace_roots]
+
+    env = os.environ.get("ORGANVM_ADDITIONAL_WORKSPACE_ROOTS")
+    if env:
+        return _split_path_list(env)
+
+    ws = _coerce_path(workspace) if workspace is not None else resolve_path_config(config).workspace_root()
+    return _load_governance_config_paths(ws)
 
 
 def workspace_root(config: PathConfig | None = None) -> Path:

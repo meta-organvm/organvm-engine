@@ -29,15 +29,23 @@ def sync_all(
     registry_path: str | None = None,
     dry_run: bool = False,
     organs: list[str] | None = None,
+    additional_workspace_roots: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Sync auto-generated sections across all context files."""
     from organvm_engine.git.superproject import REGISTRY_KEY_MAP
+    from organvm_engine.paths import additional_workspace_roots as resolve_additional_roots
+    from organvm_engine.paths import workspace_root
     from organvm_engine.registry.loader import load_registry
     from organvm_engine.registry.validator import validate_registry
     from organvm_engine.seed.discover import discover_seeds
     from organvm_engine.seed.reader import read_seed
 
-    ws = Path(workspace) if workspace else Path.home() / "Workspace"
+    ws = Path(workspace).expanduser() if workspace else workspace_root()
+    extra_roots = (
+        [Path(p).expanduser() for p in additional_workspace_roots]
+        if additional_workspace_roots is not None
+        else resolve_additional_roots(workspace=ws)
+    )
     reg = load_registry(registry_path)
 
     # Pre-flight: Validate registry before sync to prevent breaking 100+ files
@@ -49,6 +57,9 @@ def sync_all(
 
     # 1. Discover all seeds to have edge data
     seed_paths = discover_seeds(ws)
+    for root in extra_roots:
+        seed_paths.extend(discover_seeds(root))
+        seed_paths.extend(_discover_flat_seeds(root))
     all_seeds = []
     repo_to_seed = {}
     for p in seed_paths:
@@ -65,6 +76,9 @@ def sync_all(
     from organvm_engine.sop.resolver import resolve_all as resolve_all_sops
 
     all_sops = discover_sops(workspace=ws)
+    for root in extra_roots:
+        all_sops.extend(discover_sops(workspace=root))
+        all_sops.extend(_discover_flat_sops(root))
 
     # Pre-compute AMMOI once for all context files
     precompute_ammoi()
@@ -81,79 +95,72 @@ def sync_all(
         if not organ_dir_name:
             continue
 
-        organ_path = ws / organ_dir_name
-        if not organ_path.is_dir():
-            continue
-
-        # 2. Sync organ-level context files
-        for filename in ["CLAUDE.md", "GEMINI.md", "AGENTS.md"]:
-            try:
-                organ_section = generate_organ_section(organ_key, reg, all_seeds)
-                action = _inject_section(organ_path / filename, organ_section, dry_run)
-                if action == "created":
-                    created.append(str(organ_path / filename))
-                elif action == "updated":
-                    updated.append(str(organ_path / filename))
-                else:
-                    skipped.append(str(organ_path / filename))
-            except Exception as e:
-                errors.append({"path": str(organ_path / filename), "error": str(e)})
-
-        # 3. Sync repo-level context files
         organ_data = reg.get("organs", {}).get(organ_key, {})
+        organ_path = ws / organ_dir_name
 
+        if organ_path.is_dir():
+            # 2. Sync organ-level context files
+            for filename in ["CLAUDE.md", "GEMINI.md", "AGENTS.md"]:
+                try:
+                    organ_section = generate_organ_section(organ_key, reg, all_seeds)
+                    action = _inject_section(organ_path / filename, organ_section, dry_run)
+                    if action == "created":
+                        created.append(str(organ_path / filename))
+                    elif action == "updated":
+                        updated.append(str(organ_path / filename))
+                    else:
+                        skipped.append(str(organ_path / filename))
+                except Exception as e:
+                    errors.append({"path": str(organ_path / filename), "error": str(e)})
+
+            # 3. Sync repo-level context files for the hierarchical workspace layout.
+            for repo_entry in organ_data.get("repositories", []):
+                repo_name = repo_entry.get("name")
+                repo_path = organ_path / repo_name
+                if not repo_path.is_dir():
+                    continue
+                _sync_repo_context_files(
+                    repo_path=repo_path,
+                    repo_entry=repo_entry,
+                    organ_dir_name=organ_dir_name,
+                    registry=reg,
+                    repo_to_seed=repo_to_seed,
+                    all_sops=all_sops,
+                    dry_run=dry_run,
+                    updated=updated,
+                    created=created,
+                    skipped=skipped,
+                    errors=errors,
+                    promotion_to_phase=promotion_to_phase,
+                    resolve_all_sops=resolve_all_sops,
+                )
+
+        # 3b. Sync repo-level context files for additive flat workspace roots.
         for repo_entry in organ_data.get("repositories", []):
             repo_name = repo_entry.get("name")
-            repo_path = organ_path / repo_name
-            if not repo_path.is_dir():
+            if not repo_name:
                 continue
-
-            # Use repo's own org field, fall back to organ directory name
-            org_name = repo_entry.get("org") or organ_dir_name
-
-            # Resolve SOPs for this repo, filtered by lifecycle phase
-            promo_status = repo_entry.get("promotion_status", "LOCAL")
-            repo_phase = promotion_to_phase(promo_status)
-            repo_sops = resolve_all_sops(
-                all_sops, repo=repo_name, organ=organ_dir_name, phase=repo_phase,
-            )
-
-            # Sync CLAUDE.md and GEMINI.md
-            for filename in ["CLAUDE.md", "GEMINI.md"]:
-                try:
-                    res = sync_repo(
-                        repo_path,
-                        repo_name,
-                        org_name,
-                        reg,
-                        repo_to_seed.get(repo_name),
-                        dry_run,
-                        filename=filename,
-                        sop_entries=repo_sops,
-                    )
-                    if res["action"] == "created":
-                        created.append(res["path"])
-                    elif res["action"] == "updated":
-                        updated.append(res["path"])
-                    else:
-                        skipped.append(res["path"])
-                except Exception as e:
-                    errors.append({"path": str(repo_path / filename), "error": str(e)})
-
-            # Sync AGENTS.md
-            try:
-                agents_section = generate_agents_section(
-                    repo_name, org_name, reg, repo_to_seed.get(repo_name),
+            for root in extra_roots:
+                repo_path = root / repo_name
+                if not repo_path.is_dir():
+                    continue
+                if organ_path.is_dir() and repo_path.resolve() == (organ_path / repo_name).resolve():
+                    continue
+                _sync_repo_context_files(
+                    repo_path=repo_path,
+                    repo_entry=repo_entry,
+                    organ_dir_name=organ_dir_name,
+                    registry=reg,
+                    repo_to_seed=repo_to_seed,
+                    all_sops=all_sops,
+                    dry_run=dry_run,
+                    updated=updated,
+                    created=created,
+                    skipped=skipped,
+                    errors=errors,
+                    promotion_to_phase=promotion_to_phase,
+                    resolve_all_sops=resolve_all_sops,
                 )
-                action = _inject_section(repo_path / "AGENTS.md", agents_section, dry_run)
-                if action == "created":
-                    created.append(str(repo_path / "AGENTS.md"))
-                elif action == "updated":
-                    updated.append(str(repo_path / "AGENTS.md"))
-                else:
-                    skipped.append(str(repo_path / "AGENTS.md"))
-            except Exception as e:
-                errors.append({"path": str(repo_path / "AGENTS.md"), "error": str(e)})
 
     # 4. Sync workspace-level context files
     for filename in ["CLAUDE.md", "GEMINI.md", "AGENTS.md"]:
@@ -210,6 +217,99 @@ def sync_all(
         )
 
     return result
+
+
+def _discover_flat_seeds(root: Path) -> list[Path]:
+    """Find seed.yaml files in a flat root shaped as <root>/<repo>/seed.yaml."""
+    if not root.is_dir():
+        return []
+    seeds = []
+    for repo_dir in sorted(root.iterdir()):
+        if not repo_dir.is_dir():
+            continue
+        seed_file = repo_dir / "seed.yaml"
+        if seed_file.is_file():
+            seeds.append(seed_file)
+    return seeds
+
+
+def _discover_flat_sops(root: Path) -> list:
+    """Find SOPs in a flat root shaped as <root>/<repo>/..."""
+    if not root.is_dir():
+        return []
+
+    from organvm_engine.sop.discover import _scan_repo, _scan_sops_dir
+
+    entries = []
+    for repo_dir in sorted(root.iterdir()):
+        if not repo_dir.is_dir():
+            continue
+        _scan_repo(root.parent, root.name, repo_dir.name, repo_dir, entries)
+        _scan_sops_dir(root.parent, root.name, repo_dir.name, repo_dir / ".sops", entries)
+    return entries
+
+
+def _sync_repo_context_files(
+    *,
+    repo_path: Path,
+    repo_entry: dict[str, Any],
+    organ_dir_name: str,
+    registry: dict,
+    repo_to_seed: dict,
+    all_sops: list,
+    dry_run: bool,
+    updated: list[str],
+    created: list[str],
+    skipped: list[str],
+    errors: list[dict[str, str]],
+    promotion_to_phase,
+    resolve_all_sops,
+) -> None:
+    repo_name = repo_entry.get("name")
+    if not repo_name:
+        return
+
+    org_name = repo_entry.get("org") or organ_dir_name
+    promo_status = repo_entry.get("promotion_status", "LOCAL")
+    repo_phase = promotion_to_phase(promo_status)
+    repo_sops = resolve_all_sops(
+        all_sops, repo=repo_name, organ=organ_dir_name, phase=repo_phase,
+    )
+
+    for filename in ["CLAUDE.md", "GEMINI.md"]:
+        try:
+            res = sync_repo(
+                repo_path,
+                repo_name,
+                org_name,
+                registry,
+                repo_to_seed.get(repo_name),
+                dry_run,
+                filename=filename,
+                sop_entries=repo_sops,
+            )
+            if res["action"] == "created":
+                created.append(res["path"])
+            elif res["action"] == "updated":
+                updated.append(res["path"])
+            else:
+                skipped.append(res["path"])
+        except Exception as e:
+            errors.append({"path": str(repo_path / filename), "error": str(e)})
+
+    try:
+        agents_section = generate_agents_section(
+            repo_name, org_name, registry, repo_to_seed.get(repo_name),
+        )
+        action = _inject_section(repo_path / "AGENTS.md", agents_section, dry_run)
+        if action == "created":
+            created.append(str(repo_path / "AGENTS.md"))
+        elif action == "updated":
+            updated.append(str(repo_path / "AGENTS.md"))
+        else:
+            skipped.append(str(repo_path / "AGENTS.md"))
+    except Exception as e:
+        errors.append({"path": str(repo_path / "AGENTS.md"), "error": str(e)})
 
 
 def sync_repo(

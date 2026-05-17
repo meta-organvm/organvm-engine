@@ -25,6 +25,29 @@ class TestPaths:
         monkeypatch.setenv("ORGANVM_CORPUS_DIR", "/tmp/test-corpus")
         assert paths.corpus_dir() == Path("/tmp/test-corpus")
 
+    def test_additional_workspace_roots_env_override(self, monkeypatch):
+        monkeypatch.setenv(
+            "ORGANVM_ADDITIONAL_WORKSPACE_ROOTS",
+            "/tmp/flat-one:/tmp/flat-two",
+        )
+        assert paths.additional_workspace_roots() == [
+            Path("/tmp/flat-one"),
+            Path("/tmp/flat-two"),
+        ]
+
+    def test_additional_workspace_roots_from_governance_config(self, tmp_path):
+        config_dir = tmp_path / "meta-organvm" / "organvm-corpvs-testamentvm"
+        config_dir.mkdir(parents=True)
+        (config_dir / "governance-config.yaml").write_text(
+            "additional_workspace_roots:\n"
+            "  - ~/Code/organvm\n"
+            "  - /tmp/other-root\n",
+        )
+        assert paths.additional_workspace_roots(workspace=tmp_path) == [
+            Path.home() / "Code" / "organvm",
+            Path("/tmp/other-root"),
+        ]
+
     def test_registry_path(self):
         result = paths.registry_path()
         assert result.name == "registry-v2.json"
